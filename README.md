@@ -2,9 +2,40 @@
 
 Hey! Here's how to run the basketball dashboard on your computer:
 
-## Quick Start (3 Steps)
+## Quick Start using uv (3 Steps)
+
+### Step 1: Install uv
+
+1. Go to [->install uv<-](https://docs.astral.sh/uv/getting-started/installation/) and follow their instructions based on your OS (Windows/Mac/Linux)
+
+### Step 2: Download the Files
+
+1. Open your preferred terminal, `cmd` or `Windows Terminal`, ensure you have git installed by running `git`
+   - [install git](https://git-scm.com/install/)
+2. Download using git clone, make sure to edit the last argument to your preferred folder name
+
+```
+git clone https://github.com/br0y7/GameChanger2.git your-gamechanger-folder
+```
+
+### Step 3: Run the app 🏀
+
+1. Make sure you're in the Gamechanger directory
+
+```
+cd your-gamechanger-folder
+```
+
+2. Run the app
+
+```
+uv run src/run_dashboard.py
+```
+
+## Quick Start using Python (3 Steps)
 
 ### Step 1: Install Python
+
 1. Go to [python.org](https://www.python.org/downloads/)
 2. Click the big yellow "Download Python" button
 3. Run the installer you downloaded
@@ -12,6 +43,7 @@ Hey! Here's how to run the basketball dashboard on your computer:
 5. Click "Install Now"
 
 ### Step 2: Download the Files
+
 1. Put all the files I sent you in a folder on your computer
 2. Open Command Prompt (search for "cmd" in Windows search)
 3. Navigate to your folder by typing:
@@ -21,6 +53,7 @@ Hey! Here's how to run the basketball dashboard on your computer:
    (Replace with the actual path to your folder)
 
 ### Step 3: Install and Run
+
 Copy and paste these commands one by one:
 
 ```
@@ -30,7 +63,7 @@ pip install pandas numpy matplotlib seaborn requests streamlit openpyxl
 Then:
 
 ```
-python run_dashboard.py
+python src/run_dashboard.py
 ```
 
 ## What Happens Next
@@ -42,19 +75,23 @@ python run_dashboard.py
 ## If Something Goes Wrong
 
 **"python is not recognized"**
+
 - Try using `py` instead of `python`
 - Or reinstall Python and make sure to check "Add to PATH"
 
 **"pip is not recognized"**
+
 - Try: `py -m pip install pandas numpy matplotlib seaborn requests streamlit openpyxl`
 
 **Dashboard doesn't open in browser**
+
 - Look for a URL in the command prompt (like `http://localhost:8501`)
 - Copy and paste that URL into your browser
 
 ## What You'll See
 
 The dashboard lets you:
+
 - Pick your favorite team and player
 - Compare them to opponents
 - See shooting percentages, rebounds, assists, and more
@@ -64,4 +101,4 @@ Just close the command prompt window when you're done!
 
 ---
 
-**Need help?** Just send me a screenshot of any error messages you see! 😊 
+**Need help?** Just send me a screenshot of any error messages you see! 😊
