@@ -1,7 +1,6 @@
 import subprocess
 import sys
-import os
-
+from pathlib import Path
 
 def run_dashboard():
     """
@@ -9,9 +8,12 @@ def run_dashboard():
     Uses existing CSV data (Final_Cleaned_Data*.csv, Final_Player_Advanced_Stats*.csv).
     No gamechanger ETL script required.
     """
-    dashboard_file = "dashboard_app.py"
-    if not os.path.exists(dashboard_file):
-        print(f"Error: '{dashboard_file}' not found in the current directory.")
+    SRC_DIR = Path(__file__).resolve().parent
+
+    dashboard_file = SRC_DIR / "dashboard_app.py"
+
+    if not dashboard_file.exists():
+        print(f"Error: '{dashboard_file.name}' not found in the current directory.")
         sys.exit(1)
 
     print("--- Launching GameChanger Dashboard ---")

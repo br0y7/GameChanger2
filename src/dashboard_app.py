@@ -4,6 +4,7 @@ Main Streamlit application with homepage-first navigation
 """
 
 import streamlit as st
+from pathlib import Path
 
 # Page configuration MUST be first
 st.set_page_config(
@@ -13,7 +14,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-import os
 import pandas as pd
 from data_manager import data_manager
 from site_logger import logger
@@ -205,8 +205,10 @@ def show_homepage():
     st.markdown("- Performance reports are generated after games")
     st.markdown("- Data is used to support youth development")
 
-    img_path = "assets/tournament.jpg"
-    if os.path.exists(img_path):
+    SRC_DIR = Path(__file__).resolve().parent
+
+    img_path = SRC_DIR / "assets/tournament.jpg"
+    if img_path.exists():
         st.image(img_path, use_container_width=True, caption="Met Schools 3x3 Tournament")
     else:
         st.markdown(
