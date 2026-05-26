@@ -9,14 +9,16 @@ from .models import (
     Statistic,
     ShootingStatistic,
 )
-from pandas import DataFrame
+
+# from pandas import DataFrame
+import pandas as pd
 from typing import Self
 
 
 class PlayerProfileBuilder:
     """Provides a fluent builder interface to map from a DataFrame to a PlayerProfile"""
 
-    def __init__(self, player_data: DataFrame):
+    def __init__(self, player_data: pd.DataFrame):
         if player_data.empty:
             raise ValueError("player_data is empty, cannot build profile")
 
@@ -107,27 +109,37 @@ class PlayerProfileBuilder:
 
         # Turnover issues
         if stats.turnovers.average >= 4:
-            weaknesses.append("High turnover rate")
+            weaknesses.append(PlayerWeakness(description="High turnover rate"))
         elif stats.turnovers.average >= 2.5:
-            weaknesses.append("Ball control needs improvement")
+            weaknesses.append(
+                PlayerWeakness(description="Ball control needs improvement")
+            )
 
         # Shooting weaknesses
         if stats.shooting.fg_pct < 0.35:
-            weaknesses.append("Field goal percentage needs improvement")
+            weaknesses.append(
+                PlayerWeakness(description="Field goal percentage needs improvement")
+            )
         if stats.shooting.three_pct < 0.25 and stats.shooting.three_pct > 0:
-            weaknesses.append("Three-point shooting accuracy")
+            weaknesses.append(
+                PlayerWeakness(description="Three-point shooting accuracy")
+            )
         if stats.shooting.ft_pct < 0.60 and stats.shooting.ft_pct > 0:
-            weaknesses.append("Free throw shooting")
+            weaknesses.append(PlayerWeakness(description="Free throw shooting"))
 
         # Low production areas
         if stats.rebounds.average < 3:
-            weaknesses.append("Rebounding")
+            weaknesses.append(PlayerWeakness(description="Rebounding"))
         if stats.assists.average < 2:
-            weaknesses.append("Playmaking and assists")
+            weaknesses.append(PlayerWeakness(description="Playmaking and assists"))
 
         return weaknesses
 
-    def add_advanced_statistics(self, advanced_stats: DataFrame) -> Self:
+    def add_advanced_statistics(self, advanced_stats: pd.DataFrame | None) -> Self:
+        if advanced_stats is None or advanced_stats.empty:
+            # maybe add 'warning' level logging
+            return self
+
         self._advanced_stats = AdvancedStatistics(
             ast_tov_ratio=float(advanced_stats["Avg_AST_TOV_Ratio"].iloc[0]),
             ts_percentage=float(advanced_stats["Avg_TS_Percentage"].iloc[0]),
