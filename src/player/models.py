@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from ..team.models import Team
+from team.models import Team
 
 
 @dataclass(frozen=True)
