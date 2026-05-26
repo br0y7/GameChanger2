@@ -3,7 +3,7 @@ name = "gamechanger"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "matplotlib>=3.7.5",
     "numpy>=1.24.4",
@@ -15,7 +15,4 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
-    "ruff>=0.15.14",
-    "ty>=0.0.39",
-]
+dev = ["ruff>=0.15.14", "ty>=0.0.39"]
