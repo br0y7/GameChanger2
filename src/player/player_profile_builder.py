@@ -10,7 +10,6 @@ from .models import (
     ShootingStatistic,
 )
 
-# from pandas import DataFrame
 import pandas as pd
 from typing import Self
 
@@ -71,22 +70,25 @@ class PlayerProfileBuilder:
         strengths: list[PlayerStrength] = []
 
         # Points strength
-        if stats.points.average >= 15:
-            strengths.append(PlayerStrength("Scoring ability"))
-        elif stats.points.average >= 10:
-            strengths.append(PlayerStrength("Solid scoring"))
+        if stats.points.average:
+            if stats.points.average >= 15:
+                strengths.append(PlayerStrength("Scoring ability"))
+            elif stats.points.average >= 10:
+                strengths.append(PlayerStrength("Solid scoring"))
 
         # Rebounding strength
-        if stats.rebounds.average >= 8:
-            strengths.append(PlayerStrength("Strong rebounding"))
-        elif stats.rebounds.average >= 5:
-            strengths.append(PlayerStrength("Good rebounding"))
+        if stats.rebounds.average:
+            if stats.rebounds.average >= 8:
+                strengths.append(PlayerStrength("Strong rebounding"))
+            elif stats.rebounds.average >= 5:
+                strengths.append(PlayerStrength("Good rebounding"))
 
         # Assists strength
-        if stats.assists.average >= 5:
-            strengths.append(PlayerStrength("Playmaking and ball distribution"))
-        elif stats.assists.average >= 3:
-            strengths.append(PlayerStrength("Good passing"))
+        if stats.assists.average:
+            if stats.assists.average >= 5:
+                strengths.append(PlayerStrength("Playmaking and ball distribution"))
+            elif stats.assists.average >= 3:
+                strengths.append(PlayerStrength("Good passing"))
 
         # Shooting strength
         if stats.shooting.fg_pct >= 0.45:
@@ -97,9 +99,9 @@ class PlayerProfileBuilder:
             strengths.append(PlayerStrength("Free throw shooting"))
 
         # Defense
-        if stats.steals.average >= 2:
+        if (stats.steals.average or 0) >= 2:
             strengths.append(PlayerStrength("Defensive playmaking (steals)"))
-        if stats.blocks.average >= 1:
+        if (stats.blocks.average or 0) >= 1:
             strengths.append(PlayerStrength("Shot blocking"))
 
         return strengths or [PlayerStrength("Versatile Player")]
@@ -108,12 +110,13 @@ class PlayerProfileBuilder:
         weaknesses = []
 
         # Turnover issues
-        if stats.turnovers.average >= 4:
-            weaknesses.append(PlayerWeakness(description="High turnover rate"))
-        elif stats.turnovers.average >= 2.5:
-            weaknesses.append(
-                PlayerWeakness(description="Ball control needs improvement")
-            )
+        if stats.turnovers.average:
+            if stats.turnovers.average >= 4:
+                weaknesses.append(PlayerWeakness(description="High turnover rate"))
+            elif stats.turnovers.average >= 2.5:
+                weaknesses.append(
+                    PlayerWeakness(description="Ball control needs improvement")
+                )
 
         # Shooting weaknesses
         if stats.shooting.fg_pct < 0.35:
@@ -128,9 +131,9 @@ class PlayerProfileBuilder:
             weaknesses.append(PlayerWeakness(description="Free throw shooting"))
 
         # Low production areas
-        if stats.rebounds.average < 3:
+        if (stats.rebounds.average or 0) < 3:
             weaknesses.append(PlayerWeakness(description="Rebounding"))
-        if stats.assists.average < 2:
+        if (stats.assists.average or 0) < 2:
             weaknesses.append(PlayerWeakness(description="Playmaking and assists"))
 
         return weaknesses

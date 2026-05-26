@@ -6,10 +6,10 @@ Supports CSV files (local) with structure ready for cloud migration (Google Shee
 
 # import os
 import pandas as pd
-from typing import Dict, List, Any
 from pathlib import Path
-from player.models import PlayerProfile
+from player.models import PlayerProfile, PlayerIdentity
 from player.player_profile_builder import PlayerProfileBuilder
+from team.models import Team
 
 
 class DataManager:
@@ -129,19 +129,18 @@ class DataManager:
             .build()
         )
 
-    def get_all_players(self, season: int = 1) -> List[Dict[str, Any]]:
+    def get_all_players(self, season: int = 1) -> list[PlayerIdentity]:
         """Get list of all players for the given season (1, 2, or 3). Default season=1."""
         try:
-            season = 1 if season is None else int(season)
             advanced_stats = self.load_advanced_stats(season=season)
-            players = []
+            players: list[PlayerIdentity] = []
             for _, row in advanced_stats.iterrows():
                 players.append(
-                    {
-                        "player_no": int(row["Player No."]),
-                        "team": row["Team"],
-                        "label": row["Player_Team_Label"],
-                    }
+                    PlayerIdentity(
+                        player_no=int(row["Player No."]),
+                        team=Team(name=row["Team"]),
+                        label=row["Player_Team_Label"],
+                    )
                 )
             return players
         except Exception:

@@ -58,3 +58,10 @@ class PlayerProfile:
     strengths: list[PlayerStrength]
     weaknesses: list[PlayerWeakness]
     advanced_stats: AdvancedStatistics | None = None
+
+
+@dataclass(frozen=True)
+class PlayerIdentity:
+    player_no: int
+    team: Team
+    label: str

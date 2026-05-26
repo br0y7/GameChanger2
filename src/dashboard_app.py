@@ -1771,7 +1771,7 @@ def show_sample_report():
         _render_footer()
         return
 
-    options = [p["label"] for p in players]
+    options = [p.label for p in players]
     selected = st.selectbox("Select a player", options, key="sample_report_player")
 
     idx = options.index(selected)
@@ -1781,14 +1781,14 @@ def show_sample_report():
 
     try:
         profile = data_manager.get_player_profile(
-            player["player_no"], player["team"], season=season_num
+            player.player_no, player.team.name, season=season_num
         )
     except LookupError:
         st.error("Can't load player profile")
         _render_footer()
         return
 
-    st.markdown(f"### {player['label']}")
+    st.markdown(f"### {player.label}")
     st.markdown("#### Game Summary")
     st.markdown(f"**{profile.total_games} games played** — Season averages below.")
 
@@ -1807,8 +1807,8 @@ def show_sample_report():
     st.markdown("#### Game-by-Game Box Scores")
     game_data = data_manager.load_player_data(season=season_num)
     player_games = game_data[
-        (game_data["Player No."] == player["player_no"])
-        & (game_data["Team"] == player["team"])
+        (game_data["Player No."] == player.player_no)
+        & (game_data["Team"] == player.team.name)
     ].copy()
     if not player_games.empty:
         box_df = player_games[
