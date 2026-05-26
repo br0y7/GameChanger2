@@ -3,18 +3,44 @@ Convert '3 on 3 basketball tournament.xlsx' to Final_Cleaned_Data_3on3.csv
 and Final_Player_Advanced_Stats_3on3.csv for use as a season in the dashboard.
 Layout: team name row, then header row (Player No., PTS, FGM, ...), then player rows until TOTALS.
 """
+
 import os
 import pandas as pd
+from pathlib import Path
 
+CSV_DIR = Path(__file__).resolve().parent / "data/"
 
 # Stat column names as they appear in the xlsx header row (used to map by name)
-STAT_NAMES = ["Player No.", "PTS", "FGM", "FGA", "FG_PCT", "3PTM", "3PA", "3P%", "FTM", "FTA", "FT%", "OREB", "DREB", "REB", "AST", "STL", "BLK", "TOV", "PF"]
+STAT_NAMES = [
+    "Player No.",
+    "PTS",
+    "FGM",
+    "FGA",
+    "FG_PCT",
+    "3PTM",
+    "3PA",
+    "3P%",
+    "FTM",
+    "FTA",
+    "FT%",
+    "OREB",
+    "DREB",
+    "REB",
+    "AST",
+    "STL",
+    "BLK",
+    "TOV",
+    "PF",
+]
 
 
-def _find_xlsx(data_dir: str):
-    for name in ["3 on 3  basketball tournament .xlsx", "3 on 3 basketball tournament.xlsx"]:
-        path = os.path.join(data_dir, name)
-        if os.path.exists(path):
+def _find_xlsx(data_dir: Path):
+    for name in [
+        "3 on 3  basketball tournament .xlsx",
+        "3 on 3 basketball tournament.xlsx",
+    ]:
+        path = data_dir / name
+        if path.exists():
             return path
     return None
 
@@ -32,7 +58,9 @@ def _get_col_map(header_row: pd.Series) -> dict:
     return col_map
 
 
-def _read_player_row(df: pd.DataFrame, r: int, col_map: dict, team_name: str, game_name: str) -> dict:
+def _read_player_row(
+    df: pd.DataFrame, r: int, col_map: dict, team_name: str, game_name: str
+) -> dict:
     """Read one player row into a dict with standard keys; add MIN=0 and Efficiency."""
     row_dict = {"Team": team_name, "Game": game_name}
     for name in STAT_NAMES:
@@ -59,7 +87,9 @@ def _read_player_row(df: pd.DataFrame, r: int, col_map: dict, team_name: str, ga
     FGM = row_dict.get("FGM", 0)
     FTA = row_dict.get("FTA", 0)
     FTM = row_dict.get("FTM", 0)
-    row_dict["Efficiency"] = PTS + REB + AST + STL + BLK - TOV - (FGA - FGM) - 0.5 * max(0, FTA - FTM)
+    row_dict["Efficiency"] = (
+        PTS + REB + AST + STL + BLK - TOV - (FGA - FGM) - 0.5 * max(0, FTA - FTM)
+    )
     return row_dict
 
 
@@ -67,11 +97,20 @@ def _game_type_from_sheet_name(game_name: str) -> str:
     """Infer Round Robin vs Playoffs from sheet name."""
     lower = game_name.lower()
     playoff_keywords = (
-        "playoff", "playoffs",
-        "final", "finals",
-        "semifinal", "semi-final", "semi final", "semis",
-        "championship", "quarter",
-        "winners bracket", "losers bracket", "loser's bracket", "bracket",
+        "playoff",
+        "playoffs",
+        "final",
+        "finals",
+        "semifinal",
+        "semi-final",
+        "semi final",
+        "semis",
+        "championship",
+        "quarter",
+        "winners bracket",
+        "losers bracket",
+        "loser's bracket",
+        "bracket",
         "third place",
     )
     if any(x in lower for x in playoff_keywords):
@@ -140,7 +179,7 @@ def _parse_sheet(df: pd.DataFrame, game_name: str) -> list:
     return rows_out
 
 
-def convert_to_csv(data_dir: str = ".") -> tuple:
+def convert_to_csv(data_dir: Path = CSV_DIR) -> tuple:
     """
     Read the 3on3 tournament xlsx and write Final_Cleaned_Data_3on3.csv and
     Final_Player_Advanced_Stats_3on3.csv. Returns (cleaned_path, advanced_path).
@@ -161,7 +200,32 @@ def convert_to_csv(data_dir: str = ".") -> tuple:
 
     cleaned = pd.DataFrame(all_rows)
     # Column order expected by app (include Game_Type for Round Robin vs Playoffs)
-    out_cols = ["Player No.", "Team", "Game", "Game_Type", "FGM", "FGA", "3PTM", "3PA", "FTM", "FTA", "MIN", "PTS", "OREB", "DREB", "REB", "AST", "STL", "BLK", "TOV", "PF", "FG_PCT", "3P%", "FT%", "Efficiency"]
+    out_cols = [
+        "Player No.",
+        "Team",
+        "Game",
+        "Game_Type",
+        "FGM",
+        "FGA",
+        "3PTM",
+        "3PA",
+        "FTM",
+        "FTA",
+        "MIN",
+        "PTS",
+        "OREB",
+        "DREB",
+        "REB",
+        "AST",
+        "STL",
+        "BLK",
+        "TOV",
+        "PF",
+        "FG_PCT",
+        "3P%",
+        "FT%",
+        "Efficiency",
+    ]
     cleaned = cleaned[[c for c in out_cols if c in cleaned.columns]]
     cleaned_path = os.path.join(data_dir, "Final_Cleaned_Data_3on3.csv")
     cleaned.to_csv(cleaned_path, index=False)
@@ -182,13 +246,21 @@ def convert_to_csv(data_dir: str = ".") -> tuple:
     )
     agg["Total_Games_Played"] = agg["games"]
     agg["Total_MIN_Played"] = 0
-    agg["Player_Team_Label"] = "Player " + agg["Player No."].astype(str) + " (" + agg["Team"].astype(str) + ")"
+    agg["Player_Team_Label"] = (
+        "Player " + agg["Player No."].astype(str) + " (" + agg["Team"].astype(str) + ")"
+    )
     # Simple ratios
-    agg["Avg_AST_TOV_Ratio"] = (agg["AST"] / agg["TOV"].replace(0, pd.NA)).fillna(0).astype(float)
+    agg["Avg_AST_TOV_Ratio"] = (
+        (agg["AST"] / agg["TOV"].replace(0, pd.NA)).fillna(0).astype(float)
+    )
     ts_denom = 2 * (agg["FGA"] + 0.44 * agg["FTA"].replace(0, pd.NA))
-    agg["Avg_TS_Percentage"] = (100 * agg["PTS"] / ts_denom.replace(0, pd.NA)).fillna(0).astype(float)
+    agg["Avg_TS_Percentage"] = (
+        (100 * agg["PTS"] / ts_denom.replace(0, pd.NA)).fillna(0).astype(float)
+    )
     agg["Avg_REB_Percentage"] = 10.0
-    agg["Avg_Efficiency"] = (agg["PTS"] + agg["REB"] + agg["AST"] + agg["STL"] + agg["BLK"] - agg["TOV"]) / agg["games"]
+    agg["Avg_Efficiency"] = (
+        agg["PTS"] + agg["REB"] + agg["AST"] + agg["STL"] + agg["BLK"] - agg["TOV"]
+    ) / agg["games"]
     agg["Avg_WS_Simplified"] = agg["Avg_Efficiency"] / 10.0
     agg["Avg_VORP_Simplified"] = agg["Avg_WS_Simplified"] / 5.0
     agg["Avg_PTS_Per_Min"] = 0.0
@@ -197,10 +269,24 @@ def convert_to_csv(data_dir: str = ".") -> tuple:
     agg["Avg_STL_Per_Min"] = 0.0
     agg["Avg_BLK_Per_Min"] = 0.0
 
-    adv_cols = ["Player No.", "Team", "Player_Team_Label", "Total_Games_Played", "Total_MIN_Played",
-                "Avg_PTS_Per_Min", "Avg_REB_Per_Min", "Avg_AST_Per_Min", "Avg_STL_Per_Min", "Avg_BLK_Per_Min",
-                "Avg_AST_TOV_Ratio", "Avg_TS_Percentage", "Avg_REB_Percentage", "Avg_Efficiency",
-                "Avg_WS_Simplified", "Avg_VORP_Simplified"]
+    adv_cols = [
+        "Player No.",
+        "Team",
+        "Player_Team_Label",
+        "Total_Games_Played",
+        "Total_MIN_Played",
+        "Avg_PTS_Per_Min",
+        "Avg_REB_Per_Min",
+        "Avg_AST_Per_Min",
+        "Avg_STL_Per_Min",
+        "Avg_BLK_Per_Min",
+        "Avg_AST_TOV_Ratio",
+        "Avg_TS_Percentage",
+        "Avg_REB_Percentage",
+        "Avg_Efficiency",
+        "Avg_WS_Simplified",
+        "Avg_VORP_Simplified",
+    ]
     advanced = agg[[c for c in adv_cols if c in agg.columns]]
     advanced_path = os.path.join(data_dir, "Final_Player_Advanced_Stats_3on3.csv")
     advanced.to_csv(advanced_path, index=False)
@@ -210,4 +296,6 @@ def convert_to_csv(data_dir: str = ".") -> tuple:
 
 if __name__ == "__main__":
     convert_to_csv()
-    print("Created Final_Cleaned_Data_3on3.csv and Final_Player_Advanced_Stats_3on3.csv")
+    print(
+        "Created Final_Cleaned_Data_3on3.csv and Final_Player_Advanced_Stats_3on3.csv"
+    )
