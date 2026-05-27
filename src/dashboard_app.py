@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 import pandas as pd
-from data_manager import DataManager
+from data.manager import DataManager
 from site_logger import logger
 from ai_dashboard_integration import (
     render_ai_chat_interface,
@@ -25,8 +25,14 @@ from ai_dashboard_integration import (
 )
 from drill_library import drill_library
 
-# Temporary location for data manager, at least it is only global here
-data_manager = DataManager(Path(__file__).resolve().parent / "data/")
+
+@st.cache_resource
+def get_data_manager() -> DataManager:
+    # TODO: Maybe add environment variable so in deployment can change the path
+    return DataManager()
+
+
+data_manager = get_data_manager()
 
 # Custom CSS
 st.markdown(

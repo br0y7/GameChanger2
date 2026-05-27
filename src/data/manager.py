@@ -4,7 +4,6 @@ Handles data storage, retrieval, and management
 Supports CSV files (local) with structure ready for cloud migration (Google Sheets, SQL, etc.)
 """
 
-# import os
 import pandas as pd
 from pathlib import Path
 from player.models import PlayerProfile, PlayerIdentity
@@ -18,11 +17,16 @@ class DataManager:
     Currently uses CSV files, but structured for easy migration to cloud storage
     """
 
-    def __init__(self, data_dir: Path = Path(".")):
-        self.data_dir = data_dir
+    def __init__(self, data_dir: Path | None = None):
+        if data_dir is None:
+            data_dir = Path(__file__).resolve().parent / "storage"
+
+        self.storage_path = data_dir
+
         # Season 1 (main league)
         self.cleaned_data_file = data_dir / "Final_Cleaned_Data.csv"
         self.advanced_stats_file = data_dir / "Final_Player_Advanced_Stats.csv"
+
         # Season 2 (Unknown League / S2 - same data, different label)
         self.cleaned_data_s2_file = data_dir / "Final_Cleaned_Data_Unknown_League.csv"
         self.advanced_stats_s2_file = (
@@ -44,7 +48,7 @@ class DataManager:
         try:
             from convert_3on3_tournament import convert_to_csv
 
-            convert_to_csv(self.data_dir)
+            convert_to_csv(self.storage_path)
         except Exception as e:
             raise FileNotFoundError(
                 f"3 on 3 tournament data not found. Either add Final_Cleaned_Data_3on3.csv and "
@@ -159,7 +163,7 @@ class DataManager:
         Returns the path to the written file.
         """
         if file_path is None:
-            file_path = self.data_dir / "Season_Stats.xlsx"
+            file_path = self.storage_path / "Season_Stats.xlsx"
         with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
             if self.advanced_stats_file.exists():
                 df_s1 = pd.read_csv(self.advanced_stats_file)
@@ -176,6 +180,5 @@ class DataManager:
 
 
 # TODO: move data manager creation somewhere and let consumers handle
-#  this instance's lifespan
-# Global instance
-data_manager = DataManager(Path(__file__).resolve().parent / "data/")
+#  their own instance's lifespan
+data_manager = DataManager()
