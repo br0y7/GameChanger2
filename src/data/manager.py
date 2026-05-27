@@ -6,9 +6,9 @@ Supports CSV files (local) with structure ready for cloud migration (Google Shee
 
 import pandas as pd
 from pathlib import Path
-from player.models import PlayerProfile, PlayerIdentity
-from player.player_profile_builder import PlayerProfileBuilder
-from team.models import Team
+from features.player.models import PlayerProfile, PlayerIdentity
+from features.player.player_profile_builder import PlayerProfileBuilder
+from features.team.models import Team
 from data.loaders.base import DataLoader
 from data.loaders.csv_loaders import BaseCSVLoader, ThreeOnThreeTournamentLoader
 

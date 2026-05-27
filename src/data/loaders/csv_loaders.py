@@ -1,4 +1,3 @@
-from gamechanger import advanced_stats_file
 from pathlib import Path
 import pandas as pd
 
@@ -22,7 +21,7 @@ class BaseCSVLoader:
         if not self.advanced_stats_path or not self.advanced_stats_path.exists():
             return pd.DataFrame()
 
-        return pd.read_csv(advanced_stats_file)
+        return pd.read_csv(self.advanced_stats_path)
 
 
 class ThreeOnThreeTournamentLoader(BaseCSVLoader):

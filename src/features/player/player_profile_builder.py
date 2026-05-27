@@ -1,4 +1,4 @@
-from team.models import Team
+from features.team.models import Team
 
 from .models import (
     PlayerProfile,

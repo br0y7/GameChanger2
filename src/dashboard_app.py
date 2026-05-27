@@ -6,7 +6,7 @@ Main Streamlit application with homepage-first navigation
 import streamlit as st
 from pathlib import Path
 
-from player.models import PlayerProfile
+from features.player.models import PlayerProfile
 
 # Page configuration MUST be first
 st.set_page_config(
