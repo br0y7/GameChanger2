@@ -9,6 +9,8 @@ from pathlib import Path
 from player.models import PlayerProfile, PlayerIdentity
 from player.player_profile_builder import PlayerProfileBuilder
 from team.models import Team
+from data.loaders.base import DataLoader
+from data.loaders.csv_loaders import BaseCSVLoader, ThreeOnThreeTournamentLoader
 
 
 class DataManager:
@@ -23,38 +25,21 @@ class DataManager:
 
         self.storage_path = data_dir
 
-        # Season 1 (main league)
-        self.cleaned_data_file = data_dir / "Final_Cleaned_Data.csv"
-        self.advanced_stats_file = data_dir / "Final_Player_Advanced_Stats.csv"
-
-        # Season 2 (Unknown League / S2 - same data, different label)
-        self.cleaned_data_s2_file = data_dir / "Final_Cleaned_Data_Unknown_League.csv"
-        self.advanced_stats_s2_file = (
-            data_dir / "Final_Player_Advanced_Stats_Unknown_League.csv"
-        )
-        # Season 3 (3 on 3 basketball tournament)
-        self.cleaned_data_3on3_file = data_dir / "Final_Cleaned_Data_3on3.csv"
-        self.advanced_stats_3on3_file = (
-            data_dir / "Final_Player_Advanced_Stats_3on3.csv"
-        )
-
-    def _ensure_3on3_csvs(self) -> None:
-        """If 3on3 CSVs are missing, run the converter from the tournament xlsx."""
-        if (
-            self.cleaned_data_3on3_file.exists()
-            and self.advanced_stats_3on3_file.exists()
-        ):
-            return
-        try:
-            from convert_3on3_tournament import convert_to_csv
-
-            convert_to_csv(self.storage_path)
-        except Exception as e:
-            raise FileNotFoundError(
-                f"3 on 3 tournament data not found. Either add Final_Cleaned_Data_3on3.csv and "
-                f"Final_Player_Advanced_Stats_3on3.csv, or place '3 on 3 basketball tournament.xlsx' "
-                f"in the data folder. Converter error: {e}"
-            ) from e
+        self._loaders: dict[int, DataLoader] = {
+            1: BaseCSVLoader(
+                player_stats_path=data_dir / "Final_Cleaned_Data.csv",
+                advanced_stats_path=data_dir / "Final_Player_Advanced_Stats.csv",
+            ),
+            2: BaseCSVLoader(
+                player_stats_path=data_dir / "Final_Cleaned_Data_Unknown_League.csv",
+                advanced_stats_path=data_dir
+                / "Final_Player_Advanced_Stats_Unknown_League.csv",
+            ),
+            3: ThreeOnThreeTournamentLoader(
+                player_stats_path=data_dir / "Final_Cleaned_Data_3on3.csv",
+                advanced_stats_path=data_dir / "Final_Player_Advanced_Stats_3on3.csv",
+            ),
+        }
 
     def load_player_data(self, season: int = 1) -> pd.DataFrame:
         """
@@ -62,21 +47,7 @@ class DataManager:
         season 3 uses 3on3 tournament CSVs (generated from xlsx if missing).
         Default season=1 if None.
         """
-        if season == 1:
-            if not self.cleaned_data_file.exists():
-                raise FileNotFoundError(
-                    f"Player data file not found: {self.cleaned_data_file}"
-                )
-            return pd.read_csv(self.cleaned_data_file)
-        elif season == 2:
-            if not self.cleaned_data_s2_file.exists():
-                raise FileNotFoundError(
-                    f"Season 2 player data file not found: {self.cleaned_data_s2_file}"
-                )
-            return pd.read_csv(self.cleaned_data_s2_file)
-        else:
-            self._ensure_3on3_csvs()
-            return pd.read_csv(self.cleaned_data_3on3_file)
+        return self._loaders[season].load_player_stats()
 
     def load_advanced_stats(self, season: int = 1) -> pd.DataFrame:
         """
@@ -84,22 +55,7 @@ class DataManager:
         season 3 uses 3on3 tournament CSVs (generated from xlsx if missing).
         Default season=1 if None.
         """
-        season = 1 if season is None else season
-        if season == 1:
-            if not self.advanced_stats_file.exists():
-                raise FileNotFoundError(
-                    f"Advanced stats file not found: {self.advanced_stats_file}"
-                )
-            return pd.read_csv(self.advanced_stats_file)
-        elif season == 2:
-            if not self.advanced_stats_s2_file.exists():
-                raise FileNotFoundError(
-                    f"Season 2 advanced stats file not found: {self.advanced_stats_s2_file}"
-                )
-            return pd.read_csv(self.advanced_stats_s2_file)
-        else:
-            self._ensure_3on3_csvs()
-            return pd.read_csv(self.advanced_stats_3on3_file)
+        return self._loaders[season].load_advanced_stats()
 
     def get_player_profile(
         self, player_no: int, team: str, season: int = 1
@@ -150,28 +106,29 @@ class DataManager:
         except Exception:
             return []
 
-    def save_player_data(self, data: pd.DataFrame, filename: Path | None = None):
-        """Save player data to CSV (for future cloud sync)"""
-        if filename is None:
-            filename = self.cleaned_data_file
-        data.to_csv(filename, index=False)
+    # TODO: Think about how to implement consolidating and saving stats.
+    # def save_player_data(self, data: pd.DataFrame, filename: Path | None = None):
+    #     """Save player data to CSV (for future cloud sync)"""
+    #     if filename is None:
+    #         filename = self.cleaned_data_file
+    #     data.to_csv(filename, index=False)
 
-    def build_season_stats_excel(self, file_path: Path | None = None) -> Path:
-        """
-        Create an Excel workbook with Season 1 Stats and Season 2 Stats sheets.
-        Season 2 uses the same data as Unknown League / S2.
-        Returns the path to the written file.
-        """
-        if file_path is None:
-            file_path = self.storage_path / "Season_Stats.xlsx"
-        with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
-            if self.advanced_stats_file.exists():
-                df_s1 = pd.read_csv(self.advanced_stats_file)
-                df_s1.to_excel(writer, sheet_name="Season 1 Stats", index=False)
-            if self.advanced_stats_s2_file.exists():
-                df_s2 = pd.read_csv(self.advanced_stats_s2_file)
-                df_s2.to_excel(writer, sheet_name="Season 2 Stats", index=False)
-        return file_path
+    # def build_season_stats_excel(self, file_path: Path | None = None) -> Path:
+    #     """
+    #     Create an Excel workbook with Season 1 Stats and Season 2 Stats sheets.
+    #     Season 2 uses the same data as Unknown League / S2.
+    #     Returns the path to the written file.
+    #     """
+    #     if file_path is None:
+    #         file_path = self.storage_path / "Season_Stats.xlsx"
+    #     with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+    #         if self.advanced_stats_file.exists():
+    #             df_s1 = pd.read_csv(self.advanced_stats_file)
+    #             df_s1.to_excel(writer, sheet_name="Season 1 Stats", index=False)
+    #         if self.advanced_stats_s2_file.exists():
+    #             df_s2 = pd.read_csv(self.advanced_stats_s2_file)
+    #             df_s2.to_excel(writer, sheet_name="Season 2 Stats", index=False)
+    #     return file_path
 
     # Future methods for cloud integration:
     # def sync_to_google_sheets(self): ...

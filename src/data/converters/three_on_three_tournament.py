@@ -8,8 +8,6 @@ import os
 import pandas as pd
 from pathlib import Path
 
-CSV_DIR = Path(__file__).resolve().parent / "data/"
-
 # Stat column names as they appear in the xlsx header row (used to map by name)
 STAT_NAMES = [
     "Player No.",
@@ -179,7 +177,7 @@ def _parse_sheet(df: pd.DataFrame, game_name: str) -> list:
     return rows_out
 
 
-def convert_to_csv(data_dir: Path = CSV_DIR) -> tuple:
+def convert_to_csv(data_dir: Path) -> tuple:
     """
     Read the 3on3 tournament xlsx and write Final_Cleaned_Data_3on3.csv and
     Final_Player_Advanced_Stats_3on3.csv. Returns (cleaned_path, advanced_path).
@@ -295,7 +293,10 @@ def convert_to_csv(data_dir: Path = CSV_DIR) -> tuple:
 
 
 if __name__ == "__main__":
-    convert_to_csv()
+    STORAGE_PATH = Path(__file__).resolve().parent.parent / "storage/"
+
+    convert_to_csv(STORAGE_PATH)
+
     print(
         "Created Final_Cleaned_Data_3on3.csv and Final_Player_Advanced_Stats_3on3.csv"
     )
