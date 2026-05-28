@@ -4,8 +4,9 @@ from features.player.models import PlayerProfile, AdvancedStatistics
 from features.ai_chatbot.knowledge_base import get_full_knowledge_base
 
 
-class SystemPromptBuilder:
-    """Provides a builder for making a system prompt"""
+class PlayerProfilePromptBuilder:
+    """Provides a fluent builder for making a system prompt
+    with the context of a player profile"""
 
     def __init__(self):
         persona = "You are a professional NBA shooting coach and basketball development specialist with access to comprehensive basketball knowledge."
@@ -13,7 +14,7 @@ class SystemPromptBuilder:
         self._has_player_profile = False
         self._has_instructions = False
 
-    def add_player_profile(self, player_profile: PlayerProfile) -> Self:
+    def with_player_profile(self, player_profile: PlayerProfile) -> Self:
         # cleandoc removes excess whitespace like newlines
         self._blocks.append(
             inspect.cleandoc(f"""
@@ -63,7 +64,7 @@ class SystemPromptBuilder:
 
         return self
 
-    def add_advanced_stats(
+    def with_advanced_stats(
         self, advanced_stats: AdvancedStatistics | None = None
     ) -> Self:
         if advanced_stats is None:
@@ -82,7 +83,7 @@ class SystemPromptBuilder:
 
         return self
 
-    def add_instructions(self, custom_instructions: str | None = None) -> Self:
+    def with_instructions(self, custom_instructions: str | None = None) -> Self:
         """Adds instructions, if custom instructions are not provided default
         instructions are added instead."""
 
@@ -116,9 +117,9 @@ class SystemPromptBuilder:
 
         return self
 
-    def build(self) -> str:
+    def build_prompt(self) -> str:
         """Returns a system prompt"""
         if not self._has_instructions:
-            self.add_instructions()
+            self.with_instructions()
 
         return "\n\n".join(self._blocks)
