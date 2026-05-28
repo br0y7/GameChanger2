@@ -19,7 +19,7 @@ st.set_page_config(
 import pandas as pd
 from data.manager import DataManager
 from site_logger import logger
-from ai_dashboard_integration import (
+from features.ai_chatbot.dashboard_integration import (
     render_ai_chat_interface,
     render_3on3_ai_chat_interface,
 )

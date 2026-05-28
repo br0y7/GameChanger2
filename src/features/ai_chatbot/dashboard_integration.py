@@ -4,7 +4,7 @@ Provides Streamlit UI components for AI Assistant chat interface
 """
 
 import streamlit as st
-from ai_assistant import ai_assistant
+from features.ai_chatbot.assistant import ai_assistant
 from rule_based_assistant import rule_based_assistant, tournament_3on3_assistant
 from three_on_three_knowledge import get_3on3_tournament_context
 

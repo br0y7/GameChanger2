@@ -6,7 +6,7 @@ Uses OpenAI API (can be switched to other providers)
 
 import os
 from typing import Dict, Optional, Any
-from ai_knowledge_base import get_full_knowledge_base
+from features.ai_chatbot.knowledge_base import get_full_knowledge_base
 
 try:
     from openai import OpenAI
@@ -21,7 +21,7 @@ import requests
 # Import streamlit only when needed to avoid issues during module import
 try:
     import streamlit as st
-except:
+except Exception:
     st = None
 
 
