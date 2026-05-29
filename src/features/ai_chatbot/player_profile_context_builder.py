@@ -1,34 +1,36 @@
-import inspect
 from typing import Self
 from features.player.models import PlayerProfile, AdvancedStatistics
 from features.ai_chatbot.knowledge_base import get_full_knowledge_base
+from features.ai_chatbot.context_builder import BaseContextBuilder
 
 
-class PlayerProfilePromptBuilder:
-    """Provides a fluent builder for making a system prompt
-    with the context of a player profile"""
+class PlayerProfileContextBuilder(BaseContextBuilder):
+    """Provides a fluent context builder of a player profile for AI usage"""
 
     def __init__(self):
+        super().__init__()
+
         persona = "You are a professional NBA shooting coach and basketball development specialist with access to comprehensive basketball knowledge."
-        self._blocks: list[str] = [persona, inspect.cleandoc(get_full_knowledge_base())]
+        self.add_block(persona)
+        self.add_block(get_full_knowledge_base())
+
         self._has_player_profile = False
         self._has_instructions = False
 
     def with_player_profile(self, player_profile: PlayerProfile) -> Self:
-        # cleandoc removes excess whitespace like newlines
-        self._blocks.append(
-            inspect.cleandoc(f"""
+        self.add_block(
+            f"""
             PLAYER PROFILE:
             - Player Number: {player_profile.player_no}
             - Team: {player_profile.team}
             - Total Games Played: {player_profile.total_games}
-            """)
+            """
         )
 
         stats = player_profile.stats
 
-        self._blocks.append(
-            inspect.cleandoc(f"""
+        self.add_block(
+            f"""
             PERFORMANCE STATISTICS:
             - Points: {(stats.points.average or 0):.1f} PPG (Max: {(stats.points.max or 0)})
             - Rebounds: {(stats.rebounds.average or 0):.1f} RPG (Max: {(stats.rebounds.max or 0)})
@@ -36,16 +38,16 @@ class PlayerProfilePromptBuilder:
             - Turnovers: {(stats.turnovers.average or 0):.1f} TPG
             - Steals: {(stats.steals.average or 0):.1f} SPG
             - Blocks: {(stats.blocks.average or 0):.1f} BPG   
-            """)
+            """
         )
 
-        self._blocks.append(
-            inspect.cleandoc(f"""
+        self.add_block(
+            f"""
             SHOOTING PERCENTAGES:
             - Field Goal %: {(stats.shooting.fg_pct or 0):.1%}
             - Three-Point %: {(stats.shooting.three_pct or 0):.1%}
             - Free Throw %: {(stats.shooting.ft_pct or 0):.1%}
-            """)
+            """
         )
 
         strengths_as_str = ", ".join([s.description for s in player_profile.strengths])
@@ -53,11 +55,11 @@ class PlayerProfilePromptBuilder:
             [w.description for w in player_profile.weaknesses]
         )
 
-        self._blocks.append(
-            inspect.cleandoc(f"""
+        self.add_block(
+            f"""
             IDENTIFIED STRENGTHS: {strengths_as_str or "None specifically identified"}
             IDENTIFIED WEAKNESSES: {weaknesses_as_str or "None specifically identified"}
-            """)
+            """
         )
 
         self._has_player_profile = True
@@ -70,15 +72,15 @@ class PlayerProfilePromptBuilder:
         if advanced_stats is None:
             return self
 
-        self._blocks.append(
-            inspect.cleandoc(f"""
+        self.add_block(
+            f"""
             ADVANCED METRICS:
             - Assist/Turnover Ratio: {advanced_stats.ast_tov_ratio:.2f}
             - True Shooting %: {advanced_stats.ts_percentage:.1f}%
             - Rebound %: {advanced_stats.reb_percentage:.1f}%
             - Win Shares: {advanced_stats.ws:.2f}
             - VORP: {advanced_stats.vorp:.3f}
-            """)
+            """
         )
 
         return self
@@ -112,14 +114,13 @@ class PlayerProfilePromptBuilder:
             Keep responses concise, practical, and encouraging. Use basketball terminology appropriately. Reference specific drills from the library when recommending training.
             """
 
-        self._blocks.append(inspect.cleandoc(instructions))
+        self.add_block(instructions)
         self._has_instructions = True
 
         return self
 
-    def build_prompt(self) -> str:
-        """Returns a system prompt"""
+    def build_context(self) -> str:
         if not self._has_instructions:
             self.with_instructions()
 
-        return "\n\n".join(self._blocks)
+        return super().build_context()
