@@ -3,13 +3,25 @@ AI Dashboard Integration Module
 Provides Streamlit UI components for AI Assistant chat interface
 """
 
+from itertools import chain
+
+from typing import Iterator, Final, cast
+
 import streamlit as st
-from features.ai_chatbot.assistant import ai_assistant
-from rule_based_assistant import rule_based_assistant, tournament_3on3_assistant
+from features.ai_chatbot.assistant_ref import ai_assistant, AIAssistant
+from features.ai_chatbot.types import ChatMessage
+from features.player.player_profile_context_builder import (
+    PlayerProfileContextBuilder,
+)
+from features.ai_chatbot.rule_based_assistant import (
+    rule_based_assistant,
+    tournament_3on3_assistant,
+)
+from features.player.models import PlayerProfile
 from three_on_three_knowledge import get_3on3_tournament_context
 
 
-def _pick_assistant() -> tuple[object, str]:
+def _pick_assistant() -> tuple[AIAssistant, str]:
     """
     Choose which assistant to use.
     Default: Rule-Based (your coded assistant).
@@ -18,6 +30,8 @@ def _pick_assistant() -> tuple[object, str]:
     # Default selection:
     # - If OpenAI is enabled, start in Hybrid mode (best experience).
     # - Otherwise, start in Rule-Based (always available).
+
+    return ai_assistant, "test"
     default_index = 1 if getattr(ai_assistant, "enabled", False) else 0
     choice = st.sidebar.selectbox(
         "Assistant mode",
@@ -150,11 +164,13 @@ def render_3on3_ai_chat_interface(player_profile=None):
         st.rerun()
 
 
-def render_ai_chat_interface(player_profile=None):
+def render_ai_chat_interface(player_profile: PlayerProfile | None = None):
     """
     Render ChatGPT-style chat interface for Coaching Assistant (AI or Rule-Based)
     """
     coaching_assistant, assistant_type = _pick_assistant()
+
+    st.write(type(coaching_assistant).__name__)
 
     if assistant_type == "AI":
         st.header("🤖 AI Coaching Assistant")
@@ -170,65 +186,157 @@ def render_ai_chat_interface(player_profile=None):
         st.info(
             "OpenAI is enabled for refinement; rule-based output is used as context."
         )
+    elif assistant_type == "test":
+        st.header("🤖 Ollama ")
+        st.markdown("Ask about stuff.")
+        st.info("Using ollama right now")
     else:
         st.header("💡 Coaching Assistant")
         st.markdown(
             "Ask me anything about your performance, training, or game strategy!"
         )
 
+    # TODO: Using constants right now.
+    # Reconsider using dataclass variable in session state
+    # instead to prevent typo errors
+    IS_CHAT_LOCKED_KEY: Final[str] = "is_chat_locked"
+    USER_PROMPT_KEY: Final[str] = "user_prompt"
+    CHAT_HISTORY_KEY: Final[str] = "chat_history"
+
     # Initialize chat history
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
+    if CHAT_HISTORY_KEY not in st.session_state:
+        st.session_state[CHAT_HISTORY_KEY] = []
+
+    chat_history: list[ChatMessage] = st.session_state[CHAT_HISTORY_KEY]
 
     # Display chat history
-    for message in st.session_state.chat_history:
+    for message in chat_history:
         with st.chat_message(message["role"]):
             st.write(message["content"])
 
-    # Chat input
-    if prompt := st.chat_input("Ask a question about your game..."):
+    if IS_CHAT_LOCKED_KEY not in st.session_state:
+        st.session_state[IS_CHAT_LOCKED_KEY] = False
+
+    if USER_PROMPT_KEY not in st.session_state:
+        st.session_state.user_prompt = ""
+
+    def try_locking_chat() -> None:
+        if st.session_state[USER_PROMPT_KEY]:
+            st.session_state[IS_CHAT_LOCKED_KEY] = True
+
+    st.chat_input(
+        "Ask a question about your game...",
+        key=USER_PROMPT_KEY,
+        disabled=st.session_state[IS_CHAT_LOCKED_KEY],
+        on_submit=try_locking_chat,
+    )
+
+    if st.session_state[IS_CHAT_LOCKED_KEY]:
+        user_prompt: str = st.session_state[USER_PROMPT_KEY]
+
         # Add user message to chat
-        st.chat_message("user").write(prompt)
+        with st.chat_message("user"):
+            st.write(user_prompt)
 
         # Get coaching response (AI or rule-based)
         with st.chat_message("assistant"):
-            with st.spinner(
-                "Refining with OpenAI..."
-                if assistant_type in ("AI", "Hybrid")
-                else "Analyzing..."
-            ):
-                if assistant_type == "Hybrid":
-                    # Step 1: rule-based draft (free + deterministic)
-                    draft = rule_based_assistant.get_ai_response(prompt, player_profile)
-                    with st.expander("Rule-Based draft (used as context)"):
-                        st.write(draft)
+            response_stream: Iterator[str] | None = None
 
-                    # Step 2: OpenAI refinement using the draft as context
-                    refined_prompt = (
-                        "You are refining a rule-based coaching draft.\n\n"
-                        f"RULE-BASED DRAFT:\n{draft}\n\n"
-                        f"USER QUESTION:\n{prompt}\n\n"
-                        "Return an improved coaching response that keeps the key insights from the draft, "
-                        "but is clearer, more actionable, and more personalized to the player context."
-                    )
-                    response = coaching_assistant.get_ai_response(
-                        refined_prompt, player_profile
-                    )
-                else:
-                    response = coaching_assistant.get_ai_response(
-                        prompt, player_profile
-                    )
-                st.write(response)
+            status = st.status(label="Thinking...")
 
-        # Update history (already done in ai_assistant, but ensure it's displayed)
-        if (
-            len(st.session_state.chat_history) == 0
-            or st.session_state.chat_history[-1]["content"] != response
-        ):
-            st.session_state.chat_history.append({"role": "user", "content": prompt})
-            st.session_state.chat_history.append(
-                {"role": "assistant", "content": response}
-            )
+            try:
+                if assistant_type == "test":
+                    if player_profile:
+                        player_context = (
+                            PlayerProfileContextBuilder()
+                            .with_player_profile(player_profile)
+                            .with_advanced_stats(player_profile.advanced_stats)
+                            .with_instructions()
+                        )
+                        response_stream = coaching_assistant.ask_ai(
+                            user_prompt, player_context, chat_history
+                        )
+
+                if response_stream:
+                    # Wait for the first chunk
+                    first_chunk = next(response_stream)
+
+                    # Then put it back
+                    response_stream = chain([first_chunk], response_stream)
+
+                    status.update(label="Answering...", state="running")
+
+                    full_response = cast(str, st.write_stream(response_stream))
+
+                    status.update(label="Complete", state="complete")
+
+                    chat_history.append({"role": "user", "content": user_prompt})
+                    chat_history.append({"role": "assistant", "content": full_response})
+
+                    st.session_state[IS_CHAT_LOCKED_KEY] = False
+                    st.rerun()  # important to re-evaluate from top to bottom after unlocking
+            except Exception as e:
+                status.update(label="Oh no...", state="error")
+                st.write(e)
+                st.session_state[IS_CHAT_LOCKED_KEY] = False
+                # st.rerun()
+            # with st.spinner("Thinking...", show_time=True):
+
+            # if response_stream:
+            # with st.spinner(
+            # "Answering..."
+            # "Refining with OpenAI..."
+            # if assistant_type in ("AI", "Hybrid")
+            # else "Analyzing..."
+            # ):
+            # if assistant_type == "Hybrid":
+            #     # Step 1: rule-based draft (free + deterministic)
+            #     draft = rule_based_assistant.get_ai_response(prompt, player_profile)
+            #     with st.expander("Rule-Based draft (used as context)"):
+            #         st.write(draft)
+
+            #     # Step 2: OpenAI refinement using the draft as context
+            #     refined_prompt = (
+            #         "You are refining a rule-based coaching draft.\n\n"
+            #         f"RULE-BASED DRAFT:\n{draft}\n\n"
+            #         f"USER QUESTION:\n{prompt}\n\n"
+            #         "Return an improved coaching response that keeps the key insights from the draft, "
+            #         "but is clearer, more actionable, and more personalized to the player context."
+            #     )
+            #     response = coaching_assistant.get_ai_response(
+            #         refined_prompt, player_profile
+            #     )
+            # else:
+            #     response = coaching_assistant.get_ai_response(
+            #         prompt, player_profile
+            #     )
+            # response_stream = None
+            # full_response = ""
+            # if assistant_type == "test":
+            #     response_stream = coaching_assistant.get_ai_response(
+            #         prompt, player_profile
+            #     )
+            # if response_stream:
+            # full_response = st.write_stream(response_stream)
+            # st.session_state.chat_history.append(
+            #     {"role": "user", "content": prompt}
+            # )
+            # st.session_state.chat_history.append(
+            #     {"role": "assistant", "content": full_response}
+            # )
+            # st.session_state.chat_input_locked = False
+            # st.rerun()  # important to re-evaluate top to bottom after unlocking input
+
+        # # Update history (already done in ai_assistant, but ensure it's displayed)
+        # if (
+        #     len(st.session_state.chat_history) == 0
+        #     or st.session_state.chat_history[-1]["content"] != full_response
+        # ):
+        #     st.session_state.chat_history.append({"role": "user", "content": prompt})
+        #     st.session_state.chat_history.append(
+        #         {"role": "assistant", "content": full_response}
+        #     )
+        #     st.session_state.chat_input_locked = False
 
     # Clear chat button
     if st.button("Clear Chat"):

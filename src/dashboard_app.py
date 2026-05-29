@@ -7,6 +7,9 @@ import streamlit as st
 from pathlib import Path
 
 from features.player.models import PlayerProfile
+from features.player.player_profile_context_builder import PlayerProfileContextBuilder
+from features.ai_chatbot.ui import render_ai_chatbot
+from features.ai_chatbot.assistants import OpenAIAssistant
 
 # Page configuration MUST be first
 st.set_page_config(
@@ -1895,7 +1898,19 @@ def show_sample_report():
     st.caption(
         "Ask questions about training, performance, or game strategy for this player."
     )
-    render_ai_chat_interface(player_profile=profile)
+    # render_ai_chat_interface(player_profile=profile)
+    player_context = (
+        PlayerProfileContextBuilder()
+        .with_player_profile(profile)
+        .with_advanced_stats(profile.advanced_stats)
+        .with_instructions()
+    )
+    render_ai_chatbot(
+        page_id="player_perf_report",
+        context_builder=player_context,
+        input_placeholder="Ask a question about your profile...",
+        assistants=[OpenAIAssistant()],
+    )
     _render_footer()
 
 
