@@ -6,10 +6,6 @@ Uses OpenAI API (can be switched to other providers)
 
 from openai.types.chat import ChatCompletionMessageParam
 from typing import Dict, Any, Iterator, cast
-from features.player.player_profile_context_builder import (
-    PlayerProfileContextBuilder,
-)
-from .context_builder import ContextBuilder
 from .types import ChatMessage
 from features.player.models import PlayerProfile
 from openai import OpenAI
@@ -65,33 +61,6 @@ class AIAssistant:
             .with_instructions()
             .build_context()
         )
-
-    def ask_ai(
-        self,
-        user_prompt: str,
-        context_builder: ContextBuilder,
-        chat_history: list[ChatMessage],
-    ) -> Iterator[str]:
-        """
-        Ask the AI with context and chat history
-        """
-        messages: list[ChatMessage] = (
-            [{"role": "system", "content": context_builder.build_context()}]
-            + chat_history
-            + [{"role": "user", "content": user_prompt}]
-        )
-
-        response_stream = self.client.chat.completions.create(
-            model="gemma3:4b",
-            temperature=0.7,
-            messages=cast(list[ChatCompletionMessageParam], messages),
-            stream=True,
-        )
-
-        for chunk in response_stream:
-            content = chunk.choices[0].delta.content
-            if content:
-                yield content
 
     def get_ai_response(
         self, user_question: str, player_profile: PlayerProfile | None = None
