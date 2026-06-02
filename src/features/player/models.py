@@ -11,7 +11,7 @@ class Statistic:
 
 
 @dataclass(frozen=True)
-class ShootingStatistic:
+class ShootingStatistics:
     fg_pct: float
     three_pct: float
     ft_pct: float
@@ -26,7 +26,7 @@ class PlayerStatistics:
     steals: Statistic
     blocks: Statistic
     efficiency: Statistic
-    shooting: ShootingStatistic
+    shooting: ShootingStatistics
 
 
 @dataclass(frozen=True)

@@ -7,7 +7,7 @@ from .models import (
     PlayerStrength,
     PlayerWeakness,
     Statistic,
-    ShootingStatistic,
+    ShootingStatistics,
 )
 
 import pandas as pd
@@ -59,7 +59,7 @@ class PlayerProfileBuilder:
                 average=float(self._player_data["Efficiency"].mean()),
                 max=int(self._player_data["Efficiency"].max()),
             ),
-            shooting=ShootingStatistic(
+            shooting=ShootingStatistics(
                 fg_pct=float(self._player_data["FG_PCT"].mean()),
                 three_pct=float(self._player_data["3P%"].mean()),
                 ft_pct=float(self._player_data["FT%"].mean()),
