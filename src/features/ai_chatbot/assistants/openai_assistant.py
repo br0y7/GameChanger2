@@ -1,10 +1,11 @@
 import streamlit as st
 import os
-from typing import Iterator, cast
+from typing import cast
+from collections.abc import Iterator
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
-from ..context_builder import ContextBuilder
-from ..types import ChatMessage
+from .. import SystemPromptEngine
+from .. import ChatMessage
 
 
 class OpenAIAssistant:
@@ -27,14 +28,23 @@ class OpenAIAssistant:
     def stream_response(
         self,
         user_prompt: str,
-        context_builder: ContextBuilder,
+        system_prompt_engine: SystemPromptEngine,
         chat_history: list[ChatMessage],
     ) -> Iterator[str]:
-        messages: list[ChatMessage] = (
-            [{"role": "system", "content": context_builder.build_context()}]
-            + chat_history
-            + [{"role": "user", "content": user_prompt}]
-        )
+        history_for_ai = [
+            message
+            for message in chat_history
+            if message["role"] in ("user", "assistant")
+        ][-6:]
+
+        messages: list[ChatMessage] = [
+            {
+                "role": "system",
+                "content": system_prompt_engine.build_prompt(user_prompt, chat_history),
+            },
+            *history_for_ai,
+            {"role": "user", "content": user_prompt},
+        ]
 
         response_stream = self.client.chat.completions.create(
             model=self.model,

@@ -7,8 +7,19 @@ import streamlit as st
 from pathlib import Path
 
 from features.player.models import PlayerProfile
-from features.player.player_profile_context_builder import PlayerProfileContextBuilder
-from features.ai_chatbot.ui import render_ai_chatbot
+from features.player.context import (
+    AdvancedStatsProvider,
+    PlayerInfoProvider,
+    PlayerScoutingReportProvider,
+    PlayerStatsProvider,
+    ShootingStatsProvider,
+)
+from features.ai_chatbot import (
+    render_ai_chatbot,
+    ChatUIText,
+    SystemPromptEngine,
+    get_basketball_training_providers,
+)
 from features.ai_chatbot.assistants import OpenAIAssistant
 
 # Page configuration MUST be first
@@ -1893,23 +1904,48 @@ def show_sample_report():
 
     st.markdown("---")
     st.caption("*Data → Analysis → Recommendation*")
-    st.markdown("---")
-    st.subheader("💡 AI Assistant")
-    st.caption(
-        "Ask questions about training, performance, or game strategy for this player."
-    )
+    # st.markdown("---")
+    # st.subheader("💡 AI Assistant")
+    # st.caption(
+    #     "Ask questions about training, performance, or game strategy for this player."
+    # )
     # render_ai_chat_interface(player_profile=profile)
-    player_context = (
-        PlayerProfileContextBuilder()
-        .with_player_profile(profile)
-        .with_advanced_stats(profile.advanced_stats)
-        .with_instructions()
-    )
+
+    PLAYER_TASK = """
+Evaluate the user's input. If the user is greeting you, saying hello, or asking an open-ended introductory question, execute these steps strictly:
+1. Locate the "Player Number" and "Team" in your PLAYER PROFILE context.
+2. Respond with a brief, authoritative coaching greeting addressing them directly using those specific values. Insert their actual Player Number and their actual Team name instead of using generic words.
+3. Do not look up or list stats or drills yet.
+
+If the user explicitly asks about their stats, profile, strengths, weaknesses, or training solutions, execute these steps strictly:
+1. Map first-person pronouns ("I", "me", "my") to the PLAYER PROFILE, then start your response directly by addressing them as "Player #<Player Number>,".
+3. Extract stats, strengths, or weaknesses directly from that player profile data and list them clearly.
+4. If the user asks for solutions, suggestions, or drills to address those weaknesses, cross-reference them with the drill library context and prescribe the matching drills.
+5. Maintain a direct, professional coaching tone. Do not append fallback phrases or refusal text to successful lookups.
+    """
+
+    providers = [
+        *get_basketball_training_providers(),
+        PlayerInfoProvider(profile),
+        PlayerStatsProvider(profile.stats),
+        ShootingStatsProvider(profile.stats.shooting),
+        PlayerScoutingReportProvider(profile),
+    ]
+
+    if profile.advanced_stats:
+        providers.append(AdvancedStatsProvider(profile.advanced_stats))
+
+    player_system_prompt = SystemPromptEngine(PLAYER_TASK, providers=providers)
+
+    # TODO: Use `st.cache_resource` for  getting assistants
     render_ai_chatbot(
-        page_id="player_perf_report",
-        context_builder=player_context,
-        input_placeholder="Ask a question about your profile...",
+        chatbot_id="player_perf_report",
+        system_prompt_engine=player_system_prompt,
         assistants=[OpenAIAssistant()],
+        chat_ui_text=ChatUIText(
+            description="Ask questions about training, performance, or game strategy for this player.",
+            input_placeholder="Ask a question about your profile...",
+        ),
     )
     _render_footer()
 
