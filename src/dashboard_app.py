@@ -136,23 +136,20 @@ def _render_nav_buttons():
     with left_cols:
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            if st.button("🏠 Home", use_container_width=True) and page != "home":
+            if st.button("🏠 Home", width="stretch") and page != "home":
                 _set_page("home")
         with c2:
-            if (
-                st.button("📊 Team Dashboard", use_container_width=True)
-                and page != "dashboard"
-            ):
+            if st.button("📊 Team Dashboard", width="stretch") and page != "dashboard":
                 _set_page("dashboard")
         with c3:
             if (
-                st.button("📋 Player Performance Report", use_container_width=True)
+                st.button("📋 Player Performance Report", width="stretch")
                 and page != "sample_report"
             ):
                 _set_page("sample_report")
         with c4:
             if (
-                st.button("🏀 3 on 3 Tournament Dashboard", use_container_width=True)
+                st.button("🏀 3 on 3 Tournament Dashboard", width="stretch")
                 and page != "dashboard_3on3"
             ):
                 _set_page("dashboard_3on3")
@@ -203,16 +200,16 @@ def show_homepage():
     with col1:
         if st.button(
             "🏀 3 on 3 Basketball Tournament Dashboard",
-            use_container_width=True,
+            width="stretch",
             type="primary",
         ):
             _set_page("dashboard_3on3")
     with col2:
-        if st.button("📊 View Dashboard", use_container_width=True, type="primary"):
+        if st.button("📊 View Dashboard", width="stretch", type="primary"):
             _set_page("dashboard")
     with col3:
         if st.button(
-            "📋 See Player Performance Report", use_container_width=True, type="primary"
+            "📋 See Player Performance Report", width="stretch", type="primary"
         ):
             _set_page("sample_report")
     st.markdown("---")
@@ -263,9 +260,7 @@ def show_homepage():
 
     img_path = SRC_DIR / "assets/tournament.jpg"
     if img_path.exists():
-        st.image(
-            img_path, use_container_width=True, caption="Met Schools 3x3 Tournament"
-        )
+        st.image(img_path, width="stretch", caption="Met Schools 3x3 Tournament")
     else:
         st.markdown(
             '<div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); height: 180px; '
@@ -498,7 +493,7 @@ def show_live_dashboard():
     }
     st.dataframe(
         display_df,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config=column_config,
     )
@@ -517,7 +512,7 @@ def show_live_dashboard():
                 color_continuous_scale="Blues",
             )
             fig.update_layout(showlegend=False, height=400, xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception:
             st.info(
                 "Chart is unavailable in this environment. The stats table above has the same data."
@@ -796,7 +791,7 @@ def _render_3on3_playoffs_box_page(
         games_df["_order"] = games_df["Game"].map(_playoff_game_sort_key)
         games_df = games_df.sort_values("_order").drop(columns=["_order"])
     st.markdown("**Rankings**")
-    st.dataframe(games_df, use_container_width=True, hide_index=True)
+    st.dataframe(games_df, width="stretch", hide_index=True)
     st.markdown("---")
 
     game_data = game_data.merge(
@@ -869,7 +864,7 @@ def _render_3on3_playoffs_box_page(
                         "PF",
                     ]
                 ].copy()
-                st.dataframe(box_df, use_container_width=True, hide_index=True)
+                st.dataframe(box_df, width="stretch", hide_index=True)
         with tab3:
             tg1 = grp[grp["Team"] == t1]
             tg2 = grp[grp["Team"] == t2]
@@ -1033,7 +1028,7 @@ def _render_3on3_games_box_page(game_data: pd.DataFrame, advanced_stats: pd.Data
                 }
             )
     games_df = pd.DataFrame(games_list)
-    st.dataframe(games_df, use_container_width=True, hide_index=True)
+    st.dataframe(games_df, width="stretch", hide_index=True)
 
     # Add display name for traditional box score
     game_data = game_data.merge(
@@ -1109,7 +1104,7 @@ def _render_3on3_games_box_page(game_data: pd.DataFrame, advanced_stats: pd.Data
                     ]
                 ].copy()
                 box_df = box_df.rename(columns={"MIN": "MIN", "TO": "TO"})
-                st.dataframe(box_df, use_container_width=True, hide_index=True)
+                st.dataframe(box_df, width="stretch", hide_index=True)
 
         with tab3:
             tg1 = grp[grp["Team"] == t1]
@@ -1310,7 +1305,7 @@ def _render_3on3_player_dashboard(
     box_df = box_df.rename(columns={_col_3pm: "3PM", "TOV": "TO"})
     box_df = box_df.sort_values(["Game_Type", "Game"], ascending=[True, True])
     st.caption(f"**{selected_name}** — each row is one game.")
-    st.dataframe(box_df, use_container_width=True, hide_index=True)
+    st.dataframe(box_df, width="stretch", hide_index=True)
 
     st.markdown("---")
     st.subheader("💬 3 on 3 Tournament Assistant")
@@ -1359,7 +1354,7 @@ def show_3on3_dashboard():
         if st.button(
             "📊 Team Dashboard",
             type="primary" if mode == "team" else "secondary",
-            use_container_width=True,
+            width="stretch",
             key="3on3_team_btn",
         ):
             st.session_state["3on3_mode"] = "team"
@@ -1368,7 +1363,7 @@ def show_3on3_dashboard():
         if st.button(
             "👤 Player Dashboard",
             type="primary" if mode == "player" else "secondary",
-            use_container_width=True,
+            width="stretch",
             key="3on3_player_btn",
         ):
             st.session_state["3on3_mode"] = "player"
@@ -1424,7 +1419,7 @@ def show_3on3_dashboard():
         st.caption(
             "Team records below are **Round Robin only** (only games with Game Type = Round Robin; playoffs excluded)."
         )
-        st.dataframe(records_df, use_container_width=True, hide_index=True)
+        st.dataframe(records_df, width="stretch", hide_index=True)
         st.markdown("")  # small spacing
         display_rr = _build_3on3_player_table(round_robin, advanced_stats)
         column_config = {
@@ -1434,7 +1429,7 @@ def show_3on3_dashboard():
         }
         st.dataframe(
             display_rr,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config=column_config,
         )
@@ -1460,7 +1455,7 @@ def show_3on3_dashboard():
         }
         st.dataframe(
             display_po,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config=column_config_po,
         )
@@ -1500,7 +1495,7 @@ def show_3on3_dashboard():
     }
     st.dataframe(
         display_all,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config=column_config_all,
     )
@@ -1589,7 +1584,7 @@ def show_3on3_dashboard():
     st.caption("Season totals (not per-game).")
     st.dataframe(
         totals_display,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             col: st.column_config.Column(col, help=STAT_TOOLTIPS.get(col, ""))
@@ -1637,7 +1632,7 @@ def show_3on3_dashboard():
         }
     )
     st.caption("**Team totals** (sum of all games for each team)")
-    st.dataframe(team_totals, use_container_width=True, hide_index=True)
+    st.dataframe(team_totals, width="stretch", hide_index=True)
 
     st.markdown("---")
     # ------ 3) Games played: game type, who won, by how much, player of the game ------
@@ -1729,7 +1724,7 @@ def show_3on3_dashboard():
                 }
             )
     games_df = pd.DataFrame(games_list)
-    st.dataframe(games_df, use_container_width=True, hide_index=True)
+    st.dataframe(games_df, width="stretch", hide_index=True)
 
     st.markdown("---")
     if not round_robin.empty and st.checkbox(
@@ -1748,7 +1743,7 @@ def show_3on3_dashboard():
                 color_continuous_scale="Blues",
             )
             fig.update_layout(showlegend=False, height=400, xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception:
             st.info("Chart is unavailable in this environment.")
 
@@ -1865,7 +1860,7 @@ def show_sample_report():
         box_df["FT%"] = box_df["FT%"].apply(
             lambda x: f"{x:.1%}" if pd.notna(x) else "N/A"
         )
-        st.dataframe(box_df, use_container_width=True, hide_index=True)
+        st.dataframe(box_df, width="stretch", hide_index=True)
     else:
         st.info("No game-by-game data available.")
 
