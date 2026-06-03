@@ -1912,24 +1912,36 @@ def show_sample_report():
     # render_ai_chat_interface(player_profile=profile)
 
     PLAYER_TASK = """
-Evaluate the user's input. If the user is greeting you, saying hello, or asking an open-ended introductory question, execute these steps strictly:
-1. Locate the "Player Number" and "Team" in your PLAYER PROFILE context.
-2. Respond with a brief, authoritative coaching greeting addressing them directly using those specific values. Insert their actual Player Number and their actual Team name instead of using generic words.
-3. Do not look up or list stats or drills yet.
+Only apply PLAYER PROFILE logic if the input is clearly related to basketball performance, training, or player evaluation. Otherwise, do not use any PLAYER PROFILE data.
 
-If the user explicitly asks about their stats, profile, strengths, weaknesses, or training solutions, execute these steps strictly:
-1. Map first-person pronouns ("I", "me", "my") to the PLAYER PROFILE, then start your response directly by addressing them as "Player #<Player Number>,".
-3. Extract stats, strengths, or weaknesses directly from that player profile data and list them clearly.
-4. If the user asks for solutions, suggestions, or drills to address those weaknesses, cross-reference them with the drill library context and prescribe the matching drills.
-5. Maintain a direct, professional coaching tone. Do not append fallback phrases or refusal text to successful lookups.
-    """
+## A - Greetings
+If input matches Rule A:
+- Extract Player Number from PLAYER PROFILE.
+- Format greeting exactly as specified in System Prompt Rule A.
+
+## B - Performance & Concept Questions
+If user asks about stats, profile, strengths, weaknesses, or general basketball terms:
+- Map "I/me/my" directly to PLAYER PROFILE.
+- If the concept or data is missing from the context, trigger the exact Missing Data Response.
+- Start response exactly with: "Player #<Player Number>," followed by the extracted data.
+
+## C - Training / Drills
+If user requests improvements or drills:
+- Identify weaknesses from PLAYER PROFILE.
+- Prescribe only matching drills explicitly present in DRILL OVERVIEW context.
+- Start response exactly with: "Player #<Player Number>," followed by the drill details.
+
+## Constraints
+- Do not infer data or use outside knowledge.
+- If any required data, definition, or drill match is missing, trigger the system prompt's exact Missing Data Response.
+"""
 
     providers = [
         *get_basketball_training_providers(),
         PlayerInfoProvider(profile),
+        PlayerScoutingReportProvider(profile),
         PlayerStatsProvider(profile.stats),
         ShootingStatsProvider(profile.stats.shooting),
-        PlayerScoutingReportProvider(profile),
     ]
 
     if profile.advanced_stats:

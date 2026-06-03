@@ -25,6 +25,7 @@ class DrillOverviewProvider(IntentContextProvider):
             "fix",
             "solutions",
             "solution",
+            "solve",
             "how to",
             "train",
             "training",

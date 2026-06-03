@@ -81,8 +81,6 @@ DRILL_SIGNALS = {
     "suicide runs",
 }
 
-# TODO: Break this apart to categories
-
 
 class DrillInstructionsProvider(IntentContextProvider):
     @property
@@ -96,6 +94,9 @@ class DrillInstructionsProvider(IntentContextProvider):
     def is_relevant(
         self, user_prompt: str, chat_history: Sequence[ChatMessage] | None = None
     ) -> bool:
+        return False
+        # TODO: Break this apart into drill categories
+
         if self._contains_any_signal(
             user_prompt, EXECUTION_SIGNALS
         ) and self._contains_any_signal(user_prompt, DRILL_SIGNALS):
