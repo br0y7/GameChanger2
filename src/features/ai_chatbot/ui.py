@@ -144,7 +144,7 @@ def render_ai_chatbot(
 
             status.update(label="Answering...", state="running")
 
-            full_response = cast(str, stream_container.write_stream(response))
+            full_response = cast(str, chat_msg.write_stream(response))
 
             status.update(label="Complete", state="complete")
 

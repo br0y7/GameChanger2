@@ -16,7 +16,7 @@ class ContextProvider(Protocol):
     def is_relevant(
         self, user_prompt: str, chat_history: Sequence[ChatMessage] | None = None
     ) -> bool:
-        """Checks if this context is relevant to the user prompt."""
+        """Checks if this context is relevant to the user prompt and the chat."""
         ...
 
     def get_context(self) -> str:
@@ -74,6 +74,47 @@ class IntentContextProvider(ABC):
             "send it",
         }
 
+    @property
+    def follow_up_terms(self) -> set[str]:
+        return {
+            # pronouns
+            "which",
+            "whose",
+            "who",
+            # continuation terms
+            "more",
+            "tell me",
+            "explain",
+            "elaborate",
+            "expand",
+            "why",
+            "how",
+            "how come",
+            "details",
+            "any others",
+            "what else",
+            # comparison terms
+            "best",
+            "worst",
+            "highest",
+            "lowest",
+            "most",
+            "least",
+            "better",
+            "worse",
+            "impressive",
+            "coolest",
+            "hardest",
+            "easiest",
+            "fastest",
+            # sequential terms
+            "next",
+            "then",
+            "after that",
+            "after this",
+            "following",
+        }
+
     def _normalize(self, text: str) -> str:
         """Replaces punctuations with spaces and removes excess whitespace."""
         clean = text.lower().translate(self._PUNCTUATION_TABLE)
@@ -101,20 +142,26 @@ class IntentContextProvider(ABC):
         recent_history = chat_history[-max_message_count:]
 
         for message in reversed(recent_history):
-            if message["role"] == "assistant":
-                if self._contains_any_signal(message["content"], signals):
-                    return True
+            if message["role"] == "assistant" and self._contains_any_signal(
+                message["content"], signals
+            ):
+                return True
 
         return False
 
     def is_relevant(
         self, user_prompt: str, chat_history: Sequence[ChatMessage] | None = None
     ) -> bool:
-        """Checks if this context is relevant to the user prompt."""
+        """Checks if this context is relevant to the user prompt and the chat."""
         if self._contains_any_signal(user_prompt, self.intent_signals):
             return True
 
-        if self._normalize(user_prompt) in self.affirmative_terms:
+        clean_prompt = self._normalize(user_prompt)
+
+        is_yes = clean_prompt in self.affirmative_terms
+        is_follow_up = any(term in clean_prompt for term in self.follow_up_terms)
+
+        if is_yes or is_follow_up:
             return self._history_contains_signal(self.intent_signals, chat_history)
 
         return False
