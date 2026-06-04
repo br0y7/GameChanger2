@@ -136,6 +136,4 @@ class DataManager:
     # def sync_to_cloud_storage(self): ...
 
 
-# TODO: move data manager creation somewhere and let consumers handle
-#  their own instance's lifespan
 data_manager = DataManager()

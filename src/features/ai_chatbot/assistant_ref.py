@@ -87,7 +87,6 @@ class AIAssistant:
 
         # if not self.enabled or self.client is None:
         #     return "⚠️ AI Assistant is not available. Configure AI_BACKEND_URL (recommended) or OPENAI_API_KEY."
-        # TODO: Refactor get_ai_response
         raise NotImplementedError("To be deprecated or reimplemented")
         # try:
         # Build messages for chat
