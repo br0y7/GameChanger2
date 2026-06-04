@@ -25,22 +25,6 @@ st.markdown(
     '<p class="hero-subtext">Making performance data accessible to community leagues.</p>',
     unsafe_allow_html=True,
 )
-
-st.markdown("<br>", unsafe_allow_html=True)
-col1, col2, col3 = st.columns(3)
-with col1:
-    if st.button(
-        "🏀 3 on 3 Basketball Tournament Dashboard",
-        width="stretch",
-        type="primary",
-    ):
-        _set_page("dashboard_3on3")
-with col2:
-    if st.button("📊 View Dashboard", width="stretch", type="primary"):
-        _set_page("dashboard")
-with col3:
-    if st.button("📋 See Player Performance Report", width="stretch", type="primary"):
-        _set_page("sample_report")
 st.markdown("---")
 st.subheader("🏀 What Is GameChanger?")
 st.markdown(
