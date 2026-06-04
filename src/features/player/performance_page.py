@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from data.manager import DataManager
+from data import DataManager, get_data_manager
 from . import PlayerProfile
 from .context import (
     PlayerInfoProvider,
@@ -19,12 +19,6 @@ from features.ai_chatbot.assistants import OpenAIAssistant, get_assistants
 
 # TODO: Move this somewhere appropriate
 from drill_library import drill_library
-
-
-@st.cache_resource
-def get_data_manager() -> DataManager:
-    # TODO: Maybe add environment variable so in deployment can change the path
-    return DataManager()
 
 
 def render_player_performance():
