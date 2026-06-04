@@ -42,7 +42,6 @@ from drill_library import drill_library
 
 @st.cache_resource
 def get_data_manager() -> DataManager:
-    # TODO: Maybe add environment variable so in deployment can change the path
     return DataManager()
 
 
@@ -1944,7 +1943,6 @@ If user requests improvements or drills:
 
     player_system_prompt = SystemPromptEngine(PLAYER_TASK, providers=providers)
 
-    # TODO: Use `st.cache_resource` for  getting assistants
     render_ai_chatbot(
         chatbot_id="player_perf_report",
         system_prompt_engine=player_system_prompt,

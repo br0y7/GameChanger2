@@ -179,12 +179,6 @@ def render_player_performance():
 
     st.markdown("---")
     st.caption("*Data → Analysis → Recommendation*")
-    # st.markdown("---")
-    # st.subheader("💡 AI Assistant")
-    # st.caption(
-    #     "Ask questions about training, performance, or game strategy for this player."
-    # )
-    # render_ai_chat_interface(player_profile=profile)
 
     PLAYER_TASK = """
     Only apply PLAYER PROFILE logic if the input is clearly related to basketball performance, training, or player evaluation. Otherwise, do not use any PLAYER PROFILE data.
