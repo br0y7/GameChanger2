@@ -2,7 +2,8 @@ from pathlib import Path
 import streamlit as st
 from paths import SRC_DIR, ASSETS_DIR
 from utils.ui import load_css
-from features.player import performance_page
+from features.player.performance_page import render_player_performance
+from features.team.dashboard_page import render_team_dashboard
 
 st.set_page_config(layout="wide")
 
@@ -19,9 +20,14 @@ current_page = st.navigation(
             title="Home",
         ),
         st.Page(
-            performance_page.render_page,
+            render_player_performance,
             icon="📋",
             title="Player Performance Report",
+        ),
+        st.Page(
+            render_team_dashboard,
+            icon="📊",
+            title="Team Dashboard",
         ),
     ],
     position="top",

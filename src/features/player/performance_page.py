@@ -15,7 +15,7 @@ from features.ai_chatbot import (
     get_basketball_training_providers,
     render_ai_chatbot,
 )
-from features.ai_chatbot.assistants import OpenAIAssistant
+from features.ai_chatbot.assistants import OpenAIAssistant, get_assistants
 
 # TODO: Move this somewhere appropriate
 from drill_library import drill_library
@@ -27,7 +27,7 @@ def get_data_manager() -> DataManager:
     return DataManager()
 
 
-def render_page():
+def render_player_performance():
     # 3️⃣ Player Performance Report - Wow page"""
     # Larger font for Player Performance Report (increase by ~20%)
     st.markdown(
@@ -230,11 +230,10 @@ def render_page():
 
     player_system_prompt = SystemPromptEngine(PLAYER_TASK, providers=providers)
 
-    # TODO: Use `st.cache_resource` for  getting assistants
     render_ai_chatbot(
         chatbot_id="player_perf_report",
         system_prompt_engine=player_system_prompt,
-        assistants=[OpenAIAssistant()],
+        assistants=get_assistants(),
         chat_ui_text=ChatUIText(
             description="Ask questions about training, performance, or game strategy for this player.",
             input_placeholder="Ask a question about your profile...",
