@@ -5,7 +5,7 @@ export const task = sqliteTable('task', {
 		.primaryKey()
 		.$defaultFn(() => crypto.randomUUID()),
 	title: text('title').notNull(),
-	priority: integer('priority').notNull().default(1)
+	priority: integer('priority').notNull().default(1),
 });
 
-export * from './auth.schema';
+export * from './auth-schema.ts';

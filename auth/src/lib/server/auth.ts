@@ -4,6 +4,8 @@ import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
+import { organization } from 'better-auth/plugins';
+import type { OrgType } from '$lib/types/auth';
 
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
@@ -11,6 +13,23 @@ export const auth = betterAuth({
 	database: drizzleAdapter(db, { provider: 'sqlite' }),
 	emailAndPassword: { enabled: true },
 	plugins: [
-		sveltekitCookies(getRequestEvent) // make sure this is the last plugin in the array
-	]
+		organization({
+			teams: {
+				enabled: true,
+				allowRemovingAllTeams: false,
+			},
+			schema: {
+				organization: {
+					additionalFields: {
+						type: {
+							type: 'string',
+							input: false,
+							defaultValue: 'team' as OrgType,
+						},
+					},
+				},
+			},
+		}),
+		sveltekitCookies(getRequestEvent), // make sure this is the last plugin in the array
+	],
 });
