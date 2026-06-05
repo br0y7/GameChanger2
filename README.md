@@ -6,7 +6,7 @@ Hey! Here's how to run the basketball dashboard on your computer:
 
 ### Step 1: Install uv
 
-1. Go to [->install uv<-](https://docs.astral.sh/uv/getting-started/installation/) and follow their instructions based on your OS (Windows/Mac/Linux)
+1. Go to [install uv](https://docs.astral.sh/uv/getting-started/installation/) and follow their instructions based on your OS (Windows/Mac/Linux)
 
 ### Step 2: Download the Files
 
@@ -29,7 +29,7 @@ cd your-gamechanger-folder
 2. Run the app
 
 ```
-uv run src/run_dashboard.py
+uv run streamlit run ./src/app.py
 ```
 
 ## Quick Start using Python (3 Steps)
