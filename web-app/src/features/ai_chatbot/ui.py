@@ -95,12 +95,21 @@ def render_ai_chatbot(
     )
 
     # early guard to prevent deep nesting
-    if not state.is_processing or not state.user_prompt:
+    if not state.is_processing:
         return
 
-    stream_container.chat_message("user").write(state.user_prompt)
+    if state.user_prompt:
+        stream_container.chat_message("user").write(state.user_prompt)
+        state.chat_history.append({"role": "user", "content": state.user_prompt})
+        state.user_prompt = ""
 
-    state.chat_history.append({"role": "user", "content": state.user_prompt})
+    # Without the "[]", the comprehension is a generator not a list,
+    # it takes advantage of lazy iteration.
+    current_prompt = next(
+        user_message
+        for user_message in reversed(state.chat_history)
+        if user_message["role"] == "user"
+    )["content"]
 
     chat_msg = stream_container.chat_message("assistant")
     assistants = assistants.copy()
@@ -119,7 +128,7 @@ def render_ai_chatbot(
     for assistant in assistants:
         try:
             response = assistant.stream_response(
-                state.user_prompt, system_prompt_engine, state.chat_history
+                current_prompt, system_prompt_engine, state.chat_history
             )
             active_assistant = assistant
         except Exception as e:
@@ -156,5 +165,6 @@ def render_ai_chatbot(
         state.chat_history.append({"role": "error", "content": f"{e}"})
 
     state.is_processing = False
-    # important to re-evaluate this fragment after processing
-    st.rerun(scope="fragment")
+    # important to re-evaluate after processing, scope="fragment" might
+    # return an error sometimes
+    st.rerun()
