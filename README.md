@@ -10,14 +10,14 @@ Make sure you change directory `cd` to `web-app` then you can run:
 uv run streamlit run ./src/app.py
 ```
 
-### User Management Server
+### Account Management Server
 
-The user auth server that contains the features about managing users.
+The server that contains the features about managing users, teams, and org.
 - User Login / Signup
 - Creating Leagues/Teams
 - Organizers/Coaches sending invites to add members
 
-It is located in the `auth` folder. Make sure you change directory `cd` to `auth` then you can run: 
+It is located in the `accounts` folder. Make sure you change directory `cd` to `accounts` then you can run: 
 
 ```sh
 bun --bun run dev

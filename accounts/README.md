@@ -1,10 +1,10 @@
 
-## User Auth Server
+## Account Management Server
 
-This server will be for providing the sign-up, login pages, and potential endpoints for managing teams and leagues.
+This server will be for providing the sign-up, login pages, and  endpoints for managing teams and leagues.
 
 ## Installation
-> Make sure your terminal is in the `auth` directory
+> Make sure your terminal is in the `accounts` directory
 
 1. Install [bun](https://bun.com/docs/installation), this is for MacOS & Linux:
     ```sh
