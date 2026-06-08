@@ -6,6 +6,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { resolve } from '$app/paths';
+	import { env } from '$env/dynamic/public';
 
 	let { class: className, ...restProps }: HTMLAttributes<HTMLDivElement> = $props();
 </script>
@@ -18,7 +19,7 @@
 					<div class="flex size-8 items-center justify-center rounded-md">
 						<ChartSplineIcon class="size-6" />
 					</div>
-					<span class="sr-only">Gamechanger</span>
+					<span class="sr-only">{env.PUBLIC_APP_NAME}</span>
 				</a>
 				<h1 class="text-2xl font-bold">Create your account</h1>
 				<Field.FieldDescription
