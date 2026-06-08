@@ -1,5 +1,5 @@
 <script lang="ts">
-	import GalleryVerticalEndIcon from '@lucide/svelte/icons/gallery-vertical-end';
+	import ChartSplineIcon from '@lucide/svelte/icons/chart-spline';
 	import { cn } from '$lib/utils.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
@@ -16,27 +16,15 @@
 			<div class="flex flex-col items-center gap-2 text-center">
 				<a href="#/" class="flex flex-col items-center gap-2 font-medium">
 					<div class="flex size-8 items-center justify-center rounded-md">
-						<GalleryVerticalEndIcon class="size-6" />
+						<ChartSplineIcon class="size-6" />
 					</div>
-					<span class="sr-only">Acme Inc.</span>
+					<span class="sr-only">Gamechanger</span>
 				</a>
-				<h1 class="text-xl font-bold">Welcome to Acme Inc.</h1>
-				<Field.Description>
-					Don't have an account? <a href={resolve('/signup')}>Sign Up</a>
-				</Field.Description>
+				<h1 class="text-2xl font-bold">Welcome back</h1>
+				<Field.FieldDescription
+					>Sign in to check updates, manage teams, and more.</Field.FieldDescription
+				>
 			</div>
-			<Field.Field>
-				<Field.Label for="email">Email</Field.Label>
-				<Input id="email" type="email" placeholder="your@email.com" required />
-			</Field.Field>
-			<Field.Field>
-				<Field.Label for="password">Password</Field.Label>
-				<Input id="password" type="password" required />
-			</Field.Field>
-			<Field.Field>
-				<Button type="submit">Login</Button>
-			</Field.Field>
-			<Field.Separator>Or</Field.Separator>
 			<Field.Field>
 				<Button variant="outline" type="button">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -48,6 +36,23 @@
 					Continue with Google
 				</Button>
 			</Field.Field>
+			<Field.Separator>Or</Field.Separator>
+			<Field.Field>
+				<Field.Label for="email">Email</Field.Label>
+				<Input id="email" type="email" required />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="password">Password</Field.Label>
+				<Input id="password" type="password" required />
+			</Field.Field>
+			<Field.Field>
+				<Button type="submit">Sign In</Button>
+			</Field.Field>
+			<div class="flex flex-col items-center">
+				<Field.Description>
+					Don't have an account? <a href={resolve('/signup')}>Create Account</a>
+				</Field.Description>
+			</div>
 		</Field.Group>
 	</form>
 	<!-- <Field.Description class="px-6 text-center">
