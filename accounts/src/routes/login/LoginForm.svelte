@@ -22,7 +22,7 @@
 				</a>
 				<h1 class="text-xl font-bold">Welcome to Acme Inc.</h1>
 				<Field.Description>
-					Already have an account? <a href={resolve('/auth/login')}>Log In</a>
+					Don't have an account? <a href={resolve('/signup')}>Sign Up</a>
 				</Field.Description>
 			</div>
 			<Field.Field>
@@ -34,7 +34,7 @@
 				<Input id="password" type="password" required />
 			</Field.Field>
 			<Field.Field>
-				<Button type="submit">Create Account</Button>
+				<Button type="submit">Login</Button>
 			</Field.Field>
 			<Field.Separator>Or</Field.Separator>
 			<Field.Field>
