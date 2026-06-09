@@ -7,6 +7,7 @@
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { resolve } from '$app/paths';
 	import { env } from '$env/dynamic/public';
+	import PasswordField from '$lib/components/PasswordField.svelte';
 
 	let { class: className, ...restProps }: HTMLAttributes<HTMLDivElement> = $props();
 </script>
@@ -42,10 +43,7 @@
 				<Field.Label for="email">Email</Field.Label>
 				<Input id="email" type="email" required />
 			</Field.Field>
-			<Field.Field>
-				<Field.Label for="password">Password</Field.Label>
-				<Input id="password" type="password" required />
-			</Field.Field>
+			<PasswordField />
 			<Field.Field>
 				<Button type="submit">Create Account</Button>
 			</Field.Field>
