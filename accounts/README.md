@@ -54,7 +54,7 @@ If you make any changes in `src/lib/server/auth.ts` (basically changing `BetterA
 
 1. Generate the BetterAuth schema:
     ```sh
-    bun x auth@latest generate
+    bun run auth:schema
     ```
 
 2. Compare the generated `auth-schema.ts` to the one in `src/lib/server/db/auth-schema.ts`
