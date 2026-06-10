@@ -1,14 +1,10 @@
-interface Logger {
-	info: (...args: unknown[]) => void;
-	warn: (...args: unknown[]) => void;
-	error: (...args: unknown[]) => void;
-}
+import type { Logger } from '$lib/logger/types';
 
 // simple logger for now, writes to stdout (console)
 /**
  * The logger for the `accounts` server.
  */
-export const logger: Logger = {
+export const serverLogger: Logger = {
 	info: (...args: unknown[]) => console.log(args),
 	warn: (...args: unknown[]) => console.warn(args),
 	error: (...args: unknown[]) => console.error(args),
