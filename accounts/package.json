@@ -53,7 +53,8 @@
 		"db:studio": "drizzle-kit studio",
 		"auth:schema-once-drizzle_v1-not-beta": "better-auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes",
 		"auth:schema": "bun x auth@latest generate",
-		"create-oauth-client": "vite-node --options.transformMode.ssr='/.*/' ./scripts/create-oauth-client.ts"
+		"create-oauth-client": "vite-node --options.transformMode.ssr='/.*/' ./scripts/create-oauth-client.ts",
+		"admin:promote": "vite-node --options.transformMode.ssr='/.*/' ./scripts/promote-to-admin.ts"
 	},
 	"type": "module",
 	"dependencies": {
