@@ -4,7 +4,7 @@ import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
-import { organization, openAPI } from 'better-auth/plugins';
+import { organization, jwt, openAPI } from 'better-auth/plugins';
 import type { OrgType } from '$lib/types/auth';
 import * as schema from '$lib/server/db/schema';
 import { oauthProvider } from '@better-auth/oauth-provider';
@@ -42,6 +42,7 @@ export const auth = betterAuth({
 				},
 			},
 		}),
+		jwt(),
 		oauthProvider({
 			loginPage: '/login',
 			consentPage: '/consent',
