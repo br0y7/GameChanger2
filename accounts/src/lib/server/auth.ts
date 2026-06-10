@@ -7,9 +7,7 @@ import { db } from '$lib/server/db';
 import { organization, openAPI } from 'better-auth/plugins';
 import type { OrgType } from '$lib/types/auth';
 import * as schema from '$lib/server/db/schema';
-import { dev } from '$app/environment';
 import { oauthProvider } from '@better-auth/oauth-provider';
-import { resolve } from '$app/paths';
 
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
@@ -17,7 +15,7 @@ export const auth = betterAuth({
 	database: drizzleAdapter(db, { provider: 'sqlite', schema }),
 	emailAndPassword: {
 		enabled: true,
-		requireEmailVerification: !dev,
+		requireEmailVerification: false, // TODO: Eventually set to true and test with a local email server
 	},
 	socialProviders: {
 		google: {
@@ -45,8 +43,8 @@ export const auth = betterAuth({
 			},
 		}),
 		oauthProvider({
-			loginPage: resolve('/login'),
-			consentPage: resolve('/consent'),
+			loginPage: '/login',
+			consentPage: '/consent',
 		}),
 		sveltekitCookies(getRequestEvent), // make sure this is the last plugin in the array
 	],
