@@ -48,7 +48,7 @@
 		"format": "prettier --write .",
 		"db:push": "bun x drizzle-kit push",
 		"db:generate": "bun x drizzle-kit generate",
-		"db:migrate": "bun run ./src/lib/server/db/migrate.ts",
+		"db:migrate": "bun run ./scripts/migrate.ts",
 		"db:studio": "drizzle-kit studio",
 		"auth:schema": "better-auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes"
 	},

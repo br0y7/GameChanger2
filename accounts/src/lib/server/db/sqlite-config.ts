@@ -1,7 +1,7 @@
 import { Database } from 'bun:sqlite';
 
 /**
- * Optimize SQLite db, enable WAL mode
+ * Enable WAL for performance and to prevent locked db errors
  * @param client SQLite Database
  */
 export function optimizeSQLite(client: Database) {
