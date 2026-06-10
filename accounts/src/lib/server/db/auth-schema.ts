@@ -10,6 +10,10 @@ export const user = sqliteTable('user', {
 	updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
 		.$onUpdate(() => new Date())
 		.notNull(),
+	role: text('role'),
+	banned: integer('banned', { mode: 'boolean' }).default(false),
+	banReason: text('ban_reason'),
+	banExpires: integer('ban_expires', { mode: 'timestamp_ms' }),
 });
 
 export const session = sqliteTable(
@@ -29,6 +33,7 @@ export const session = sqliteTable(
 			.references(() => user.id, { onDelete: 'cascade' }),
 		activeOrganizationId: text('active_organization_id'),
 		activeTeamId: text('active_team_id'),
+		impersonatedBy: text('impersonated_by'),
 	},
 	(table) => [index('session_userId_idx').on(table.userId)]
 );
