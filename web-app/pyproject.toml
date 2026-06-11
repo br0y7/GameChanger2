@@ -13,7 +13,7 @@ dependencies = [
     "plotly>=6.8.0",
     "requests>=2.32.4",
     "seaborn>=0.13.2",
-    "streamlit>=1.40.1",
+    "streamlit>=1.58.0",
 ]
 
 [dependency-groups]
