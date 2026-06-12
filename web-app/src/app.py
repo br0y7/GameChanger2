@@ -2,7 +2,7 @@ from yarl import URL
 import requests
 from pathlib import Path
 import streamlit as st
-from paths import SRC_DIR, ASSETS_DIR
+from utils.paths import SRC_DIR, ASSETS_DIR
 from utils.ui import load_css
 from utils.navigation import redirectTo
 from features.player.performance_page import render_player_performance

@@ -1,4 +1,4 @@
-from paths import SRC_DIR
+from utils.paths import SRC_DIR
 from pathlib import Path
 import streamlit as st
 
