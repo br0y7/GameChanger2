@@ -4,10 +4,9 @@ import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
-import { organization, jwt, admin, openAPI } from 'better-auth/plugins';
+import { organization, admin, openAPI } from 'better-auth/plugins';
 import type { OrgType } from '$lib/types/auth';
 import * as schema from '$lib/server/db/schema';
-import { oauthProvider } from '@better-auth/oauth-provider';
 import { PUBLIC_APP_URL } from '$env/static/public';
 
 export const auth = betterAuth({
@@ -43,11 +42,6 @@ export const auth = betterAuth({
 					},
 				},
 			},
-		}),
-		jwt(),
-		oauthProvider({
-			loginPage: '/login',
-			consentPage: '/consent',
 		}),
 		admin(),
 		sveltekitCookies(getRequestEvent), // make sure this is the last plugin in the array

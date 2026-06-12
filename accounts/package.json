@@ -58,7 +58,6 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"@better-auth/oauth-provider": "^1.6.15",
 		"better-auth": "^1.6.15",
 		"mode-watcher": "^1.1.0"
 	}
