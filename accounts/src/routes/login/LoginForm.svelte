@@ -9,12 +9,44 @@
 	import { env } from '$env/dynamic/public';
 	import PasswordField from '$lib/components/PasswordField.svelte';
 	import GoogleButton from '$lib/components/GoogleButton.svelte';
+	import { enhance } from '$app/forms';
+	import type { PageProps } from './$types';
+	import Collapsible from '$lib/components/Collapsible.svelte';
+	import * as Alert from '$lib/components/ui/alert';
+	import ErrorIcon from '@lucide/svelte/icons/circle-x';
+	import Spinner from '$lib/components/ui/spinner/spinner.svelte';
+	import FieldErrors from '$lib/components/FieldErrors.svelte';
+	import { PUBLIC_APP_URL } from '$env/static/public';
 
-	let { class: className, ...restProps }: HTMLAttributes<HTMLDivElement> = $props();
+	let {
+		class: className,
+		form,
+		...restProps
+	}: HTMLAttributes<HTMLDivElement> & { form: PageProps['form'] } = $props();
+
+	let isSubmitting = $state(false);
 </script>
 
 <div class={cn('flex flex-col gap-6', className)} {...restProps}>
-	<form>
+	<form
+		method="POST"
+		use:enhance={() => {
+			return async ({ update }) => {
+				isSubmitting = true;
+
+				try {
+					await new Promise((r) => setTimeout(r, 2000));
+					await update();
+
+					if (form?.success) {
+						window.location.replace(PUBLIC_APP_URL);
+					}
+				} finally {
+					isSubmitting = false;
+				}
+			};
+		}}
+	>
 		<Field.Group>
 			<div class="flex flex-col items-center gap-2 text-center">
 				<a href="#/" class="flex flex-col items-center gap-2 font-medium">
@@ -24,21 +56,34 @@
 					<span class="sr-only">{env.PUBLIC_APP_NAME}</span>
 				</a>
 				<h1 class="text-2xl font-bold">Welcome back</h1>
-				<Field.FieldDescription
-					>Sign in to check updates, manage teams, and more.</Field.FieldDescription
-				>
+				<Field.FieldDescription class="text-center">
+					Sign in to check updates, manage teams, and more.
+				</Field.FieldDescription>
 			</div>
 			<Field.Field>
 				<GoogleButton />
 			</Field.Field>
 			<Field.Separator>Or</Field.Separator>
+			<Collapsible isOpen={!!form?.error?.message}>
+				<Alert.Root variant="destructive">
+					<ErrorIcon />
+					<Alert.Title>Error</Alert.Title>
+					<Alert.Description>{form?.error?.message}</Alert.Description>
+				</Alert.Root>
+			</Collapsible>
 			<Field.Field>
 				<Field.Label for="email">Email</Field.Label>
-				<Input id="email" type="email" required />
+				<Input id="email" name="email" type="text" required />
+				<FieldErrors errors={form?.error?.email} />
 			</Field.Field>
-			<PasswordField />
+			<PasswordField errors={form?.error?.password} />
 			<Field.Field>
-				<Button type="submit">Sign In</Button>
+				<Button type="submit">
+					{#if isSubmitting}
+						<Spinner />
+					{/if}
+					Sign In
+				</Button>
 			</Field.Field>
 			<div class="flex flex-col items-center">
 				<Field.Description>
