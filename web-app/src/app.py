@@ -1,3 +1,4 @@
+from yarl import URL
 import requests
 from pathlib import Path
 import streamlit as st
@@ -6,6 +7,7 @@ from utils.ui import load_css
 from utils.navigation import redirectTo
 from features.player.performance_page import render_player_performance
 from features.team.dashboard_page import render_team_dashboard
+from shared.urls import Accounts
 
 st.set_page_config(layout="wide")
 
@@ -40,7 +42,7 @@ if BETTER_AUTH_COOKIE in st.context.cookies:
 
 if auth_cookie:
     res = requests.get(
-        "http://localhost:5173/api/auth/get-session",
+        str(Accounts.BASE_URL / "api/auth/get-session"),
         cookies={BETTER_AUTH_COOKIE: auth_cookie},
     )
 
@@ -51,15 +53,19 @@ if auth_cookie:
     # TODO: Add roles then filter pages here
 
     def logout():
-        redirectTo("http://localhost:5173/logout")
+        redirectTo(Accounts.LOGOUT)
 
     pages.append(st.Page(logout, icon=":material/logout:", title="Logout"))
 else:
 
     def login():
-        redirectTo("http://localhost:5173/login")
+        redirectTo(Accounts.LOGIN)
+
+    def signup():
+        redirectTo(Accounts.SIGNUP)
 
     pages.append(st.Page(login, icon=":material/login:", title="Login"))
+    pages.append(st.Page(signup, icon=":material/person_add:", title="Sign Up"))
 
 
 current_page = st.navigation(
