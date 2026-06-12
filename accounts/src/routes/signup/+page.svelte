@@ -2,6 +2,9 @@
 	import ModeToggle from '$lib/components/ui/ModeToggle.svelte';
 	import SignupForm from './SignupForm.svelte';
 	import { env } from '$env/dynamic/public';
+	import type { PageProps } from './$types';
+
+	let { form }: PageProps = $props();
 </script>
 
 <svelte:head>
@@ -14,6 +17,6 @@
 		<ModeToggle />
 	</div>
 	<div class="w-full max-w-sm">
-		<SignupForm />
+		<SignupForm {form} />
 	</div>
 </div>

@@ -1,15 +1,23 @@
 <script lang="ts">
+	import { PUBLIC_APP_URL } from '$env/static/public';
 	import { authClient } from '$lib/auth-client';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { clientLogger } from '$lib/logger/client';
+	import Collapsible from './Collapsible.svelte';
+	import * as Field from '$lib/components/ui/field/index';
+
+	let hasError = $state(false);
 
 	async function handleClick() {
 		try {
+			hasError = false;
+
 			await authClient.signIn.social({
 				provider: 'google',
+				callbackURL: PUBLIC_APP_URL,
 			});
 		} catch (error) {
-			// TODO: add like an error indicator
+			hasError = true;
 			clientLogger.error(error);
 		}
 	}
@@ -24,3 +32,7 @@
 	</svg>
 	Continue with Google
 </Button>
+
+<Collapsible isOpen={hasError}>
+	<Field.Error class="text-center">Something went wrong.</Field.Error>
+</Collapsible>

@@ -3,13 +3,19 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index';
 	import { Label } from '$lib/components/ui/label/index.js';
+	import FieldErrors from './FieldErrors.svelte';
 
 	let showPassword = $state(false);
 
-	let { value = $bindable() } = $props();
+	interface Props {
+		value?: string;
+		errors?: string[];
+	}
+
+	let { value = $bindable(), errors }: Props = $props();
 </script>
 
-<div class="flex flex-col gap-4 pb-2">
+<Field.Group class="pb-2">
 	<Field.Field>
 		<Field.Label for="password">Password</Field.Label>
 		<Input
@@ -21,8 +27,10 @@
 		/>
 	</Field.Field>
 
-	<div class="flex gap-2">
+	<Field.Field orientation="horizontal">
 		<Checkbox id="show-pass" bind:checked={showPassword} />
 		<Label for="show-pass" class="text-muted-foreground">Show password</Label>
-	</div>
-</div>
+	</Field.Field>
+
+	<FieldErrors {errors} />
+</Field.Group>
