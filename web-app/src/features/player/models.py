@@ -1,13 +1,6 @@
 from dataclasses import dataclass
 from features.team.models import Team
-
-
-@dataclass(frozen=True)
-class Statistic:
-    total: int | None = None
-    average: float | None = None
-    min: int | None = None
-    max: int | None = None
+from shared.models import Statistic
 
 
 @dataclass(frozen=True)
