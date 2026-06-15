@@ -2,13 +2,14 @@
 	import { PUBLIC_APP_URL } from '$env/static/public';
 	import { authClient } from '$lib/auth-client';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { onMount } from 'svelte';
 
 	// Using this page so this server can remove the cookie.
 	// If you try to call the /api/auth/signout in Streamlit it
 	// won't clear the cookie.
-	$effect(() => {
-		// can't async await have to use .then()
-		authClient.signOut().then(() => window.location.replace(PUBLIC_APP_URL));
+	onMount(async () => {
+		await authClient.signOut();
+		window.location.replace(PUBLIC_APP_URL);
 	});
 </script>
 
