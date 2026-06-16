@@ -2,11 +2,12 @@ from yarl import URL
 import streamlit as st
 
 
-_BASE_URL = URL(st.secrets.get("ACCOUNTS_BASE_URL", "http://localhost:5173/"))
+_BASE_URL = URL(st.secrets.get("PLATFORM_BASE_URL", "http://localhost:5173/"))
+_API_URL = _BASE_URL / "api"
 
 
 class Accounts:
-    GET_SESSION = _BASE_URL / "api/auth/get-session"
+    GET_SESSION = _API_URL / "auth/get-session"
 
 
 class Pages:
