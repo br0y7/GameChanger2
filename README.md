@@ -27,8 +27,6 @@ bun --bun run dev
 
 ## Getting Started
 
-### Step 2: Download the Files
-
 1. Open your preferred terminal, `cmd` or `Windows Terminal`, ensure you have git installed by running `git`
    - [install git](https://git-scm.com/install/)
 2. Download using git clone, make sure to edit the last argument to your preferred folder name
