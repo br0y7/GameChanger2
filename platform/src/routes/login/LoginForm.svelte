@@ -35,7 +35,6 @@
 				isSubmitting = true;
 
 				try {
-					await new Promise((r) => setTimeout(r, 2000));
 					await update();
 
 					if (form?.success) {
