@@ -8,22 +8,12 @@ Hey! Here's how to run the basketball dashboard on your computer:
 
 1. Go to [install uv](https://docs.astral.sh/uv/getting-started/installation/) and follow their instructions based on your OS (Windows/Mac/Linux)
 
-### Step 2: Download the Files
+### Step 2: Run the app 🏀
 
-1. Open your preferred terminal, `cmd` or `Windows Terminal`, ensure you have git installed by running `git`
-   - [install git](https://git-scm.com/install/)
-2. Download using git clone, make sure to edit the last argument to your preferred folder name
+1. Make sure you're in the `dashboard` directory
 
 ```
-git clone https://github.com/br0y7/GameChanger2.git your-gamechanger-folder
-```
-
-### Step 3: Run the app 🏀
-
-1. Make sure you're in the Gamechanger directory
-
-```
-cd your-gamechanger-folder
+cd dashboard
 ```
 
 2. Run the app

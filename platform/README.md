@@ -1,10 +1,10 @@
 
-## Account Management Server
+## Platform Server (API + Auth)
 
-This server will be for providing the sign-up, login pages, and  endpoints for managing teams and leagues.
+This server will be for providing the sign-up, login pages, and  API endpoints for managing teams, leagues, and other data.
 
 ## Installation
-> Make sure your terminal is in the `accounts` directory
+> Make sure your terminal is in the `platform` directory
 
 1. Install [bun](https://bun.com/docs/installation), this is for MacOS & Linux:
     ```sh
