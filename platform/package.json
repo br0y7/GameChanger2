@@ -1,5 +1,5 @@
 {
-	"name": "accounts",
+	"name": "platform",
 	"version": "0.0.1",
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

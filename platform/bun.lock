@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "accounts",
+      "name": "platform",
       "dependencies": {
         "better-auth": "^1.6.15",
         "mode-watcher": "^1.1.0",
