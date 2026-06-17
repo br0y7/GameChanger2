@@ -11,33 +11,11 @@ import { PUBLIC_APP_URL } from '$env/static/public';
 import { dev } from '$app/environment';
 import type { BetterAuthPlugin } from 'better-auth';
 
-const plugins: BetterAuthPlugin[] = [
-	organization({
-		teams: {
-			enabled: true,
-			allowRemovingAllTeams: false,
-		},
-		schema: {
-			organization: {
-				additionalFields: {
-					type: {
-						type: 'string',
-						input: false,
-						defaultValue: 'team' as OrgType,
-					},
-				},
-			},
-		},
-	}),
-	admin(),
-];
+const optionalPlugins: BetterAuthPlugin[] = [];
 
 if (dev) {
-	plugins.push(openAPI());
+	optionalPlugins.push(openAPI());
 }
-
-// make sure this is the last plugin in the array
-plugins.push(sveltekitCookies(getRequestEvent));
 
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
@@ -54,5 +32,26 @@ export const auth = betterAuth({
 			clientSecret: env.GOOGLE_CLIENT_SECRET,
 		},
 	},
-	plugins,
+	plugins: [
+		...optionalPlugins,
+		organization({
+			teams: {
+				enabled: true,
+				allowRemovingAllTeams: false,
+			},
+			schema: {
+				organization: {
+					additionalFields: {
+						type: {
+							type: 'string',
+							input: false,
+							defaultValue: 'team' as OrgType,
+						},
+					},
+				},
+			},
+		}),
+		admin(),
+		sveltekitCookies(getRequestEvent), // make sure this is the last plugin in the array],
+	],
 });
