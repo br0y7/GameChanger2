@@ -3,16 +3,20 @@ import * as schema from './schema';
 
 export const relations = defineRelations(schema, (r) => ({
 	season: {
-		league: r.one.organization({
-			from: [r.season.leagueId],
+		organization: r.one.organization({
+			from: [r.season.organizationId],
 			to: [r.organization.id],
 		}),
+		teams: r.many.team(),
+		games: r.many.game(),
 	},
 	team: {
 		season: r.one.season({
 			from: [r.team.seasonId],
 			to: [r.season.id],
 		}),
+		players: r.many.player(),
+		coaches: r.many.coach(),
 	},
 	coach: {
 		user: r.one.user({
@@ -38,6 +42,7 @@ export const relations = defineRelations(schema, (r) => ({
 			from: [r.game.awayTeamId],
 			to: [r.team.id],
 		}),
+		playerStats: r.many.playerGameStat(),
 	},
 	player: {
 		team: r.one.team({
@@ -49,6 +54,8 @@ export const relations = defineRelations(schema, (r) => ({
 			to: [r.user.id],
 			optional: true,
 		}),
+		gameStats: r.many.playerGameStat(),
+		followers: r.many.playerFollower(),
 	},
 	playerFollower: {
 		user: r.one.user({

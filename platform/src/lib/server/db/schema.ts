@@ -19,12 +19,12 @@ export const season = sqliteTable(
 	{
 		...baseFields,
 		name: text('name').notNull(),
-		leagueId: text('league_id')
+		organizationId: text('organization_id')
 			.notNull()
 			.references(() => organization.id, { onDelete: 'cascade' }),
 		status: text({ enum: ['active', 'completed'] }).default('active'),
 	},
-	(table) => [index('season_leagueId_idx').on(table.leagueId)]
+	(table) => [index('season_organizationId_idx').on(table.organizationId)]
 );
 
 export const team = sqliteTable(
