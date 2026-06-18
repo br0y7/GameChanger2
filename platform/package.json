@@ -59,6 +59,7 @@
 	"type": "module",
 	"dependencies": {
 		"better-auth": "^1.6.15",
-		"mode-watcher": "^1.1.0"
+		"mode-watcher": "^1.1.0",
+		"uuidv7": "^1.2.1"
 	}
 }

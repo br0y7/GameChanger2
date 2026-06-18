@@ -9,7 +9,8 @@ import type { OrgType } from '$lib/types/auth';
 import * as schema from '$lib/server/db/schema';
 import { PUBLIC_APP_URL } from '$env/static/public';
 import { dev } from '$app/environment';
-import type { BetterAuthPlugin } from 'better-auth';
+import { type BetterAuthPlugin } from 'better-auth';
+import { uuidv7 } from 'uuidv7';
 
 const optionalPlugins: BetterAuthPlugin[] = [];
 
@@ -32,13 +33,14 @@ export const auth = betterAuth({
 			clientSecret: env.GOOGLE_CLIENT_SECRET,
 		},
 	},
+	advanced: {
+		database: {
+			generateId: uuidv7,
+		},
+	},
 	plugins: [
 		...optionalPlugins,
 		organization({
-			teams: {
-				enabled: true,
-				allowRemovingAllTeams: false,
-			},
 			schema: {
 				organization: {
 					additionalFields: {
