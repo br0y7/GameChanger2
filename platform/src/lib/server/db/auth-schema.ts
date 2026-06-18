@@ -32,7 +32,6 @@ export const session = sqliteTable(
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
 		activeOrganizationId: text('active_organization_id'),
-		activeTeamId: text('active_team_id'),
 		impersonatedBy: text('impersonated_by'),
 	},
 	(table) => [index('session_userId_idx').on(table.userId)]
@@ -95,38 +94,6 @@ export const organization = sqliteTable(
 	(table) => [uniqueIndex('organization_slug_uidx').on(table.slug)]
 );
 
-export const team = sqliteTable(
-	'team',
-	{
-		id: text('id').primaryKey(),
-		name: text('name').notNull(),
-		organizationId: text('organization_id')
-			.notNull()
-			.references(() => organization.id, { onDelete: 'cascade' }),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-		updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).$onUpdate(() => new Date()),
-	},
-	(table) => [index('team_organizationId_idx').on(table.organizationId)]
-);
-
-export const teamMember = sqliteTable(
-	'team_member',
-	{
-		id: text('id').primaryKey(),
-		teamId: text('team_id')
-			.notNull()
-			.references(() => team.id, { onDelete: 'cascade' }),
-		userId: text('user_id')
-			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' }),
-	},
-	(table) => [
-		index('teamMember_teamId_idx').on(table.teamId),
-		index('teamMember_userId_idx').on(table.userId),
-	]
-);
-
 export const member = sqliteTable(
 	'member',
 	{
@@ -155,7 +122,6 @@ export const invitation = sqliteTable(
 			.references(() => organization.id, { onDelete: 'cascade' }),
 		email: text('email').notNull(),
 		role: text('role'),
-		teamId: text('team_id'),
 		status: text('status').default('pending').notNull(),
 		expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
 		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),

@@ -8,6 +8,23 @@ export const relations = defineRelations(schema, (r) => ({
 			to: [r.organization.id],
 		}),
 	},
+	team: {
+		season: r.one.season({
+			from: [r.team.seasonId],
+			to: [r.season.id],
+		}),
+	},
+	coach: {
+		user: r.one.user({
+			from: [r.coach.userId],
+			to: [r.user.id],
+			optional: true,
+		}),
+		team: r.one.team({
+			from: [r.coach.teamId],
+			to: [r.team.id],
+		}),
+	},
 	game: {
 		season: r.one.season({
 			from: [r.game.seasonId],
@@ -31,6 +48,16 @@ export const relations = defineRelations(schema, (r) => ({
 			from: [r.player.userId],
 			to: [r.user.id],
 			optional: true,
+		}),
+	},
+	playerFollower: {
+		user: r.one.user({
+			from: [r.playerFollower.userId],
+			to: [r.user.id],
+		}),
+		player: r.one.player({
+			from: [r.playerFollower.playerId],
+			to: [r.player.id],
 		}),
 	},
 	playerGameStat: {

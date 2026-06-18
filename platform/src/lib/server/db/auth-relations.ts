@@ -5,8 +5,7 @@ export const authRelations = defineRelations(schema, (r) => ({
 	user: {
 		sessions: r.many.session(),
 		accounts: r.many.account(),
-		teamMembers: r.many.teamMember(),
-		members: r.many.teamMember(),
+		members: r.many.member(),
 		invitations: r.many.invitation(),
 	},
 	session: {
@@ -22,26 +21,8 @@ export const authRelations = defineRelations(schema, (r) => ({
 		}),
 	},
 	organization: {
-		team: r.many.team(),
 		member: r.many.member(),
 		invitation: r.many.invitation(),
-	},
-	team: {
-		organization: r.one.organization({
-			from: [r.team.organizationId],
-			to: [r.organization.id],
-		}),
-		teamMember: r.many.teamMember(),
-	},
-	teamMember: {
-		team: r.one.team({
-			from: [r.teamMember.id],
-			to: [r.team.id],
-		}),
-		user: r.one.user({
-			from: [r.teamMember.id],
-			to: [r.user.id],
-		}),
 	},
 	member: {
 		organization: r.one.organization({
