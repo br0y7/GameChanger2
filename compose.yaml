@@ -1,7 +1,7 @@
 # base compose file
 services:
   db:
-    image: postgres
+    image: postgres:18-alpine
     ports:
       - "5432:5432"
     
