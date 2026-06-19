@@ -5,12 +5,11 @@ import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
 import { organization, admin, openAPI } from 'better-auth/plugins';
-import type { OrgType } from '$lib/types/auth';
 import * as schema from '$lib/server/db/schema';
 import { PUBLIC_APP_URL } from '$env/static/public';
 import { dev } from '$app/environment';
 import { type BetterAuthPlugin } from 'better-auth';
-import { uuidv7 } from 'uuidv7';
+import { type Organization } from '$lib/server/db/schema';
 
 const optionalPlugins: BetterAuthPlugin[] = [];
 
@@ -21,7 +20,7 @@ if (dev) {
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
 	secret: env.BETTER_AUTH_SECRET,
-	database: drizzleAdapter(db, { provider: 'sqlite', schema }),
+	database: drizzleAdapter(db, { provider: 'pg', schema }),
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: false, // TODO: Eventually set to true and test with a local email server
@@ -35,7 +34,7 @@ export const auth = betterAuth({
 	},
 	advanced: {
 		database: {
-			generateId: uuidv7,
+			generateId: false,
 		},
 	},
 	plugins: [
@@ -47,7 +46,7 @@ export const auth = betterAuth({
 						type: {
 							type: 'string',
 							input: false,
-							defaultValue: 'team' as OrgType,
+							defaultValue: 'league' as Organization['type'],
 						},
 					},
 				},

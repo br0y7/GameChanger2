@@ -1,111 +1,94 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { text, index, uniqueIndex, boolean, timestamp, uuid, snakeCase } from 'drizzle-orm/pg-core';
+import { baseFields, creationFields } from './base-schema';
 
-export const user = sqliteTable('user', {
-	id: text('id').primaryKey(),
-	name: text('name').notNull(),
-	email: text('email').notNull().unique(),
-	emailVerified: integer('email_verified', { mode: 'boolean' }).default(false).notNull(),
-	image: text('image'),
-	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-	updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-		.$onUpdate(() => new Date())
-		.notNull(),
-	role: text('role'),
-	banned: integer('banned', { mode: 'boolean' }).default(false),
-	banReason: text('ban_reason'),
-	banExpires: integer('ban_expires', { mode: 'timestamp_ms' }),
+export const user = snakeCase.table('user', {
+	...baseFields,
+	name: text().notNull(),
+	email: text().notNull().unique(),
+	emailVerified: boolean().default(false).notNull(),
+	image: text(),
+	role: text(),
+	banned: boolean().default(false),
+	banReason: text(),
+	banExpires: timestamp(),
 });
 
-export const session = sqliteTable(
+export const session = snakeCase.table(
 	'session',
 	{
-		id: text('id').primaryKey(),
-		expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-		token: text('token').notNull().unique(),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-			.$onUpdate(() => new Date())
-			.notNull(),
-		ipAddress: text('ip_address'),
-		userAgent: text('user_agent'),
-		userId: text('user_id')
+		...baseFields,
+		expiresAt: timestamp().notNull(),
+		token: text().notNull().unique(),
+		ipAddress: text(),
+		userAgent: text(),
+		userId: uuid()
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
-		activeOrganizationId: text('active_organization_id'),
-		impersonatedBy: text('impersonated_by'),
+		activeOrganizationId: text(),
+		impersonatedBy: text(),
 	},
 	(table) => [index('session_userId_idx').on(table.userId)]
 );
 
-export const account = sqliteTable(
+export const account = snakeCase.table(
 	'account',
 	{
-		id: text('id').primaryKey(),
-		accountId: text('account_id').notNull(),
-		providerId: text('provider_id').notNull(),
-		userId: text('user_id')
+		...baseFields,
+		accountId: text().notNull(),
+		providerId: text().notNull(),
+		userId: uuid()
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
-		accessToken: text('access_token'),
-		refreshToken: text('refresh_token'),
-		idToken: text('id_token'),
-		accessTokenExpiresAt: integer('access_token_expires_at', {
-			mode: 'timestamp_ms',
-		}),
-		refreshTokenExpiresAt: integer('refresh_token_expires_at', {
-			mode: 'timestamp_ms',
-		}),
-		scope: text('scope'),
-		password: text('password'),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-			.$onUpdate(() => new Date())
-			.notNull(),
+		accessToken: text(),
+		refreshToken: text(),
+		idToken: text(),
+		accessTokenExpiresAt: timestamp(),
+		refreshTokenExpiresAt: timestamp(),
+		scope: text(),
+		password: text(),
 	},
 	(table) => [index('account_userId_idx').on(table.userId)]
 );
 
-export const verification = sqliteTable(
+export const verification = snakeCase.table(
 	'verification',
 	{
-		id: text('id').primaryKey(),
-		identifier: text('identifier').notNull(),
-		value: text('value').notNull(),
-		expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-			.$onUpdate(() => new Date())
-			.notNull(),
+		...baseFields,
+		identifier: text().notNull(),
+		value: text().notNull(),
+		expiresAt: timestamp().notNull(),
 	},
 	(table) => [index('verification_identifier_idx').on(table.identifier)]
 );
 
-export const organization = sqliteTable(
+export const organization = snakeCase.table(
 	'organization',
 	{
-		id: text('id').primaryKey(),
-		name: text('name').notNull(),
-		slug: text('slug').notNull().unique(),
-		logo: text('logo'),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-		metadata: text('metadata'),
-		type: text('type').default('team').notNull(),
+		...creationFields,
+		name: text().notNull(),
+		slug: text().notNull().unique(),
+		logo: text(),
+		metadata: text(),
+		type: text({ enum: ['team', 'league'] })
+			.notNull()
+			.default('league'),
 	},
 	(table) => [uniqueIndex('organization_slug_uidx').on(table.slug)]
 );
 
-export const member = sqliteTable(
+export type Organization = typeof organization.$inferSelect;
+
+export const member = snakeCase.table(
 	'member',
 	{
-		id: text('id').primaryKey(),
-		organizationId: text('organization_id')
+		...creationFields,
+		organizationId: uuid()
 			.notNull()
 			.references(() => organization.id, { onDelete: 'cascade' }),
-		userId: text('user_id')
+		userId: uuid()
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
-		role: text('role').default('member').notNull(),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+		role: text().default('member').notNull(),
 	},
 	(table) => [
 		index('member_organizationId_idx').on(table.organizationId),
@@ -113,19 +96,18 @@ export const member = sqliteTable(
 	]
 );
 
-export const invitation = sqliteTable(
+export const invitation = snakeCase.table(
 	'invitation',
 	{
-		id: text('id').primaryKey(),
-		organizationId: text('organization_id')
+		...creationFields,
+		organizationId: uuid()
 			.notNull()
 			.references(() => organization.id, { onDelete: 'cascade' }),
-		email: text('email').notNull(),
-		role: text('role'),
-		status: text('status').default('pending').notNull(),
-		expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-		inviterId: text('inviter_id')
+		email: text().notNull(),
+		role: text(),
+		status: text().default('pending').notNull(),
+		expiresAt: timestamp().notNull(),
+		inviterId: uuid()
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
 	},

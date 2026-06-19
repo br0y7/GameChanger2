@@ -1,39 +1,39 @@
-// add custom schema if you need it here
-
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+	text,
+	index,
+	uniqueIndex,
+	timestamp,
+	pgEnum,
+	real,
+	integer,
+	uuid,
+	snakeCase,
+} from 'drizzle-orm/pg-core';
 import { organization, user } from './auth-schema.ts';
-import { uuidv7 } from 'uuidv7';
+import { baseFields, creationFields } from './base-schema.ts';
 
-const baseFields = {
-	id: text('id').primaryKey().$defaultFn(uuidv7),
-	createdAt: integer('created_at', { mode: 'timestamp_ms' })
-		.$defaultFn(() => new Date())
-		.notNull(),
-	updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-		.$onUpdateFn(() => new Date())
-		.notNull(),
-};
+export const seasonStatusEnum = pgEnum('season_status', ['active', 'completed']);
 
-export const season = sqliteTable(
+export const season = snakeCase.table(
 	'season',
 	{
 		...baseFields,
-		name: text('name').notNull(),
-		organizationId: text('organization_id')
+		name: text().notNull(),
+		organizationId: uuid()
 			.notNull()
 			.references(() => organization.id, { onDelete: 'cascade' }),
-		status: text({ enum: ['active', 'completed'] }).default('active'),
+		status: seasonStatusEnum().notNull().default('active'),
 	},
 	(table) => [index('season_organizationId_idx').on(table.organizationId)]
 );
 
-export const team = sqliteTable(
+export const team = snakeCase.table(
 	'team',
 	{
 		...baseFields,
-		name: text('name').notNull(),
-		slug: text('slug').notNull().unique(),
-		seasonId: text('season_id')
+		name: text().notNull(),
+		slug: text().notNull().unique(),
+		seasonId: uuid()
 			.notNull()
 			.references(() => season.id, { onDelete: 'cascade' }),
 	},
@@ -43,14 +43,14 @@ export const team = sqliteTable(
 	]
 );
 
-export const coach = sqliteTable(
+export const coach = snakeCase.table(
 	'coach',
 	{
 		...baseFields,
-		name: text('name').notNull(),
+		name: text().notNull(),
 		// nullable, organizer creates a record then invites a coach
-		userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
-		teamId: text('team_id')
+		userId: uuid().references(() => user.id, { onDelete: 'set null' }),
+		teamId: uuid()
 			.notNull()
 			.references(() => team.id, { onDelete: 'cascade' }),
 		// potentially could add 'type/role' if you want to disambiguate head, assistant coach
@@ -61,31 +61,33 @@ export const coach = sqliteTable(
 	]
 );
 
-export const game = sqliteTable(
+export const gameStatusEnum = pgEnum('game_status', ['upcoming', 'completed', 'cancelled']);
+
+export const game = snakeCase.table(
 	'game',
 	{
 		...baseFields,
-		seasonId: text('season_id')
+		seasonId: uuid()
 			.notNull()
 			.references(() => organization.id, { onDelete: 'cascade' }),
-		homeTeamId: text('home_team_id')
+		homeTeamId: uuid()
 			.notNull()
 			.references(() => team.id, { onDelete: 'cascade' }),
-		awayTeamId: text('away_team_id')
+		awayTeamId: uuid()
 			.notNull()
 			.references(() => team.id, { onDelete: 'cascade' }),
-		name: text('name').notNull(),
-		venue: text('venue'),
+		name: text().notNull(),
+		venue: text(),
 
 		// filled after completing the game for caching reasons (less db lookup)
-		homeTeamScore: integer('home_team_score').default(0),
-		awayTeamScore: integer('away_team_score').default(0),
+		homeTeamScore: integer().default(0),
+		awayTeamScore: integer().default(0),
 
 		// for new records, nullable for old data
-		scheduledAt: integer('scheduled_at', { mode: 'timestamp_ms' }),
-		completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
+		scheduledAt: timestamp(),
+		completedAt: timestamp(),
 
-		status: text({ enum: ['upcoming', 'completed', 'cancelled'] }).default('upcoming'),
+		status: gameStatusEnum().default('upcoming'),
 	},
 	(table) => [
 		index('game_seasonId_idx').on(table.seasonId),
@@ -94,19 +96,19 @@ export const game = sqliteTable(
 	]
 );
 
-export const player = sqliteTable(
+export const player = snakeCase.table(
 	'player',
 	{
 		...baseFields,
-		name: text('name').notNull(),
-		jerseyNumber: integer('jersey_number'),
-		teamId: text('team_id')
+		name: text().notNull(),
+		jerseyNumber: integer(),
+		teamId: uuid()
 			.notNull()
 			.references(() => team.id, { onDelete: 'cascade' }),
 
 		// connects a 'player' to a real user account, nullable since a player
 		// can be made without it being connected to a real user yet.
-		userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+		userId: uuid().references(() => user.id, { onDelete: 'set null' }),
 	},
 	(table) => [
 		index('player_teamId_idx').on(table.teamId),
@@ -114,19 +116,26 @@ export const player = sqliteTable(
 	]
 );
 
-export const playerFollower = sqliteTable(
+export const relationshipEnum = pgEnum('follower_relationship', [
+	'fan',
+	'parent',
+	'relative',
+	'guardian',
+	'scout',
+	'other',
+]);
+
+export const playerFollower = snakeCase.table(
 	'player_follower',
 	{
-		...baseFields,
-		userId: text('user_id')
+		...creationFields,
+		userId: uuid()
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
-		playerId: text('player_id')
+		playerId: uuid()
 			.notNull()
 			.references(() => player.id, { onDelete: 'cascade' }),
-		relationship: text({
-			enum: ['parent', 'guardian', 'relative', 'fan', 'scout', 'other'],
-		}).default('fan'),
+		relationship: relationshipEnum().default('fan'),
 	},
 	(table) => [
 		index('playerFollower_userId_idx').on(table.userId),
@@ -134,39 +143,43 @@ export const playerFollower = sqliteTable(
 	]
 );
 
-export const playerGameStat = sqliteTable(
+export const playerGameStat = snakeCase.table(
 	'player_game_stat',
 	{
 		...baseFields,
-		playerId: text('player_id').references(() => team.id, { onDelete: 'cascade' }),
-		gameId: text('game_id').references(() => game.id, { onDelete: 'cascade' }),
+		playerId: uuid()
+			.notNull()
+			.references(() => team.id, { onDelete: 'cascade' }),
+		gameId: uuid()
+			.notNull()
+			.references(() => game.id, { onDelete: 'cascade' }),
 
 		// raw stats per game no % since percentages can be derived from raw stats
 
 		// minutes played
-		min: real('min').default(0.0).notNull(),
+		min: real().default(0.0).notNull(),
 		// field goals made & attempt
-		fgm: integer('fgm').default(0).notNull(),
-		fga: integer('fga').default(0).notNull(),
+		fgm: integer().default(0).notNull(),
+		fga: integer().default(0).notNull(),
 		// three points made & attempt
-		fg3m: integer('fg3m').default(0).notNull(),
-		fg3a: integer('fg3a').default(0).notNull(),
+		fg3m: integer().default(0).notNull(),
+		fg3a: integer().default(0).notNull(),
 		// free throws made & attempt
-		ftm: integer('ftm').default(0).notNull(),
-		fta: integer('fta').default(0).notNull(),
+		ftm: integer().default(0).notNull(),
+		fta: integer().default(0).notNull(),
 		// offensive & defensive rebounds
-		oreb: integer('oreb').default(0).notNull(),
-		dreb: integer('dreb').default(0).notNull(),
+		oreb: integer().default(0).notNull(),
+		dreb: integer().default(0).notNull(),
 		// assists
-		ast: integer('ast').default(0).notNull(),
+		ast: integer().default(0).notNull(),
 		// turnovers
-		tov: integer('tov').default(0).notNull(),
+		tov: integer().default(0).notNull(),
 		// steals
-		stl: integer('stl').default(0).notNull(),
+		stl: integer().default(0).notNull(),
 		// blocks
-		blk: integer('blk').default(0).notNull(),
+		blk: integer().default(0).notNull(),
 		// personal fouls
-		pf: integer('pf').default(0).notNull(),
+		pf: integer().default(0).notNull(),
 	},
 	(table) => [
 		index('playerGameStat_playerId_idx').on(table.playerId),

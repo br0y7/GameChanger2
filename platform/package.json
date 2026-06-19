@@ -49,11 +49,10 @@
 		"format": "prettier --write .",
 		"db:push": "bun x drizzle-kit push",
 		"db:generate": "bun x drizzle-kit generate",
-		"db:migrate": "bun run ./scripts/migrate.ts",
+		"db:migrate": "bun x drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
 		"auth:schema-once-drizzle_v1-not-beta": "better-auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes",
 		"auth:schema": "bun x auth@latest generate",
-		"create-oauth-client": "vite-node --options.transformMode.ssr='/.*/' ./scripts/create-oauth-client.ts",
 		"admin:promote": "vite-node --options.transformMode.ssr='/.*/' ./scripts/promote-to-admin.ts"
 	},
 	"type": "module",
