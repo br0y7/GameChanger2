@@ -14,6 +14,7 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import EmailIcon from '@lucide/svelte/icons/mail-check';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
+	import InfoIcon from '@lucide/svelte/icons/info';
 	import FieldErrors from '$lib/components/FieldErrors.svelte';
 	import Collapsible from '$lib/components/Collapsible.svelte';
 
@@ -24,7 +25,7 @@
 	}: HTMLAttributes<HTMLDivElement> & { form: PageProps['form'] } = $props();
 </script>
 
-<div class={cn('flex flex-col gap-6', className)} {...restProps}>
+<div class={cn('flex flex-col', className)} {...restProps}>
 	<form method="POST" use:enhance>
 		<Field.Group>
 			<div class="flex flex-col items-center gap-2 text-center">
@@ -54,28 +55,36 @@
 				<FieldErrors errors={form?.error?.email} />
 			</Field.Field>
 			<PasswordField errors={form?.error?.password} />
-			<Field.Field>
-				<Button type="submit">Create Account</Button>
-			</Field.Field>
-			<Collapsible isOpen={form?.success}>
-				<Alert.Root>
-					<EmailIcon />
-					<Alert.Title>Success!</Alert.Title>
-					<Alert.Description>Check your email to complete the setup.</Alert.Description>
-				</Alert.Root>
-			</Collapsible>
-			<Collapsible isOpen={!!form?.error?.message}>
-				<Alert.Root variant="destructive">
-					<ErrorIcon />
-					<Alert.Title>Error</Alert.Title>
-					<Alert.Description>{form?.error?.message}</Alert.Description>
-				</Alert.Root>
-			</Collapsible>
-			<div class="flex flex-col items-center">
+			<div class="flex flex-col items-center gap-3">
+				<Field.Field>
+					<Button type="submit">Create Account</Button>
+				</Field.Field>
+				<Collapsible isOpen={form?.success}>
+					<Alert.Root>
+						<EmailIcon />
+						<Alert.Title>Success!</Alert.Title>
+						<Alert.Description>Check your email to complete the setup.</Alert.Description>
+					</Alert.Root>
+				</Collapsible>
+				<Collapsible isOpen={!!form?.error?.message}>
+					<Alert.Root variant="destructive">
+						<ErrorIcon />
+						<Alert.Title>Error</Alert.Title>
+						<Alert.Description>{form?.error?.message}</Alert.Description>
+					</Alert.Root>
+				</Collapsible>
 				<Field.Description>
 					Already have an account? <a href={resolve('/login')}>Log In</a>
 				</Field.Description>
 			</div>
+			<Alert.Root variant="no-border">
+				<InfoIcon class="size-6 stroke-info" />
+				<Alert.Title class="text-base text-info-foreground">Player, Parent, or Fan?</Alert.Title>
+				<Alert.Description class="text-foreground">
+					You need an invite link to join. Check your email for an invitation, or ask your coach or
+					organizer for access.
+				</Alert.Description>
+			</Alert.Root>
 		</Field.Group>
 	</form>
 	<!-- <Field.Description class="px-6 text-center">
