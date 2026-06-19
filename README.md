@@ -25,7 +25,7 @@ It is located in the `platform` folder. Make sure you change directory `cd` to `
 bun --bun run dev
 ```
 
-## Getting Started
+## Getting Started with Developing
 
 1. Open your preferred terminal, `cmd` or `Windows Terminal`, ensure you have git installed by running `git`
    - [install git](https://git-scm.com/install/)
@@ -35,4 +35,21 @@ bun --bun run dev
 git clone https://github.com/br0y7/GameChanger2.git your-gamechanger-folder
 ```
 
-3. Check the `README.md` for `dashboard` and `platform` for more instructions for each.
+3. Install [Docker Desktop](https://docs.docker.com/desktop/)
+   - [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/)
+   > For Windows, use WSL
+
+4. Copy the `.env.example` to `.env`
+
+```
+cp .env.example .env
+```
+5. For the `.env` just fill the `POSTGRES_PASSWORD` with a long and secure password
+
+6. On the terminal in `your-gamechanger-folder` in `WSL`, run the docker compose command to start the `PostgreSQL` database and `MailCrab`
+
+```
+docker compose up
+
+```
+7. Check the `README.md` for `dashboard` and `platform` for more instructions for each app.
