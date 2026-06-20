@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { uuid, timestamp } from 'drizzle-orm/pg-core';
+import { uuid, timestamp, text } from 'drizzle-orm/pg-core';
 
 export const creationFields = {
 	id: uuid('id')
@@ -13,4 +13,9 @@ export const baseFields = {
 	updatedAt: timestamp('updated_at')
 		.$onUpdateFn(() => new Date())
 		.notNull(),
+};
+
+export const nameSlugFields = {
+	name: text().notNull(),
+	slug: text().notNull().unique(),
 };

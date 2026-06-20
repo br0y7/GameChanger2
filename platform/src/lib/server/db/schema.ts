@@ -10,7 +10,7 @@ import {
 	snakeCase,
 } from 'drizzle-orm/pg-core';
 import { organization, user } from './auth-schema.ts';
-import { baseFields, creationFields } from './base-schema.ts';
+import { baseFields, creationFields, nameSlugFields } from './base-schema.ts';
 
 export const seasonStatusEnum = pgEnum('season_status', ['active', 'completed']);
 
@@ -18,21 +18,23 @@ export const season = snakeCase.table(
 	'season',
 	{
 		...baseFields,
-		name: text().notNull(),
+		...nameSlugFields,
 		organizationId: uuid()
 			.notNull()
 			.references(() => organization.id, { onDelete: 'cascade' }),
 		status: seasonStatusEnum().notNull().default('active'),
 	},
-	(table) => [index('season_organizationId_idx').on(table.organizationId)]
+	(table) => [
+		index('season_organizationId_idx').on(table.organizationId),
+		uniqueIndex('season_slug_uidx').on(table.organizationId, table.slug),
+	]
 );
 
 export const team = snakeCase.table(
 	'team',
 	{
 		...baseFields,
-		name: text().notNull(),
-		slug: text().notNull().unique(),
+		...nameSlugFields,
 		seasonId: uuid()
 			.notNull()
 			.references(() => season.id, { onDelete: 'cascade' }),
@@ -202,7 +204,7 @@ export const onboardingStatus = pgEnum('onboarding_status', [
 
 export const userOnboarding = snakeCase.table('user_onboarding', {
 	...baseFields,
-	role: onboardingStatus(),
+	role: onboardingRole(),
 	status: onboardingStatus().default('not_started').notNull(),
 	currentStep: text().default('role-selection').notNull(),
 });
