@@ -73,9 +73,9 @@
 			<Field.Field>
 				<Field.Label for="email">Email</Field.Label>
 				<Input id="email" name="email" type="text" required />
-				<FieldErrorList errors={form?.error?.email} />
+				<FieldErrorList errors={form?.errors?.email} />
 			</Field.Field>
-			<PasswordField errors={form?.error?.password} />
+			<PasswordField errors={form?.errors?.password} />
 			<Field.Field>
 				<Button type="submit">
 					{#if isSubmitting}

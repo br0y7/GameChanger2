@@ -1,6 +1,6 @@
 import { auth } from '$lib/server/auth';
 import { serverLogger } from '$lib/server/logger';
-import { fail, type ActionFailure } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 import { isAPIError } from 'better-auth/api';
 import { z } from 'zod';
 
@@ -10,23 +10,15 @@ const signupFormSchema = z.object({
 	password: z.string().min(8, 'Password must be at least 8 characters.'),
 });
 
-type FormResult =
-	| ActionFailure<{
-			error?: {
-				[P in keyof z.infer<typeof signupFormSchema>]?: string[];
-			} & { message?: string };
-	  }>
-	| { success: boolean };
-
 export const actions = {
-	default: async ({ request }): Promise<FormResult> => {
+	default: async ({ request }) => {
 		const data = await request.formData();
 
 		const result = signupFormSchema.safeParse(Object.fromEntries(data));
 
 		if (!result.success) {
 			return fail(400, {
-				error: z.flattenError(result.error).fieldErrors,
+				errors: z.flattenError(result.error).fieldErrors,
 			});
 		}
 

@@ -47,14 +47,14 @@
 			<Field.Field>
 				<Field.Label for="name">Name</Field.Label>
 				<Input id="name" name="name" type="name" />
-				<FieldErrorList errors={form?.error?.name} />
+				<FieldErrorList errors={form?.errors?.name} />
 			</Field.Field>
 			<Field.Field>
 				<Field.Label for="email">Email</Field.Label>
 				<Input id="email" name="email" type="email" required />
-				<FieldErrorList errors={form?.error?.email} />
+				<FieldErrorList errors={form?.errors?.email} />
 			</Field.Field>
-			<PasswordField errors={form?.error?.password} />
+			<PasswordField errors={form?.errors?.password} />
 			<div class="flex flex-col items-center gap-3">
 				<Field.Field>
 					<Button type="submit">Create Account</Button>
