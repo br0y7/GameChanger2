@@ -11,10 +11,18 @@
 		value: string;
 		errors?: string[];
 		required?: boolean;
+		id?: string;
 		label?: string;
 	}
 
-	let { source, value = $bindable(), errors, required = true, label = 'Slug' }: Props = $props();
+	let {
+		source,
+		value = $bindable(),
+		errors,
+		required = true,
+		id = 'slug',
+		label = 'Slug',
+	}: Props = $props();
 	let isCustom = $state(false);
 
 	$effect(() => {
@@ -35,9 +43,9 @@
 </script>
 
 <Field.Field>
-	<Field.Label for="slug">{label}</Field.Label>
+	<Field.Label for={id}>{label}</Field.Label>
 	<div class="relative">
-		<Input bind:value id="slug" name="slug" {required} {onblur} {oninput} />
+		<Input bind:value {id} name="slug" {required} {onblur} {oninput} />
 		{#if isCustom}
 			<Button
 				class="absolute right-0 text-muted-foreground hover:text-foreground transition-colors "
