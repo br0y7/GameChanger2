@@ -13,11 +13,11 @@ export const actions = {
 	default: async ({ request }) => {
 		const data = await request.formData();
 
-		const result = loginFormSchema.safeParse(Object.fromEntries(data));
+		const parsed = loginFormSchema.safeParse(Object.fromEntries(data));
 
-		if (!result.success) {
+		if (!parsed.success) {
 			return fail(400, {
-				errors: z.flattenError(result.error).fieldErrors,
+				errors: z.flattenError(parsed.error).fieldErrors,
 			});
 		}
 
@@ -25,7 +25,7 @@ export const actions = {
 			const {
 				user: { id },
 			} = await auth.api.signInEmail({
-				body: { ...result.data },
+				body: { ...parsed.data },
 			});
 
 			serverLogger.info('User logged in', { id });
