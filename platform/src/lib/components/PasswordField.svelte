@@ -3,7 +3,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index';
 	import { Label } from '$lib/components/ui/label/index.js';
-	import FieldErrors from './FieldErrors.svelte';
+	import FieldErrorList from './FieldErrorList.svelte';
 
 	let showPassword = $state(false);
 
@@ -32,5 +32,5 @@
 		<Label for="show-pass" class="text-muted-foreground">Show password</Label>
 	</Field.Field>
 
-	<FieldErrors {errors} />
+	<FieldErrorList {errors} />
 </Field.Group>

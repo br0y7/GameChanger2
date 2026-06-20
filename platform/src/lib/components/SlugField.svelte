@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Field from '$lib/components/ui/field/index';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import FieldErrors from './FieldErrors.svelte';
+	import FieldErrorList from './FieldErrorList.svelte';
 	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import Button from './ui/button/button.svelte';
 	import { slugify } from '$lib/utils/string';
@@ -51,4 +51,4 @@
 	</div>
 </Field.Field>
 
-<FieldErrors {errors} />
+<FieldErrorList {errors} />

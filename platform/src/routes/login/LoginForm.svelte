@@ -15,7 +15,7 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
 	import Spinner from '$lib/components/ui/spinner/spinner.svelte';
-	import FieldErrors from '$lib/components/FieldErrors.svelte';
+	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
 	import { PUBLIC_APP_URL } from '$env/static/public';
 
 	let {
@@ -73,7 +73,7 @@
 			<Field.Field>
 				<Field.Label for="email">Email</Field.Label>
 				<Input id="email" name="email" type="text" required />
-				<FieldErrors errors={form?.error?.email} />
+				<FieldErrorList errors={form?.error?.email} />
 			</Field.Field>
 			<PasswordField errors={form?.error?.password} />
 			<Field.Field>

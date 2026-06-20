@@ -15,7 +15,7 @@
 	import EmailIcon from '@lucide/svelte/icons/mail-check';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
 	import InfoIcon from '@lucide/svelte/icons/info';
-	import FieldErrors from '$lib/components/FieldErrors.svelte';
+	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
 	import Collapsible from '$lib/components/Collapsible.svelte';
 
 	let {
@@ -47,12 +47,12 @@
 			<Field.Field>
 				<Field.Label for="name">Name</Field.Label>
 				<Input id="name" name="name" type="name" />
-				<FieldErrors errors={form?.error?.name} />
+				<FieldErrorList errors={form?.error?.name} />
 			</Field.Field>
 			<Field.Field>
 				<Field.Label for="email">Email</Field.Label>
 				<Input id="email" name="email" type="email" required />
-				<FieldErrors errors={form?.error?.email} />
+				<FieldErrorList errors={form?.error?.email} />
 			</Field.Field>
 			<PasswordField errors={form?.error?.password} />
 			<div class="flex flex-col items-center gap-3">
