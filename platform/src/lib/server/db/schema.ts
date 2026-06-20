@@ -187,4 +187,26 @@ export const playerGameStat = snakeCase.table(
 	]
 );
 
+export const onboardingRole = pgEnum('onboarding_role', [
+	'organizer',
+	'coach',
+	'player',
+	'player_follower',
+]);
+
+export const onboardingStatus = pgEnum('onboarding_status', [
+	'not_started',
+	'in_progress',
+	'complete',
+]);
+
+export const userOnboarding = snakeCase.table('user_onboarding', {
+	...baseFields,
+	role: onboardingStatus(),
+	status: onboardingStatus().default('not_started').notNull(),
+	currentStep: text().default('role-selection').notNull(),
+});
+
+export type Onboarding = typeof userOnboarding.$inferSelect;
+
 export * from './auth-schema.ts';
