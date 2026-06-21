@@ -38,7 +38,6 @@ export const auth = betterAuth({
 		},
 	},
 	plugins: [
-		...optionalPlugins,
 		organization({
 			schema: {
 				organization: {
@@ -53,6 +52,10 @@ export const auth = betterAuth({
 			},
 		}),
 		admin(),
+		...optionalPlugins,
 		sveltekitCookies(getRequestEvent), // make sure this is the last plugin in the array],
 	],
 });
+
+export type Session = typeof auth.$Infer.Session;
+export type User = Session['user'];
