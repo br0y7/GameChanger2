@@ -202,11 +202,16 @@ export const onboardingStatus = pgEnum('onboarding_status', [
 	'complete',
 ]);
 
+export const ONBOARDING_DEFAULT_STEP = 'not-started';
+
 export const userOnboarding = snakeCase.table('user_onboarding', {
 	...baseFields,
 	role: onboardingRole(),
 	status: onboardingStatus().default('not_started').notNull(),
-	currentStep: text().default('role-selection').notNull(),
+	currentStep: text().default(ONBOARDING_DEFAULT_STEP).notNull(),
+	userId: uuid()
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
 });
 
 export type Onboarding = typeof userOnboarding.$inferSelect;

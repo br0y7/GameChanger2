@@ -55,6 +55,17 @@ export const auth = betterAuth({
 		...optionalPlugins,
 		sveltekitCookies(getRequestEvent), // make sure this is the last plugin in the array],
 	],
+	databaseHooks: {
+		user: {
+			create: {
+				after: async (user) => {
+					await db.insert(schema.userOnboarding).values({
+						userId: user.id,
+					});
+				},
+			},
+		},
+	},
 });
 
 export type Session = typeof auth.$Infer.Session;
