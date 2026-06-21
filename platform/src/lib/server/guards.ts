@@ -1,11 +1,3 @@
-import { auth } from './auth';
+import { type User } from './auth';
 
-export async function isAdmin(userId: string) {
-	try {
-		const user = await auth.api.getUser({ query: { id: userId } });
-
-		return user.role === 'admin';
-	} catch {
-		return false;
-	}
-}
+export const isAdmin = (user: User) => user.role === 'admin';
