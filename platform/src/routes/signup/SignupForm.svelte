@@ -67,7 +67,7 @@
 				<Field.Separator>Or</Field.Separator>
 				<Field.Field>
 					<Field.Label for="name">Name</Field.Label>
-					<Input id="name" name="name" type="name" />
+					<Input id="name" name="name" type="name" required />
 					<FieldErrorList errors={form?.errors?.name} />
 				</Field.Field>
 				<Field.Field>
