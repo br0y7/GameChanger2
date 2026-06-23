@@ -4,9 +4,11 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import OnboardingCard from './OnboardingCard.svelte';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
-	import { resolve } from '$app/paths';
+	import type { PageProps } from './$types';
 
-	let name = 'Placeholder';
+	let { data }: PageProps = $props();
+
+	let name = $derived(data.user.name);
 
 	const coachFeatures = [
 		'Create and customize a team roster',
@@ -45,7 +47,7 @@
 				title="I'm a Coach"
 				description="Manage your roster and track team stats."
 				callToAction="Create your Roster"
-				href={resolve('/onboarding/coach')}
+				role="coach"
 			>
 				<ul class="space-y-2 text-sm text-muted-foreground">
 					{#each coachFeatures as feature (feature)}
@@ -62,7 +64,7 @@
 				title="I'm a League Organizer"
 				description="Manage your seasons, teams, and games."
 				callToAction="Create your League"
-				href={resolve('/onboarding/league-organizer')}
+				role="organizer"
 			>
 				<ul class="space-y-2 text-sm text-muted-foreground">
 					{#each organizerFeatures as feature (feature)}
