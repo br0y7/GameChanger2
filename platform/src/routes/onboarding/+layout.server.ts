@@ -11,18 +11,18 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
 
 	if (!user || !onboarding) {
 		serverLogger.warn('No user but hit onboarding');
-		redirect(302, resolve('/login'));
+		redirect(303, resolve('/login'));
 	}
 
 	if (isAdmin(user) || onboarding.status === 'complete') {
-		redirect(302, PUBLIC_APP_URL);
+		redirect(303, PUBLIC_APP_URL);
 	}
 
 	const BASE_ROUTE: RouteId = '/onboarding';
 
 	if (!onboarding.role || onboarding.status !== 'in_progress') {
 		if (url.pathname !== BASE_ROUTE) {
-			redirect(302, BASE_ROUTE);
+			redirect(303, BASE_ROUTE);
 		}
 
 		return { onboarding, user };
@@ -38,7 +38,7 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
 
 	if (targetRoute && !url.pathname.startsWith(targetRoute)) {
 		serverLogger.warn(`Redirected from ${url.pathname} to ${targetRoute}`);
-		redirect(302, targetRoute);
+		redirect(303, targetRoute);
 	}
 
 	return { onboarding, user };
