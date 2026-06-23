@@ -1,18 +1,15 @@
 import { resolve } from '$app/paths';
+import { ORG_CREATOR_ROLES, type OnboardingOrgCreatorRole } from '$lib/onboarding/roles';
 import { db } from '$lib/server/db/index.js';
-import { userOnboarding, type Onboarding } from '$lib/server/db/schema.js';
+import { userOnboarding } from '$lib/server/db/schema.js';
 import { serverLogger } from '$lib/server/logger.js';
 import { error, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-const onboardingPageRoles = ['coach', 'organizer'] satisfies Onboarding['role'][];
-
 const roleSchema = z.object({
-	role: z.enum(onboardingPageRoles),
+	role: z.enum(ORG_CREATOR_ROLES),
 });
-
-export type OnboardingPageRole = (typeof onboardingPageRoles)[number];
 
 export const actions = {
 	default: async ({ request, locals }) => {
@@ -56,7 +53,7 @@ export const actions = {
 			default:
 				// For type safety, won't run unless you add a role
 				// and not add a case for it (not addressing the `satisfies` error)
-				return error(500, `${role satisfies typeof onboardingPageRoles}`);
+				return error(500, `${role satisfies OnboardingOrgCreatorRole[]}`);
 		}
 	},
 };

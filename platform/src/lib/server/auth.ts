@@ -10,6 +10,10 @@ import { PUBLIC_APP_URL } from '$env/static/public';
 import { dev } from '$app/environment';
 import { type BetterAuthPlugin } from 'better-auth';
 import { type Organization } from '$lib/server/db/schema';
+import { serverLogger } from './logger';
+import { isAdmin } from './guards';
+import { ORG_CREATOR_ROLES } from '$lib/onboarding/roles';
+import { COACH_START_STEP, ORGANIZER_START_STEP } from '$lib/onboarding/steps';
 
 const optionalPlugins: BetterAuthPlugin[] = [];
 
@@ -49,6 +53,34 @@ export const auth = betterAuth({
 						},
 					},
 				},
+			},
+			/// This can be a function that returns a boolean if you want a user
+			// to potentially manage multiple leagues but you want to limit it.
+			// One for now for simplicity
+			organizationLimit: 1,
+			allowUserToCreateOrganization: async (user) => {
+				try {
+					if (isAdmin(user as User)) return true;
+
+					const onboarding = await db.query.userOnboarding.findFirst({
+						where: {
+							userId: user.id,
+						},
+					});
+
+					const ORG_CREATOR_SET = new Set<string>(ORG_CREATOR_ROLES);
+
+					if (!onboarding || !onboarding.role || !ORG_CREATOR_SET.has(onboarding.role)) {
+						return false;
+					}
+
+					const ALLOWED_STEPS = new Set<string>([ORGANIZER_START_STEP, COACH_START_STEP]);
+
+					return ALLOWED_STEPS.has(onboarding.currentStep);
+				} catch (err) {
+					serverLogger.error(err);
+					return false;
+				}
 			},
 		}),
 		admin(),

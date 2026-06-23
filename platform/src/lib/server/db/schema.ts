@@ -11,6 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { organization, user } from './auth-schema.ts';
 import { baseFields, creationFields, nameSlugFields } from './base-schema.ts';
+import { ONBOARDING_DEFAULT_STEP } from '$lib/onboarding/steps';
 
 export const seasonStatusEnum = pgEnum('season_status', ['active', 'completed']);
 
@@ -29,6 +30,8 @@ export const season = snakeCase.table(
 		uniqueIndex('season_slug_uidx').on(table.organizationId, table.slug),
 	]
 );
+
+export type Season = typeof season.$inferSelect;
 
 export const team = snakeCase.table(
 	'team',
@@ -201,8 +204,6 @@ export const onboardingStatus = pgEnum('onboarding_status', [
 	'in_progress',
 	'complete',
 ]);
-
-export const ONBOARDING_DEFAULT_STEP = 'not-started';
 
 export const userOnboarding = snakeCase.table('user_onboarding', {
 	...baseFields,

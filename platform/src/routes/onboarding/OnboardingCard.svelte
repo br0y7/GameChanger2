@@ -3,11 +3,11 @@
 	import * as Card from '$lib/components/ui/card';
 	import { cn } from '$lib/utils';
 	import type { Snippet } from 'svelte';
-	import type { OnboardingPageRole } from './+page.server';
 	import { enhance } from '$app/forms';
+	import type { OnboardingOrgCreatorRole } from '$lib/onboarding/roles';
 
 	interface Props {
-		role: OnboardingPageRole;
+		role: OnboardingOrgCreatorRole;
 		title: string;
 		description: string;
 		callToAction: string;
@@ -26,7 +26,7 @@
 				// Will not run, only for type safety.
 				// If you add another role and not put a label
 				// `satisies` will complain
-				return `Select ${role satisfies OnboardingPageRole[]}`;
+				return `Select ${role satisfies OnboardingOrgCreatorRole[]}`;
 		}
 	};
 </script>
