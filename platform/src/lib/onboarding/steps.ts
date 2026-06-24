@@ -11,6 +11,18 @@ export const ORGANIZER_STEPS = [
 
 export const ORGANIZER_START_STEP = ORGANIZER_STEPS[0];
 
-export const COACH_STEPS = ['create-team', 'create-season', 'invite-players', DONE_STEP] as const;
+export type OrganizerOnboardingStep = (typeof ORGANIZER_STEPS)[number];
+
+export const NEXT_ORGANIZER_ONBOARDING_STEP: Record<
+	OrganizerOnboardingStep,
+	OrganizerOnboardingStep
+> = {
+	'create-league': 'create-season',
+	'create-season': 'setup-league',
+	'setup-league': DONE_STEP,
+	[DONE_STEP]: DONE_STEP,
+};
+
+export const COACH_STEPS = ['create-team', 'invite-players', DONE_STEP] as const;
 
 export const COACH_START_STEP = COACH_STEPS[0];

@@ -1,5 +1,6 @@
 import { resolve } from '$app/paths';
 import { ORG_CREATOR_ROLES, type OnboardingOrgCreatorRole } from '$lib/onboarding/roles';
+import { COACH_START_STEP, ORGANIZER_START_STEP } from '$lib/onboarding/steps.js';
 import { db } from '$lib/server/db/index.js';
 import { userOnboarding } from '$lib/server/db/schema.js';
 import { serverLogger } from '$lib/server/logger.js';
@@ -35,11 +36,26 @@ export const actions = {
 			return error(500, 'No onboarding on /onboarding/+page.server.ts');
 		}
 
+		let currentStep;
+
+		switch (role) {
+			case 'organizer':
+				currentStep = ORGANIZER_START_STEP;
+				break;
+			case 'coach':
+				currentStep = COACH_START_STEP;
+				break;
+			default:
+				// For type safety only, 'satisfies' will error if you don't code each case.
+				return error(500, `${role satisfies OnboardingOrgCreatorRole[]}`);
+		}
+
 		await db
 			.update(userOnboarding)
 			.set({
 				role,
 				status: 'in_progress',
+				currentStep,
 			})
 			.where(eq(userOnboarding.id, onboarding.id));
 
@@ -51,8 +67,7 @@ export const actions = {
 			case 'coach':
 				return redirect(303, resolve('/onboarding/coach'));
 			default:
-				// For type safety, won't run unless you add a role
-				// and not add a case for it (not addressing the `satisfies` error)
+				// For type safety only, 'satisfies' will error if you don't code each case.
 				return error(500, `${role satisfies OnboardingOrgCreatorRole[]}`);
 		}
 	},
