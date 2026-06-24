@@ -31,7 +31,7 @@
 	};
 </script>
 
-<form method="post" use:enhance>
+<form method="post" use:enhance class="flex flex-col">
 	<input type="hidden" name="role" value={role} />
 	<button type="submit" aria-label={getAccessibilityLabel()}>
 		<Card.Root
