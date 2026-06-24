@@ -26,13 +26,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 async function advanceOnboardingStep(onboarding: Onboarding) {
 	const currentStep = onboarding.currentStep as OrganizerOnboardingStep;
 	const nextOnboardingStep = NEXT_ORGANIZER_ONBOARDING_STEP[currentStep];
+	const status: Onboarding['status'] = nextOnboardingStep === 'done' ? 'complete' : 'in_progress';
 
-	serverLogger.info(`Organizer onboarding FROM: ${currentStep} TO: ${nextOnboardingStep}`);
+	serverLogger.info(
+		`Organizer Onboarding | USER: ${onboarding.userId} STATUS: ${status} STEP: ${currentStep} -> ${nextOnboardingStep}`
+	);
 
 	await db
 		.update(userOnboarding)
 		.set({
 			currentStep: nextOnboardingStep,
+			status,
 		})
 		.where(eq(userOnboarding.id, onboarding.id));
 }
