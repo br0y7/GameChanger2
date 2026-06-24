@@ -2,20 +2,20 @@ import { auth } from '$lib/server/auth.js';
 import { organization } from '$lib/server/db/auth-schema.js';
 import { db } from '$lib/server/db/index.js';
 import { serverLogger } from '$lib/server/logger.js';
-import { fail, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { z } from 'zod';
 import type { Actions, PageServerLoad } from './$types.js';
 import { resolve } from '$app/paths';
 import { season, userOnboarding, type Onboarding } from '$lib/server/db/schema';
 import { APIError } from 'better-auth';
-import { createLeagueSchema } from '$lib/schemas/league';
+import { createLeagueSchema, type LeagueFormSchema } from '$lib/schemas/league';
 import { createSeasonSchema } from '$lib/schemas/season';
 import {
 	NEXT_ORGANIZER_ONBOARDING_STEP,
 	type OrganizerOnboardingStep,
 } from '$lib/onboarding/steps.js';
 import { isValidOnboarding } from '$lib/server/guards.js';
+import { internal, parseError, unauthorized, validationError } from '$lib/server/fail.js';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!isValidOnboarding('organizer', locals.onboarding)) {
@@ -47,17 +47,15 @@ export const actions = {
 
 		if (!onboarding) {
 			// this shouldn't run, for defensive and type-safety only
-			return fail(400, { error: { message: 'Something went wrong' } });
+			return internal();
 		}
 
 		const data = await request.formData();
 
-		const parsed = await createLeagueSchema.safeParseAsync(Object.fromEntries(data));
+		const parsed = createLeagueSchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return fail(400, {
-				errors: z.flattenError(parsed.error).fieldErrors,
-			});
+			return parseError(parsed.error);
 		}
 
 		try {
@@ -77,7 +75,7 @@ export const actions = {
 				headers: request.headers,
 			});
 
-			serverLogger.info(`Created league, id: ${league.id}`);
+			serverLogger.info(`League created ID: ${league.id}`);
 
 			await advanceOnboardingStep(onboarding);
 
@@ -95,27 +93,19 @@ export const actions = {
 				switch (err.body.code) {
 					case $ERROR_CODES.ORGANIZATION_ALREADY_EXISTS.code:
 					case $ERROR_CODES.ORGANIZATION_SLUG_ALREADY_TAKEN.code:
-						return fail(400, {
-							errors: {
-								slug: [
-									`The slug '${parsed.data.slug}' is already taken. Please use a different one.`,
-								],
-							},
+						return validationError<LeagueFormSchema>({
+							slug: [
+								`The slug '${parsed.data.slug}' is already taken. Please use a different one.`,
+							],
 						});
 					case $ERROR_CODES.YOU_ARE_NOT_ALLOWED_TO_CREATE_A_NEW_ORGANIZATION.code:
 					case $ERROR_CODES.YOU_HAVE_REACHED_THE_MAXIMUM_NUMBER_OF_ORGANIZATIONS.code:
-						return fail(403, {
-							error: {
-								message: err.body.message,
-							},
-						});
+						return internal('You are not allowed to make a league.');
 				}
 			}
 
 			serverLogger.error(err);
-			return fail(500, {
-				error: { message: 'Something went wrong.' },
-			});
+			return internal();
 		}
 	},
 	createSeason: async ({ request, locals }) => {
@@ -123,7 +113,7 @@ export const actions = {
 
 		if (!onboarding) {
 			// this shouldn't run, for defensive and type-safety only
-			return fail(400, { error: { message: 'Something went wrong' } });
+			return internal();
 		}
 
 		const data = await request.formData();
@@ -131,17 +121,13 @@ export const actions = {
 		const parsed = createSeasonSchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return fail(400, {
-				errors: z.flattenError(parsed.error).fieldErrors,
-			});
+			return parseError(parsed.error);
 		}
 
 		try {
 			if (!session?.activeOrganizationId) {
 				serverLogger.error('Tried creating a season but no active organization.');
-				return fail(401, {
-					error: { message: 'Unauthorized.' },
-				});
+				return unauthorized();
 			}
 
 			const [created] = await db
@@ -154,12 +140,12 @@ export const actions = {
 
 			await advanceOnboardingStep(onboarding);
 
+			serverLogger.info(`Season created ID: ${created.id}`);
+
 			return { data: { id: created.id } };
 		} catch (err) {
 			serverLogger.error(err);
-			return fail(500, {
-				error: { message: 'Something went wrong.' },
-			});
+			return internal();
 		}
 	},
 } satisfies Actions;

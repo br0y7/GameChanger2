@@ -1,22 +1,21 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
-	import SlugField from '$lib/components/SlugField.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import Collapsible from '$lib/components/Collapsible.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
-	import type { FormState } from '$lib/forms/types';
+	import type { FormStateProp } from '$lib/forms/types';
 	import type { SeasonFormSchema } from '$lib/schemas/season';
+	import { createEnhanceHandler } from '$lib/forms/enhance';
+	import NameSlugFields from '$lib/forms/NameSlugFields.svelte';
+	import { seasonFormLabels } from '$lib/forms/labels';
 
 	type SuccessResult = { id: string };
 	interface Props {
-		form?: Partial<FormState<SeasonFormSchema, SuccessResult>> | null;
+		form?: FormStateProp<SeasonFormSchema, SuccessResult>;
 		season?: SeasonFormSchema;
-		onSuccess?: (result: SuccessResult) => void;
 	}
 
 	let {
@@ -25,28 +24,14 @@
 			slug: '',
 		}),
 		form,
-		onSuccess,
 	}: Props = $props();
+
 	let submitting = $state(false);
 
-	let errors = $derived(form && 'errors' in form ? form.errors : undefined);
-	let errorMessage = $derived(form && 'error' in form ? form.error?.message : undefined);
-
-	const handleSubmission: SubmitFunction = () => {
-		submitting = true;
-
-		return async ({ update, result }) => {
-			try {
-				await update();
-
-				if (result.type === 'success') {
-					onSuccess?.(result.data as SuccessResult);
-				}
-			} finally {
-				submitting = false;
-			}
-		};
-	};
+	const handleSubmission: SubmitFunction = createEnhanceHandler<SuccessResult>({
+		onStart: () => (submitting = true),
+		onEnd: () => (submitting = false),
+	});
 </script>
 
 <form action="?/createSeason" method="POST" use:enhance={handleSubmission}>
@@ -58,23 +43,12 @@
 					Track teams, schedule games, and log results for your new season.
 				</p>
 			</div>
-			<Field.Field>
-				<Field.Label for="season-name">Season Name</Field.Label>
-				<Input id="season-name" name="name" type="text" bind:value={season.name} />
-				<FieldErrorList errors={errors?.name} />
-			</Field.Field>
-			<SlugField
-				label="Season Slug"
-				id="season-slug"
-				source={season.name}
-				bind:value={season.slug}
-				errors={errors?.slug}
-			/>
-			<Collapsible isOpen={!!errorMessage}>
+			<NameSlugFields {...seasonFormLabels} values={season} errors={form?.errors} />
+			<Collapsible isOpen={!!form?.error}>
 				<Alert.Root variant="destructive">
 					<ErrorIcon />
 					<Alert.Title>Error</Alert.Title>
-					<Alert.Description>{errorMessage}</Alert.Description>
+					<Alert.Description>{form?.error}</Alert.Description>
 				</Alert.Root>
 			</Collapsible>
 			<Field.Field class="mt-6">
