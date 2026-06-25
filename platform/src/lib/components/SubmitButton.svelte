@@ -1,24 +1,25 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { Button } from './ui/button';
+	import { Button, type ButtonProps } from './ui/button';
 	import { Spinner } from './ui/spinner';
-	import type { ClassValue } from 'clsx';
-	import { cn } from '$lib/utils';
 
-	let {
-		children,
-		submitting = false,
-		class: className,
-	}: {
+	interface Props extends ButtonProps {
 		children?: Snippet;
 		submitting?: boolean;
-		class?: ClassValue;
-	} = $props();
+		icon?: Snippet;
+	}
+
+	let { children, submitting = false, icon, ...restProps }: Props = $props();
 </script>
 
-<Button type="submit" disabled={submitting} class={cn(className)}>
+<!-- 
+Spread rest props first so it won't override the specific ones for this button.
+-->
+<Button {...restProps} type="submit" disabled={submitting}>
 	{#if submitting}
 		<Spinner />
+	{:else}
+		{@render icon?.()}
 	{/if}
 	{#if children}
 		{@render children()}
