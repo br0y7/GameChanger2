@@ -8,6 +8,7 @@ import {
 	integer,
 	uuid,
 	snakeCase,
+	unique,
 } from 'drizzle-orm/pg-core';
 import { organization, user } from './auth-schema.ts';
 import { baseFields, creationFields, nameSlugFields } from './base-schema.ts';
@@ -101,6 +102,8 @@ export const game = snakeCase.table(
 	]
 );
 
+export const PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT = 'player_jerseyNumber_team_uq';
+
 export const player = snakeCase.table(
 	'player',
 	{
@@ -118,6 +121,7 @@ export const player = snakeCase.table(
 	(table) => [
 		index('player_teamId_idx').on(table.teamId),
 		index('player_userId_idx').on(table.userId),
+		unique(PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT).on(table.teamId, table.jerseyNumber),
 	]
 );
 
