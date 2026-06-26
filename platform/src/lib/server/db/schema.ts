@@ -9,6 +9,7 @@ import {
 	uuid,
 	snakeCase,
 	unique,
+	varchar,
 } from 'drizzle-orm/pg-core';
 import { organization, user } from './auth-schema.ts';
 import { baseFields, creationFields, nameSlugFields } from './base-schema.ts';
@@ -109,7 +110,7 @@ export const player = snakeCase.table(
 	{
 		...baseFields,
 		name: text().notNull(),
-		jerseyNumber: integer(),
+		jerseyNumber: varchar({ length: 2 }), // supports "00", "01"
 		teamId: uuid()
 			.notNull()
 			.references(() => team.id, { onDelete: 'cascade' }),
@@ -124,6 +125,8 @@ export const player = snakeCase.table(
 		unique(PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT).on(table.teamId, table.jerseyNumber),
 	]
 );
+
+export type Player = typeof player.$inferSelect;
 
 export const relationshipEnum = pgEnum('follower_relationship', [
 	'fan',
