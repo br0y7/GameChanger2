@@ -15,10 +15,13 @@ export function createEnhanceHandler(options: CreateEnhanceOptions): SubmitFunct
 	return () => {
 		options.onStart?.();
 
-		return async ({ update }) => {
+		return async ({ update, result }) => {
 			try {
 				await update();
-				await options.onSuccess?.();
+
+				if (result.type === 'success') {
+					await options.onSuccess?.();
+				}
 			} finally {
 				await options.onEnd?.();
 			}
