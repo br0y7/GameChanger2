@@ -9,7 +9,6 @@
 	import PasswordField from '$lib/components/PasswordField.svelte';
 	import GoogleButton from '$lib/components/GoogleButton.svelte';
 	import { enhance } from '$app/forms';
-	import type { PageProps } from './$types';
 	import Collapsible from '$lib/components/Collapsible.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
@@ -17,12 +16,14 @@
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import { createEnhanceHandler } from '$lib/forms/enhance';
 	import { goto } from '$app/navigation';
+	import type { FormStateProp } from '$lib/forms/types';
+	import type { LoginFormSchema } from '$lib/schemas/auth';
 
-	let {
-		class: className,
-		form,
-		...restProps
-	}: HTMLAttributes<HTMLDivElement> & { form: PageProps['form'] } = $props();
+	interface Props extends HTMLAttributes<HTMLDivElement> {
+		form?: FormStateProp<LoginFormSchema>;
+	}
+
+	let { class: className, form, ...restProps }: Props = $props();
 
 	let submitting = $state(false);
 
@@ -57,11 +58,11 @@
 					<GoogleButton disabled={submitting} />
 				</Field.Field>
 				<Field.Separator>Or</Field.Separator>
-				<Collapsible isOpen={!!form?.error?.message}>
+				<Collapsible isOpen={!!form?.error}>
 					<Alert.Root variant="destructive">
 						<ErrorIcon />
 						<Alert.Title>Error</Alert.Title>
-						<Alert.Description>{form?.error?.message}</Alert.Description>
+						<Alert.Description>{form?.error}</Alert.Description>
 					</Alert.Root>
 				</Collapsible>
 				<Field.Field>

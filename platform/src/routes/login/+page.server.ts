@@ -1,13 +1,8 @@
 import { auth } from '$lib/server/auth';
 import { serverLogger } from '$lib/server/logger';
-import { fail } from '@sveltejs/kit';
 import { isAPIError } from 'better-auth/api';
-import { z } from 'zod';
-
-const loginFormSchema = z.object({
-	email: z.email('Email is invalid.'),
-	password: z.string().min(1, 'Password is required.'),
-});
+import { badRequest, internal, parseError } from '$lib/server/fail';
+import { loginFormSchema } from '$lib/schemas/auth';
 
 export const actions = {
 	default: async ({ request }) => {
@@ -16,9 +11,7 @@ export const actions = {
 		const parsed = loginFormSchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return fail(400, {
-				errors: z.flattenError(parsed.error).fieldErrors,
-			});
+			return parseError(parsed.error);
 		}
 
 		try {
@@ -36,18 +29,12 @@ export const actions = {
 			) {
 				serverLogger.error(error);
 
-				return fail(400, {
-					error: { message: 'Invalid email or password' },
-				});
+				return badRequest('Invalid email or password');
 			}
 
 			serverLogger.error(error);
 
-			return fail(500, {
-				error: { message: 'Something went wrong' },
-			});
+			return internal();
 		}
-
-		return { success: true };
 	},
 };

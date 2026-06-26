@@ -1,14 +1,8 @@
+import { signupFormSchema } from '$lib/schemas/auth';
 import { auth } from '$lib/server/auth';
+import { internal, parseError } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
-import { fail } from '@sveltejs/kit';
 import { isAPIError } from 'better-auth/api';
-import { z } from 'zod';
-
-const signupFormSchema = z.object({
-	name: z.string().min(2, 'Name must be at least 2 characters'),
-	email: z.email('Invalid email'),
-	password: z.string().min(8, 'Password must be at least 8 characters.'),
-});
 
 export const actions = {
 	default: async ({ request }) => {
@@ -17,9 +11,7 @@ export const actions = {
 		const parsed = signupFormSchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return fail(400, {
-				errors: z.flattenError(parsed.error).fieldErrors,
-			});
+			return parseError(parsed.error);
 		}
 
 		try {
@@ -38,18 +30,12 @@ export const actions = {
 				serverLogger.warn('Existing user tried to sign up again.');
 				// Return fake success to prevent user enumeration.
 				// TODO: Notify existing user to login instead in an email.
-				return { success: true };
+				return;
 			}
 
 			serverLogger.error(error);
 
-			return fail(500, {
-				error: {
-					message: 'Something went wrong',
-				},
-			});
+			return internal();
 		}
-
-		return { success: true };
 	},
 };

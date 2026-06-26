@@ -23,3 +23,7 @@ export function parseError(error: ZodError) {
 export function validationError<TSchema>(errors: FieldErrorsState<TSchema>['errors']) {
 	return fail(400, { errors });
 }
+
+export function badRequest(message = 'Bad request') {
+	return fail(400, { error: message });
+}
