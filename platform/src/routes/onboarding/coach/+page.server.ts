@@ -12,8 +12,6 @@ import {
 	PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT,
 	season,
 	team,
-	userOnboarding,
-	type Onboarding,
 } from '$lib/server/db/schema';
 import { APIError } from 'better-auth';
 import { NEXT_COACH_ONBOARDING_STEP, type CoachOnboardingStep } from '$lib/onboarding/steps.js';
@@ -29,6 +27,7 @@ import {
 import { createPlayerSchema, type PlayerFormSchema } from '$lib/schemas/player.js';
 import { SQL } from 'bun';
 import { idOnlySchema } from '$lib/schemas/common.js';
+import { advanceOnboardingStep } from '$lib/server/onboarding';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const { onboarding } = locals;
@@ -66,24 +65,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 		return { team };
 	}
 };
-
-async function advanceOnboardingStep(onboarding: Onboarding) {
-	const currentStep = onboarding.currentStep as CoachOnboardingStep;
-	const nextOnboardingStep = NEXT_COACH_ONBOARDING_STEP[currentStep];
-	const status: Onboarding['status'] = nextOnboardingStep === 'done' ? 'complete' : 'in_progress';
-
-	serverLogger.info(
-		`Coach Onboarding | USER: ${onboarding.userId} STATUS: ${status} STEP: ${currentStep} -> ${nextOnboardingStep}`
-	);
-
-	await db
-		.update(userOnboarding)
-		.set({
-			currentStep: nextOnboardingStep,
-			status,
-		})
-		.where(eq(userOnboarding.id, onboarding.id));
-}
 
 export const actions = {
 	createTeam: async ({ request, locals }) => {
@@ -151,7 +132,7 @@ export const actions = {
 
 			serverLogger.info(`Coach created ID: ${createdCoach.id}`);
 
-			await advanceOnboardingStep(onboarding);
+			await advanceOnboardingStep(onboarding, 'coach', NEXT_COACH_ONBOARDING_STEP);
 
 			return {
 				data: {
@@ -274,7 +255,7 @@ export const actions = {
 			return internal();
 		}
 
-		// TODO: Add the redirect and remove this
+		// TODO: Add the advanceOnboardingStep then redirect, and remove line below
 		await new Promise((r) => setTimeout(r, 3000));
 
 		return true;

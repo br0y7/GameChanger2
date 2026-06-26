@@ -6,40 +6,20 @@ import { redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types.js';
 import { resolve } from '$app/paths';
-import { season, userOnboarding, type Onboarding } from '$lib/server/db/schema';
+import { season } from '$lib/server/db/schema';
 import { APIError } from 'better-auth';
 import { createLeagueSchema, type LeagueFormSchema } from '$lib/schemas/league';
 import { createSeasonSchema } from '$lib/schemas/season';
-import {
-	NEXT_ORGANIZER_ONBOARDING_STEP,
-	type OrganizerOnboardingStep,
-} from '$lib/onboarding/steps.js';
+import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps.js';
 import { isValidOnboarding } from '$lib/server/guards.js';
 import { internal, parseError, unauthorized, validationError } from '$lib/server/fail.js';
+import { advanceOnboardingStep } from '$lib/server/onboarding';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!isValidOnboarding('organizer', locals.onboarding)) {
 		redirect(303, resolve('/onboarding'));
 	}
 };
-
-async function advanceOnboardingStep(onboarding: Onboarding) {
-	const currentStep = onboarding.currentStep as OrganizerOnboardingStep;
-	const nextOnboardingStep = NEXT_ORGANIZER_ONBOARDING_STEP[currentStep];
-	const status: Onboarding['status'] = nextOnboardingStep === 'done' ? 'complete' : 'in_progress';
-
-	serverLogger.info(
-		`Organizer Onboarding | USER: ${onboarding.userId} STATUS: ${status} STEP: ${currentStep} -> ${nextOnboardingStep}`
-	);
-
-	await db
-		.update(userOnboarding)
-		.set({
-			currentStep: nextOnboardingStep,
-			status,
-		})
-		.where(eq(userOnboarding.id, onboarding.id));
-}
 
 export const actions = {
 	createLeague: async ({ request, locals }) => {
@@ -77,7 +57,7 @@ export const actions = {
 
 			serverLogger.info(`League created ID: ${league.id}`);
 
-			await advanceOnboardingStep(onboarding);
+			await advanceOnboardingStep(onboarding, 'organizer', NEXT_ORGANIZER_ONBOARDING_STEP);
 
 			return {
 				data: {
@@ -138,7 +118,7 @@ export const actions = {
 				})
 				.returning({ id: season.id });
 
-			await advanceOnboardingStep(onboarding);
+			await advanceOnboardingStep(onboarding, 'organizer', NEXT_ORGANIZER_ONBOARDING_STEP);
 
 			serverLogger.info(`Season created ID: ${created.id}`);
 
