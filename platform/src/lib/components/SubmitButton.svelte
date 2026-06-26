@@ -23,7 +23,7 @@ Spread rest props first so it won't override the specific ones for this button.
 	{/if}
 	{#if children}
 		{@render children()}
-	{:else}
+	{:else if !icon}
 		Submit
 	{/if}
 </Button>
