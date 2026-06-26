@@ -30,3 +30,12 @@ export function createEnhanceHandler<TSuccess = void>(
 		};
 	};
 }
+
+export function focusFirstError<TSchema>(
+	refs: Partial<Record<keyof TSchema, HTMLElement | null>>,
+	errors: Partial<Record<keyof TSchema, string[]>>
+) {
+	const [firstField] = Object.keys(errors) as (keyof TSchema)[];
+
+	refs[firstField]?.focus();
+}
