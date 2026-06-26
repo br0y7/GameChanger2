@@ -1,4 +1,4 @@
-import { ZodString } from 'zod';
+import { ZodString, z } from 'zod';
 
 export interface NameSlugSchemaOptions {
 	nameLabel?: string;
@@ -25,3 +25,7 @@ export const refineNameSlugSchema = (options?: NameSlugSchemaOptions) => {
 				}),
 	};
 };
+
+export const idOnlySchema = z.object({
+	id: z.uuid().nonoptional(),
+});
