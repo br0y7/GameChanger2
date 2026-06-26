@@ -1,9 +1,9 @@
 import type { SubmitFunction } from '@sveltejs/kit';
 
-interface CreateEnhanceOptions<TData = void> {
+interface CreateEnhanceOptions {
 	onStart?: () => void;
-	onEnd?: () => void;
-	onSuccess?: (data: TData) => void | Promise<void>;
+	onEnd?: () => void | Promise<void>;
+	onSuccess?: () => void | Promise<void>;
 }
 
 /**
@@ -11,21 +11,16 @@ interface CreateEnhanceOptions<TData = void> {
  * @param options onStart, onEnd, onSuccess callbacks
  * @returns a SubmitFunction you can use with `use:enhance`
  */
-export function createEnhanceHandler<TSuccess = void>(
-	options: CreateEnhanceOptions<TSuccess>
-): SubmitFunction {
+export function createEnhanceHandler(options: CreateEnhanceOptions): SubmitFunction {
 	return () => {
 		options.onStart?.();
 
-		return async ({ update, result }) => {
+		return async ({ update }) => {
 			try {
 				await update();
-
-				if (result.type === 'success') {
-					await options.onSuccess?.(result.data as TSuccess);
-				}
+				await options.onSuccess?.();
 			} finally {
-				options.onEnd?.();
+				await options.onEnd?.();
 			}
 		};
 	};

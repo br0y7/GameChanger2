@@ -21,8 +21,12 @@
 	const cellSlideOptions = { duration: 200 };
 
 	const handleCompletion = createEnhanceHandler({
-		onStart: () => (submitting = true),
-		onEnd: () => (submitting = false),
+		onStart: () => {
+			submitting = true;
+		},
+		onEnd: () => {
+			submitting = false;
+		},
 	});
 </script>
 

@@ -14,9 +14,8 @@
 	import PlusIcon from '@lucide/svelte/icons/user-plus';
 	import { tick } from 'svelte';
 
-	type SuccessResult = { id: string };
 	interface Props {
-		form?: FormStateProp<PlayerFormSchema, SuccessResult>;
+		form?: FormStateProp<PlayerFormSchema>;
 		player: PlayerFormSchema;
 		submitting?: boolean;
 	}
@@ -35,8 +34,10 @@
 		jerseyNumber: null,
 	});
 
-	const handleSubmission: SubmitFunction = createEnhanceHandler<SuccessResult>({
-		onStart: () => (submitting = true),
+	const handleSubmission: SubmitFunction = createEnhanceHandler({
+		onStart: () => {
+			submitting = true;
+		},
 		onEnd: async () => {
 			submitting = false;
 

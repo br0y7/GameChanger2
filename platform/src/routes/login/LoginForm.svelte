@@ -14,8 +14,9 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
 	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
-	import { PUBLIC_APP_URL } from '$env/static/public';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
+	import { createEnhanceHandler } from '$lib/forms/enhance';
+	import { goto } from '$app/navigation';
 
 	let {
 		class: className,
@@ -24,27 +25,20 @@
 	}: HTMLAttributes<HTMLDivElement> & { form: PageProps['form'] } = $props();
 
 	let submitting = $state(false);
+
+	let handleLogin = createEnhanceHandler({
+		onStart: () => {
+			submitting = true;
+		},
+		onSuccess: async () => await goto(resolve('/onboarding')),
+		onEnd: () => {
+			submitting = false;
+		},
+	});
 </script>
 
 <div class={cn('flex flex-col gap-6', className)} {...restProps}>
-	<form
-		method="POST"
-		use:enhance={() => {
-			submitting = true;
-
-			return async ({ update }) => {
-				try {
-					await update();
-
-					if (form?.success) {
-						window.location.replace(PUBLIC_APP_URL);
-					}
-				} finally {
-					submitting = false;
-				}
-			};
-		}}
-	>
+	<form method="POST" use:enhance={handleLogin}>
 		<Field.Set disabled={submitting}>
 			<Field.Group>
 				<div class="flex flex-col items-center gap-2 text-center">

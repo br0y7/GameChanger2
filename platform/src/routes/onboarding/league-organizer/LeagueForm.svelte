@@ -12,9 +12,8 @@
 	import NameSlugFields from '$lib/forms/NameSlugFields.svelte';
 	import { leagueFormLabels } from '$lib/forms/labels';
 
-	type SuccessResult = { id: string };
 	interface Props {
-		form?: FormStateProp<LeagueFormSchema, SuccessResult>;
+		form?: FormStateProp<LeagueFormSchema>;
 		league?: LeagueFormSchema;
 	}
 
@@ -27,9 +26,13 @@
 	}: Props = $props();
 	let submitting = $state(false);
 
-	const handleSubmission: SubmitFunction = createEnhanceHandler<SuccessResult>({
-		onStart: () => (submitting = true),
-		onEnd: () => (submitting = false),
+	const handleSubmission: SubmitFunction = createEnhanceHandler({
+		onStart: () => {
+			submitting = true;
+		},
+		onEnd: () => {
+			submitting = false;
+		},
 	});
 </script>
 

@@ -35,8 +35,12 @@
 	let submitting = $state(false);
 
 	const handleCompletion = createEnhanceHandler({
-		onStart: () => (submitting = true),
-		onEnd: () => (submitting = false),
+		onStart: () => {
+			submitting = true;
+		},
+		onEnd: () => {
+			submitting = false;
+		},
 	});
 </script>
 

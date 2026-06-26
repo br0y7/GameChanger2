@@ -11,11 +11,9 @@
 	import { teamFormLabels } from '$lib/forms/labels';
 	import type { FormStateProp } from '$lib/forms/types';
 
-	type SuccessResult = { id: string };
 	interface Props {
-		form?: FormStateProp<TeamOrgFormSchema, SuccessResult>;
+		form?: FormStateProp<TeamOrgFormSchema>;
 		team?: TeamOrgFormSchema;
-		onSuccess?: (result: SuccessResult) => void;
 		submitting?: boolean;
 	}
 
@@ -25,14 +23,16 @@
 			slug: '',
 		}),
 		form,
-		onSuccess,
 		submitting = $bindable(false),
 	}: Props = $props();
 
-	const handleSubmission = createEnhanceHandler<SuccessResult>({
-		onStart: () => (submitting = true),
-		onEnd: () => (submitting = false),
-		onSuccess: (r) => onSuccess?.(r),
+	const handleSubmission = createEnhanceHandler({
+		onStart: () => {
+			submitting = true;
+		},
+		onEnd: () => {
+			submitting = false;
+		},
 	});
 </script>
 

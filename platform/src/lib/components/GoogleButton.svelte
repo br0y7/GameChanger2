@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { PUBLIC_APP_URL } from '$env/static/public';
 	import { authClient } from '$lib/auth-client';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { clientLogger } from '$lib/logger/client';
 	import Collapsible from './Collapsible.svelte';
 	import * as Field from '$lib/components/ui/field/index';
+	import { resolve } from '$app/paths';
 
 	let { disabled = $bindable(false) } = $props();
 
@@ -17,7 +17,7 @@
 
 			await authClient.signIn.social({
 				provider: 'google',
-				callbackURL: PUBLIC_APP_URL,
+				callbackURL: resolve('/onboarding'),
 			});
 		} catch (error) {
 			hasError = true;

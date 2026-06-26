@@ -12,9 +12,8 @@
 	import NameSlugFields from '$lib/forms/NameSlugFields.svelte';
 	import { seasonFormLabels } from '$lib/forms/labels';
 
-	type SuccessResult = { id: string };
 	interface Props {
-		form?: FormStateProp<SeasonFormSchema, SuccessResult>;
+		form?: FormStateProp<SeasonFormSchema>;
 		season?: SeasonFormSchema;
 	}
 
@@ -28,9 +27,13 @@
 
 	let submitting = $state(false);
 
-	const handleSubmission: SubmitFunction = createEnhanceHandler<SuccessResult>({
-		onStart: () => (submitting = true),
-		onEnd: () => (submitting = false),
+	const handleSubmission: SubmitFunction = createEnhanceHandler({
+		onStart: () => {
+			submitting = true;
+		},
+		onEnd: () => {
+			submitting = false;
+		},
 	});
 </script>
 
