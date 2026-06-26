@@ -38,7 +38,11 @@
 	</Table.Cell>
 	<Table.Cell class="text-center">
 		<div transition:accessibleSlide={cellSlideOptions}>
-			{player.jerseyNumber || 'N/A'}
+			{#if player.jerseyNumber}
+				{player.jerseyNumber}
+			{:else}
+				<span class="text-muted-foreground"> N/A </span>
+			{/if}
 		</div>
 	</Table.Cell>
 	<Table.Cell class="text-end">
