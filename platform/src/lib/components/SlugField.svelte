@@ -13,6 +13,7 @@
 		required?: boolean;
 		id?: string;
 		label?: string;
+		ref?: HTMLInputElement | null;
 	}
 
 	let {
@@ -22,6 +23,7 @@
 		required = true,
 		id = 'slug',
 		label = 'Slug',
+		ref = $bindable(null),
 	}: Props = $props();
 	let isCustom = $state(false);
 
@@ -45,7 +47,7 @@
 <Field.Field>
 	<Field.Label for={id}>{label}</Field.Label>
 	<div class="relative">
-		<Input bind:value {id} name="slug" {required} {onblur} {oninput} />
+		<Input bind:value {id} name="slug" {required} {onblur} {oninput} bind:ref />
 		{#if isCustom}
 			<Button
 				class="absolute right-0 text-muted-foreground hover:text-foreground transition-colors "

@@ -16,9 +16,10 @@
 	import Collapsible from '$lib/components/Collapsible.svelte';
 	import { goto } from '$app/navigation';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
-	import { createEnhanceHandler } from '$lib/forms/enhance';
+	import { createEnhanceHandler, focusFirstError } from '$lib/forms/enhance';
 	import type { FormStateProp } from '$lib/forms/types';
 	import type { SignupFormSchema } from '$lib/schemas/auth';
+	import { tick } from 'svelte';
 
 	interface Props extends HTMLAttributes<HTMLDivElement> {
 		form?: FormStateProp<SignupFormSchema>;
@@ -28,13 +29,29 @@
 
 	let submitting = $state(false);
 
+	let fieldRefs: Partial<Record<keyof SignupFormSchema, HTMLInputElement | null>> = $state({
+		email: null,
+		password: null,
+		name: null,
+	});
+
+	let isFormTarget = $derived(form?.target?.resource === 'auth' && form?.action === 'signup');
+
 	let handleSignup = createEnhanceHandler({
 		onStart: () => {
 			submitting = true;
 		},
 		onSuccess: async () => await goto(resolve('/onboarding')),
-		onEnd: () => {
+		onEnd: async () => {
 			submitting = false;
+
+			await tick(); // lets submitting change propagate first
+
+			if (form?.errors && isFormTarget) {
+				focusFirstError(fieldRefs, form.errors);
+			} else {
+				fieldRefs.email?.focus();
+			}
 		},
 	});
 </script>
@@ -61,15 +78,15 @@
 				<Field.Separator>Or</Field.Separator>
 				<Field.Field>
 					<Field.Label for="name">Name</Field.Label>
-					<Input id="name" name="name" type="name" required />
+					<Input id="name" name="name" type="name" required bind:ref={fieldRefs.name} />
 					<FieldErrorList errors={form?.errors?.name} />
 				</Field.Field>
 				<Field.Field>
 					<Field.Label for="email">Email</Field.Label>
-					<Input id="email" name="email" type="email" required />
+					<Input id="email" name="email" type="email" required bind:ref={fieldRefs.email} />
 					<FieldErrorList errors={form?.errors?.email} />
 				</Field.Field>
-				<PasswordField errors={form?.errors?.password} />
+				<PasswordField errors={form?.errors?.password} bind:ref={fieldRefs.password} />
 				<div class="flex flex-col items-center gap-3">
 					<Field.Field>
 						<SubmitButton {submitting}>Create Account</SubmitButton>

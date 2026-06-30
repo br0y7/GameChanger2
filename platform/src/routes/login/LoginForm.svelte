@@ -14,10 +14,11 @@
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
 	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
-	import { createEnhanceHandler } from '$lib/forms/enhance';
+	import { createEnhanceHandler, focusFirstError } from '$lib/forms/enhance';
 	import { goto } from '$app/navigation';
 	import type { FormStateProp } from '$lib/forms/types';
 	import type { LoginFormSchema } from '$lib/schemas/auth';
+	import { tick } from 'svelte';
 
 	interface Props extends HTMLAttributes<HTMLDivElement> {
 		form?: FormStateProp<LoginFormSchema>;
@@ -27,13 +28,28 @@
 
 	let submitting = $state(false);
 
+	let fieldRefs: Partial<Record<keyof LoginFormSchema, HTMLInputElement | null>> = $state({
+		email: null,
+		password: null,
+	});
+
+	let isFormTarget = $derived(form?.target?.resource === 'auth' && form?.action === 'login');
+
 	let handleLogin = createEnhanceHandler({
 		onStart: () => {
 			submitting = true;
 		},
 		onSuccess: async () => await goto(resolve('/onboarding')),
-		onEnd: () => {
+		onEnd: async () => {
 			submitting = false;
+
+			await tick(); // lets submitting change propagate first
+
+			if (form?.errors && isFormTarget) {
+				focusFirstError(fieldRefs, form.errors);
+			} else {
+				fieldRefs.email?.focus();
+			}
 		},
 	});
 </script>
@@ -67,10 +83,10 @@
 				</Collapsible>
 				<Field.Field>
 					<Field.Label for="email">Email</Field.Label>
-					<Input id="email" name="email" type="text" required />
+					<Input id="email" name="email" type="text" required bind:ref={fieldRefs.email} />
 					<FieldErrorList errors={form?.errors?.email} />
 				</Field.Field>
-				<PasswordField errors={form?.errors?.password} />
+				<PasswordField errors={form?.errors?.password} bind:ref={fieldRefs.password} />
 				<Field.Field>
 					<SubmitButton {submitting}>Sign In</SubmitButton>
 				</Field.Field>

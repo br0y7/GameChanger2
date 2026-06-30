@@ -17,6 +17,7 @@
 		values?: NameSlugFieldValues;
 		errors?: FieldErrorsState<NameSlugFieldValues>['errors'];
 		required?: boolean;
+		refs?: Partial<Record<keyof NameSlugFieldValues, HTMLInputElement | null>>;
 	}
 
 	let {
@@ -25,6 +26,7 @@
 		required = true,
 		values = $bindable({ name: '', slug: '' }),
 		errors,
+		refs = $bindable({ name: null, slug: null }),
 	}: Props = $props();
 
 	const nameId = $derived(slugify(nameLabel));
@@ -33,7 +35,14 @@
 
 <Field.Field>
 	<Field.Label for={nameId}>{nameLabel}</Field.Label>
-	<Input id={slugId} name="name" type="text" bind:value={values.name} {required} />
+	<Input
+		id={slugId}
+		name="name"
+		type="text"
+		bind:value={values.name}
+		{required}
+		bind:ref={refs.name}
+	/>
 	<FieldErrorList errors={errors?.name} />
 </Field.Field>
 <SlugField
@@ -42,5 +51,6 @@
 	source={values.name}
 	bind:value={values.slug}
 	errors={errors?.slug}
+	bind:ref={refs.slug}
 	{required}
 />

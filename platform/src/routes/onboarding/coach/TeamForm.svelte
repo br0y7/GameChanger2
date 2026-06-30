@@ -6,10 +6,11 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
 	import { type TeamOrgFormSchema } from '$lib/schemas/team';
-	import { createEnhanceHandler } from '$lib/forms/enhance';
+	import { createEnhanceHandler, focusFirstError } from '$lib/forms/enhance';
 	import NameSlugFields from '$lib/forms/NameSlugFields.svelte';
 	import { teamFormLabels } from '$lib/forms/labels';
 	import type { FormStateProp } from '$lib/forms/types';
+	import { tick } from 'svelte';
 
 	interface Props {
 		form?: FormStateProp<TeamOrgFormSchema>;
@@ -26,12 +27,27 @@
 		submitting = $bindable(false),
 	}: Props = $props();
 
+	let fieldRefs: Partial<Record<keyof TeamOrgFormSchema, HTMLInputElement | null>> = $state({
+		name: null,
+		slug: null,
+	});
+
+	let isFormTarget = $derived(form?.target?.resource === 'team' && form?.action === 'create');
+
 	const handleSubmission = createEnhanceHandler({
 		onStart: () => {
 			submitting = true;
 		},
-		onEnd: () => {
+		onEnd: async () => {
 			submitting = false;
+
+			await tick(); // lets submitting change propagate first
+
+			if (form?.errors && isFormTarget) {
+				focusFirstError(fieldRefs, form.errors);
+			} else {
+				fieldRefs.name?.focus();
+			}
 		},
 	});
 </script>
@@ -40,7 +56,12 @@
 <form action="?/createTeam" method="POST" use:enhance={handleSubmission}>
 	<Field.Set disabled={submitting}>
 		<Field.Group>
-			<NameSlugFields {...teamFormLabels} errors={form?.errors} values={team} />
+			<NameSlugFields
+				{...teamFormLabels}
+				errors={form?.errors}
+				values={team}
+				bind:refs={fieldRefs}
+			/>
 			<Collapsible isOpen={!!form?.error}>
 				<Alert.Root variant="destructive">
 					<ErrorIcon />

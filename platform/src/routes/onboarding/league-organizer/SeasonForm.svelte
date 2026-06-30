@@ -8,9 +8,10 @@
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
 	import type { FormStateProp } from '$lib/forms/types';
 	import type { SeasonFormSchema } from '$lib/schemas/season';
-	import { createEnhanceHandler } from '$lib/forms/enhance';
+	import { createEnhanceHandler, focusFirstError } from '$lib/forms/enhance';
 	import NameSlugFields from '$lib/forms/NameSlugFields.svelte';
 	import { seasonFormLabels } from '$lib/forms/labels';
+	import { tick } from 'svelte';
 
 	interface Props {
 		form?: FormStateProp<SeasonFormSchema>;
@@ -27,12 +28,27 @@
 
 	let submitting = $state(false);
 
+	let fieldRefs: Partial<Record<keyof SeasonFormSchema, HTMLInputElement | null>> = $state({
+		name: null,
+		slug: null,
+	});
+
+	let isFormTarget = $derived(form?.target?.resource === 'season' && form?.action === 'create');
+
 	const handleSubmission: SubmitFunction = createEnhanceHandler({
 		onStart: () => {
 			submitting = true;
 		},
-		onEnd: () => {
+		onEnd: async () => {
 			submitting = false;
+
+			await tick(); // lets submitting change propagate first
+
+			if (form?.errors && isFormTarget) {
+				focusFirstError(fieldRefs, form.errors);
+			} else {
+				fieldRefs.name?.focus();
+			}
 		},
 	});
 </script>
@@ -46,7 +62,12 @@
 					Track teams, schedule games, and log results for your new season.
 				</p>
 			</div>
-			<NameSlugFields {...seasonFormLabels} values={season} errors={form?.errors} />
+			<NameSlugFields
+				{...seasonFormLabels}
+				errors={form?.errors}
+				values={season}
+				bind:refs={fieldRefs}
+			/>
 			<Collapsible isOpen={!!form?.error}>
 				<Alert.Root variant="destructive">
 					<ErrorIcon />

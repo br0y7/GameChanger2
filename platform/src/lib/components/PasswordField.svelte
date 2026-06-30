@@ -10,9 +10,10 @@
 	interface Props {
 		value?: string;
 		errors?: string[];
+		ref?: HTMLInputElement | null;
 	}
 
-	let { value = $bindable(), errors }: Props = $props();
+	let { value = $bindable(), errors, ref = $bindable(null) }: Props = $props();
 </script>
 
 <Field.Group class="pb-2">
@@ -24,6 +25,7 @@
 			name="password"
 			type={showPassword ? 'text' : 'password'}
 			required
+			bind:ref
 		/>
 	</Field.Field>
 

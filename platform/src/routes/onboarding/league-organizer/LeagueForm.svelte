@@ -8,9 +8,10 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { FormStateProp } from '$lib/forms/types';
 	import type { LeagueFormSchema } from '$lib/schemas/league';
-	import { createEnhanceHandler } from '$lib/forms/enhance';
+	import { createEnhanceHandler, focusFirstError } from '$lib/forms/enhance';
 	import NameSlugFields from '$lib/forms/NameSlugFields.svelte';
 	import { leagueFormLabels } from '$lib/forms/labels';
+	import { tick } from 'svelte';
 
 	interface Props {
 		form?: FormStateProp<LeagueFormSchema>;
@@ -26,12 +27,27 @@
 	}: Props = $props();
 	let submitting = $state(false);
 
+	let fieldRefs: Partial<Record<keyof LeagueFormSchema, HTMLInputElement | null>> = $state({
+		name: null,
+		slug: null,
+	});
+
+	let isFormTarget = $derived(form?.target?.resource === 'league' && form?.action === 'create');
+
 	const handleSubmission: SubmitFunction = createEnhanceHandler({
 		onStart: () => {
 			submitting = true;
 		},
-		onEnd: () => {
+		onEnd: async () => {
 			submitting = false;
+
+			await tick(); // lets submitting change propagate first
+
+			if (form?.errors && isFormTarget) {
+				focusFirstError(fieldRefs, form.errors);
+			} else {
+				fieldRefs.name?.focus();
+			}
 		},
 	});
 </script>
@@ -40,7 +56,12 @@
 <form action="?/createLeague" method="POST" use:enhance={handleSubmission}>
 	<Field.Set disabled={submitting}>
 		<Field.Group>
-			<NameSlugFields {...leagueFormLabels} values={league} errors={form?.errors} />
+			<NameSlugFields
+				{...leagueFormLabels}
+				errors={form?.errors}
+				values={league}
+				bind:refs={fieldRefs}
+			/>
 			<Collapsible isOpen={!!form?.error}>
 				<Alert.Root variant="destructive">
 					<ErrorIcon />
