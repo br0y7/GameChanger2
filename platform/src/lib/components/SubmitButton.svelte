@@ -9,13 +9,13 @@
 		icon?: Snippet;
 	}
 
-	let { children, submitting = false, icon, ...restProps }: Props = $props();
+	let { ref = $bindable(null), children, submitting = false, icon, ...restProps }: Props = $props();
 </script>
 
 <!-- 
 Spread rest props first so it won't override the specific ones for this button.
 -->
-<Button {...restProps} type="submit" disabled={submitting}>
+<Button {...restProps} bind:ref type="submit" disabled={submitting}>
 	{#if submitting}
 		<Spinner />
 	{:else}
