@@ -4,7 +4,25 @@ export type FieldErrorsState<TSchema> = { errors: { [P in keyof TSchema]?: strin
 
 export type ErrorMessageState = { error: string };
 
-type FormState<TSchema> = SuccessState & FieldErrorsState<TSchema> & ErrorMessageState;
+export type CrudAction = 'create' | 'update' | 'delete';
+
+export type AuthAction = 'login' | 'signup';
+
+export type FormAction = CrudAction | AuthAction;
+
+export type Resource = 'auth' | 'player' | 'team' | 'coach' | 'season' | 'division' | 'league';
+
+export type ResourceTarget = {
+	id?: string;
+	resource: Resource;
+};
+
+type FormState<TSchema> = {
+	action: FormAction;
+	target: ResourceTarget;
+} & SuccessState &
+	FieldErrorsState<TSchema> &
+	ErrorMessageState;
 
 /**
  * Used in form components to standardize form actions' results.

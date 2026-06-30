@@ -34,6 +34,8 @@
 		jerseyNumber: null,
 	});
 
+	let isFormTarget = $derived(form?.target?.resource === 'player' && form?.action === 'create');
+
 	const handleSubmission: SubmitFunction = createEnhanceHandler({
 		onStart: () => {
 			submitting = true;
@@ -43,7 +45,7 @@
 
 			await tick(); // lets submitting change propagate first
 
-			if (form?.errors) {
+			if (form?.errors && isFormTarget) {
 				focusFirstError(fieldRefs, form.errors);
 			} else {
 				fieldRefs.name?.focus();
@@ -66,7 +68,7 @@
 					bind:value={player.name}
 					required
 					autofocus
-					aria-invalid={!!form?.errors?.name}
+					aria-invalid={form?.errors?.name && isFormTarget}
 				/>
 			</Field.Field>
 			<Field.Field class="w-full">
@@ -80,7 +82,7 @@
 					inputmode="numeric"
 					pattern="[0-9]+"
 					title="Numbers only from 0-99"
-					aria-invalid={!!form?.errors?.jerseyNumber}
+					aria-invalid={form?.errors?.jerseyNumber && isFormTarget}
 				/>
 			</Field.Field>
 			<Field.Field class="w-full mt-auto">
@@ -93,10 +95,10 @@
 			</Field.Field>
 		</Field.Group>
 		<Field.Group class="gap-0.5">
-			<FieldErrorList errors={form?.errors?.name} />
-			<FieldErrorList errors={form?.errors?.jerseyNumber} />
+			<FieldErrorList errors={isFormTarget ? form?.errors?.name : undefined} />
+			<FieldErrorList errors={isFormTarget ? form?.errors?.jerseyNumber : undefined} />
 		</Field.Group>
-		<Collapsible isOpen={!!form?.error}>
+		<Collapsible isOpen={isFormTarget && !!form?.error}>
 			<Alert.Root variant="destructive">
 				<ErrorIcon />
 				<Alert.Title>Error</Alert.Title>

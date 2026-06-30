@@ -29,3 +29,5 @@ export const refineNameSlugSchema = (options?: NameSlugSchemaOptions) => {
 export const idOnlySchema = z.object({
 	id: z.uuid().nonoptional(),
 });
+
+export type IdOnlySchema = z.infer<typeof idOnlySchema>;

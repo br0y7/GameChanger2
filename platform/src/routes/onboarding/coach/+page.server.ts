@@ -1,7 +1,7 @@
 import { auth } from '$lib/server/auth.js';
 import { db } from '$lib/server/db/index.js';
 import { serverLogger } from '$lib/server/logger.js';
-import { redirect } from '@sveltejs/kit';
+import { isActionFailure, redirect, type ActionFailure } from '@sveltejs/kit';
 import { DrizzleQueryError, eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types.js';
 import { resolve } from '$app/paths';
@@ -13,21 +13,26 @@ import {
 	season,
 	team,
 } from '$lib/server/db/schema';
-import { APIError } from 'better-auth';
 import { NEXT_COACH_ONBOARDING_STEP, type CoachOnboardingStep } from '$lib/onboarding/steps.js';
 import { isValidOnboarding } from '$lib/server/guards.js';
-import { createTeamOrgSchema, type TeamOrgFormSchema } from '$lib/schemas/team';
+import { createTeamOrgSchema } from '$lib/schemas/team';
 import {
 	forbidden,
 	internal,
 	parseError,
 	unauthorized,
 	validationError,
+	type ValidationErrorOptions,
 } from '$lib/server/fail.js';
-import { createPlayerSchema, type PlayerFormSchema } from '$lib/schemas/player.js';
+import {
+	createPlayerSchema,
+	updatePlayerSchema,
+	type PlayerFormSchema,
+} from '$lib/schemas/player.js';
 import { SQL } from 'bun';
 import { idOnlySchema } from '$lib/schemas/common.js';
-import { advanceOnboardingStep } from '$lib/server/onboarding';
+import { advanceOnboardingStep, handleOrgAPIError } from '$lib/server/onboarding';
+import type { CrudAction, ErrorMessageState, ResourceTarget } from '$lib/forms/types.js';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const { onboarding } = locals;
@@ -42,6 +47,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 		const coach = await db.query.coach.findFirst({
 			where: {
 				userId: onboarding.userId,
+			},
+			columns: {
+				id: true,
+				teamId: true,
 			},
 		});
 
@@ -66,20 +75,89 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 };
 
+async function verifyCoachPermissions(
+	action: CrudAction,
+	target: ResourceTarget,
+	locals: App.Locals
+): Promise<ActionFailure<ErrorMessageState> | undefined> {
+	const { user } = locals;
+
+	if (!user) {
+		return unauthorized(target, { action });
+	}
+
+	const playerCoach = await db.query.coach.findFirst({
+		where: {
+			userId: user.id,
+		},
+		columns: { id: true, teamId: true },
+	});
+
+	if (!playerCoach) {
+		return forbidden(target, { action });
+	}
+
+	const modifyingActions: CrudAction[] = ['update', 'delete'];
+
+	if (!modifyingActions.includes(action)) {
+		return;
+	}
+
+	if (!target.id) {
+		throw new Error(
+			"This shouldn't happen, pass the player id as a target.id when updating or deleting."
+		);
+	}
+
+	const targetPlayer = await db.query.player.findFirst({
+		where: {
+			id: target.id,
+		},
+		columns: { id: true, teamId: true },
+	});
+
+	if (!targetPlayer) {
+		return internal(target, { action });
+	}
+
+	if (targetPlayer.teamId !== playerCoach.teamId) {
+		serverLogger.error(
+			`Somehow different team id for player: ${targetPlayer.id} coach: ${playerCoach.id}`
+		);
+		return internal(target, { action });
+	}
+}
+
+function handleDbError(err: unknown, target: ResourceTarget, options: ValidationErrorOptions) {
+	if (err instanceof DrizzleQueryError && err.cause instanceof SQL.PostgresError) {
+		serverLogger.error(err.cause.message);
+
+		if (err.cause.constraint === PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT) {
+			return validationError<PlayerFormSchema>(
+				{
+					jerseyNumber: [`Jersey number already taken.`],
+				},
+				target,
+				options
+			);
+		}
+	}
+}
+
 export const actions = {
 	createTeam: async ({ request, locals }) => {
 		const { onboarding, user } = locals;
 
 		if (!onboarding || !user) {
 			// this shouldn't run, for defensive and type-safety only
-			return internal();
+			return internal({ resource: 'team' });
 		}
 
 		const data = await request.formData();
 		const parsed = createTeamOrgSchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return parseError(parsed.error);
+			return parseError(parsed.error, { resource: 'team' });
 		}
 
 		const { name, slug } = parsed.data;
@@ -134,31 +212,16 @@ export const actions = {
 
 			await advanceOnboardingStep(onboarding, 'coach', NEXT_COACH_ONBOARDING_STEP);
 
-			return {
-				data: {
-					id: createdTeam.id,
-				},
-			};
+			return { action: 'create' };
 		} catch (err) {
-			if (err instanceof APIError && err.body) {
-				serverLogger.error(err, err.body);
+			const failure = handleOrgAPIError(err, 'team');
 
-				const { $ERROR_CODES } = auth;
-
-				switch (err.body.code) {
-					case $ERROR_CODES.ORGANIZATION_ALREADY_EXISTS.code:
-					case $ERROR_CODES.ORGANIZATION_SLUG_ALREADY_TAKEN.code:
-						return validationError<TeamOrgFormSchema>({
-							slug: [`The slug '${slug}' is already taken. Please use a different one.`],
-						});
-					case $ERROR_CODES.YOU_ARE_NOT_ALLOWED_TO_CREATE_A_NEW_ORGANIZATION.code:
-					case $ERROR_CODES.YOU_HAVE_REACHED_THE_MAXIMUM_NUMBER_OF_ORGANIZATIONS.code:
-						return forbidden('You are not allowed to make a team.');
-				}
+			if (isActionFailure(failure)) {
+				return failure;
 			}
 
 			serverLogger.error(err);
-			return internal();
+			return internal({ resource: 'team' });
 		}
 	},
 	addPlayer: async ({ request, locals }) => {
@@ -166,14 +229,20 @@ export const actions = {
 
 		if (!onboarding) {
 			// this shouldn't run, for defensive and type-safety only
-			return internal();
+			return internal({ resource: 'player' });
 		}
 
 		const data = await request.formData();
 		const parsed = createPlayerSchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return parseError(parsed.error);
+			return parseError(parsed.error, { resource: 'player' });
+		}
+
+		const failure = await verifyCoachPermissions('create', { resource: 'player' }, locals);
+
+		if (isActionFailure(failure)) {
+			return failure;
 		}
 
 		try {
@@ -190,18 +259,58 @@ export const actions = {
 				},
 			};
 		} catch (err) {
-			if (err instanceof DrizzleQueryError && err.cause instanceof SQL.PostgresError) {
-				serverLogger.error(err.cause.message);
+			const failure = handleDbError(err, { resource: 'player' }, { action: 'create' });
 
-				if (err.cause.constraint === PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT) {
-					return validationError<PlayerFormSchema>({
-						jerseyNumber: [`Jersey number ${parsed.data.jerseyNumber} already exists.`],
-					});
-				}
+			if (isActionFailure(failure)) {
+				return failure;
 			}
 
 			serverLogger.error(err);
-			return internal();
+			return internal({ resource: 'player' });
+		}
+	},
+	updatePlayer: async ({ request, locals }) => {
+		const data = await request.formData();
+		const parsed = updatePlayerSchema.safeParse(Object.fromEntries(data));
+
+		if (!parsed.success) {
+			return parseError(
+				parsed.error,
+				{ resource: 'player', id: data.get('id')?.toString() },
+				{ action: 'update' }
+			);
+		}
+
+		const playerId = parsed.data.id;
+
+		try {
+			const failure = await verifyCoachPermissions(
+				'update',
+				{ resource: 'player', id: playerId },
+				locals
+			);
+
+			if (isActionFailure(failure)) {
+				return failure;
+			}
+
+			await db
+				.update(player)
+				.set({ ...parsed.data })
+				.where(eq(player.id, playerId));
+		} catch (err) {
+			const failure = handleDbError(
+				err,
+				{ resource: 'player', id: playerId },
+				{ action: 'update' }
+			);
+
+			if (isActionFailure(failure)) {
+				return failure;
+			}
+
+			serverLogger.error(err);
+			return internal({ resource: 'player' });
 		}
 	},
 	deletePlayer: async ({ request, locals }) => {
@@ -210,49 +319,34 @@ export const actions = {
 		const parsed = idOnlySchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return parseError(parsed.error);
+			return parseError(
+				parsed.error,
+				{ resource: 'player', id: data.get('id')?.toString() },
+				{ action: 'delete' }
+			);
 		}
 
-		const { user } = locals;
+		const playerId = parsed.data.id;
+		const failure = await verifyCoachPermissions(
+			'delete',
+			{ resource: 'player', id: playerId },
+			locals
+		);
 
-		if (!user) {
-			return unauthorized();
+		if (isActionFailure(failure)) {
+			return failure;
 		}
 
-		const coach = await db.query.coach.findFirst({
-			where: {
-				userId: user.id,
-			},
-			with: {
-				team: true,
-			},
-		});
+		await db.delete(player).where(eq(player.id, playerId));
 
-		if (!coach) {
-			return forbidden();
-		}
-
-		const { id } = parsed.data;
-
-		const playerToBeDeleted = await db.query.player.findFirst({
-			where: { id },
-		});
-
-		if (!playerToBeDeleted) {
-			serverLogger.warn(`Player ID: ${id} already deleted.`);
-			return;
-		}
-
-		await db.delete(player).where(eq(player.id, id));
-
-		serverLogger.info(`Deleted Player ID: ${id}`);
+		serverLogger.info(`Deleted Player ID: ${playerId}`);
 	},
 	complete: async ({ locals }) => {
 		const { onboarding } = locals;
 
 		if (!onboarding) {
 			// this shouldn't run, for defensive and type-safety only
-			return internal();
+			return internal({ resource: 'coach' });
 		}
 
 		// TODO: Add the advanceOnboardingStep then redirect, and remove line below

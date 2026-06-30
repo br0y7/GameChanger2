@@ -71,7 +71,7 @@
 						<PlayerForm bind:player {form} bind:submitting />
 						<div>
 							<Collapsible isOpen={hasPlayers} class="flex flex-col gap-6">
-								<PlayerTable players={team.players} />
+								<PlayerTable players={team.players} {form} />
 								<form
 									action="?/complete"
 									method="POST"
