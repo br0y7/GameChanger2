@@ -11,7 +11,7 @@ export const actions = {
 		const parsed = loginFormSchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return parseError(parsed.error);
+			return parseError(parsed.error, { resource: 'auth' }, { action: 'login' });
 		}
 
 		try {
@@ -29,12 +29,15 @@ export const actions = {
 			) {
 				serverLogger.error(error);
 
-				return badRequest('Invalid email or password');
+				return badRequest(
+					{ resource: 'auth' },
+					{ action: 'login', message: 'Invalid email or password' }
+				);
 			}
 
 			serverLogger.error(error);
 
-			return internal();
+			return internal({ resource: 'auth' });
 		}
 	},
 };

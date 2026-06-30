@@ -11,7 +11,7 @@ export const actions = {
 		const parsed = signupFormSchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return parseError(parsed.error);
+			return parseError(parsed.error, { resource: 'auth' }, { action: 'signup' });
 		}
 
 		try {
@@ -35,7 +35,7 @@ export const actions = {
 
 			serverLogger.error(error);
 
-			return internal();
+			return internal({ resource: 'auth' });
 		}
 	},
 };

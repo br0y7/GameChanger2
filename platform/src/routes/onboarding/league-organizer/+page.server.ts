@@ -2,18 +2,17 @@ import { auth } from '$lib/server/auth.js';
 import { organization } from '$lib/server/db/auth-schema.js';
 import { db } from '$lib/server/db/index.js';
 import { serverLogger } from '$lib/server/logger.js';
-import { redirect } from '@sveltejs/kit';
+import { isActionFailure, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types.js';
 import { resolve } from '$app/paths';
 import { season } from '$lib/server/db/schema';
-import { APIError } from 'better-auth';
-import { createLeagueSchema, type LeagueFormSchema } from '$lib/schemas/league';
+import { createLeagueSchema } from '$lib/schemas/league';
 import { createSeasonSchema } from '$lib/schemas/season';
 import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps.js';
 import { isValidOnboarding } from '$lib/server/guards.js';
-import { internal, parseError, unauthorized, validationError } from '$lib/server/fail.js';
-import { advanceOnboardingStep } from '$lib/server/onboarding';
+import { internal, parseError, unauthorized } from '$lib/server/fail.js';
+import { advanceOnboardingStep, handleOrgAPIError } from '$lib/server/onboarding';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!isValidOnboarding('organizer', locals.onboarding)) {
@@ -27,7 +26,7 @@ export const actions = {
 
 		if (!onboarding) {
 			// this shouldn't run, for defensive and type-safety only
-			return internal();
+			return internal({ resource: 'league' });
 		}
 
 		const data = await request.formData();
@@ -35,7 +34,7 @@ export const actions = {
 		const parsed = createLeagueSchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return parseError(parsed.error);
+			return parseError(parsed.error, { resource: 'league' });
 		}
 
 		try {
@@ -65,27 +64,14 @@ export const actions = {
 				},
 			};
 		} catch (err) {
-			if (err instanceof APIError && err.body) {
-				serverLogger.error(err, err.body);
+			const failure = handleOrgAPIError(err, 'league');
 
-				const { $ERROR_CODES } = auth;
-
-				switch (err.body.code) {
-					case $ERROR_CODES.ORGANIZATION_ALREADY_EXISTS.code:
-					case $ERROR_CODES.ORGANIZATION_SLUG_ALREADY_TAKEN.code:
-						return validationError<LeagueFormSchema>({
-							slug: [
-								`The slug '${parsed.data.slug}' is already taken. Please use a different one.`,
-							],
-						});
-					case $ERROR_CODES.YOU_ARE_NOT_ALLOWED_TO_CREATE_A_NEW_ORGANIZATION.code:
-					case $ERROR_CODES.YOU_HAVE_REACHED_THE_MAXIMUM_NUMBER_OF_ORGANIZATIONS.code:
-						return internal('You are not allowed to make a league.');
-				}
+			if (isActionFailure(failure)) {
+				return failure;
 			}
 
 			serverLogger.error(err);
-			return internal();
+			return internal({ resource: 'league' });
 		}
 	},
 	createSeason: async ({ request, locals }) => {
@@ -93,7 +79,7 @@ export const actions = {
 
 		if (!onboarding) {
 			// this shouldn't run, for defensive and type-safety only
-			return internal();
+			return internal({ resource: 'season' });
 		}
 
 		const data = await request.formData();
@@ -101,13 +87,13 @@ export const actions = {
 		const parsed = createSeasonSchema.safeParse(Object.fromEntries(data));
 
 		if (!parsed.success) {
-			return parseError(parsed.error);
+			return parseError(parsed.error, { resource: 'season' });
 		}
 
 		try {
 			if (!session?.activeOrganizationId) {
 				serverLogger.error('Tried creating a season but no active organization.');
-				return unauthorized();
+				return unauthorized({ resource: 'season' });
 			}
 
 			const [created] = await db
@@ -125,7 +111,7 @@ export const actions = {
 			return { data: { id: created.id } };
 		} catch (err) {
 			serverLogger.error(err);
-			return internal();
+			return internal({ resource: 'season' });
 		}
 	},
 } satisfies Actions;
