@@ -31,8 +31,8 @@ export type ValidationErrorOptions = {
 	action?: FormAction;
 };
 
-export function parseError(
-	error: ZodError,
+export function parseError<TSchema>(
+	error: ZodError<TSchema>,
 	target: ResourceTarget,
 	options: ValidationErrorOptions = {}
 ) {
