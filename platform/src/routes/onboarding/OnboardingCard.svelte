@@ -3,8 +3,8 @@
 	import * as Card from '$lib/components/ui/card';
 	import { cn } from '$lib/utils';
 	import type { Snippet } from 'svelte';
-	import { enhance } from '$app/forms';
 	import type { OnboardingOrgCreatorRole } from '$lib/onboarding/roles';
+	import { selectOrgCreatorRole } from '$lib/api/onboarding.remote';
 
 	interface Props {
 		role: OnboardingOrgCreatorRole;
@@ -31,8 +31,8 @@
 	};
 </script>
 
-<form method="post" use:enhance class="flex flex-col">
-	<input type="hidden" name="role" value={role} />
+<form {...selectOrgCreatorRole} class="flex flex-col">
+	<input {...selectOrgCreatorRole.fields.role.as('hidden', role)} />
 	<button type="submit" aria-label={getAccessibilityLabel()}>
 		<Card.Root
 			class="flex flex-col border-2 
