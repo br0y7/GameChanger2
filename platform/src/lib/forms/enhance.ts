@@ -1,4 +1,5 @@
-import type { SubmitFunction } from '@sveltejs/kit';
+import type { RemoteFormIssue, SubmitFunction } from '@sveltejs/kit';
+import type { Attachment } from 'svelte/attachments';
 
 interface CreateEnhanceOptions {
 	onStart?: () => void;
@@ -29,11 +30,18 @@ export function createEnhanceHandler(options: CreateEnhanceOptions): SubmitFunct
 	};
 }
 
-export function focusFirstError<TSchema>(
-	refs: Partial<Record<keyof TSchema, HTMLElement | null>>,
-	errors: Partial<Record<keyof TSchema, string[]>>
-) {
-	const [firstField] = Object.keys(errors) as (keyof TSchema)[];
-
-	refs[firstField]?.focus();
+export function focusFirstError({
+	submitting,
+	issues,
+}: {
+	submitting: boolean;
+	issues?: RemoteFormIssue[];
+}): Attachment {
+	return (form) => {
+		if (submitting || !issues?.length) {
+			return;
+		}
+		const field = form.querySelector<HTMLElement>('[aria-invalid="true"]');
+		field?.focus();
+	};
 }

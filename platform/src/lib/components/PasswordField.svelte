@@ -4,29 +4,26 @@
 	import { Checkbox } from '$lib/components/ui/checkbox/index';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import FieldErrorList from './FieldErrorList.svelte';
+	import type { HTMLInputAttributes } from 'svelte/elements';
+	import type { WithElementRef } from '$lib/utils';
+	import type { RemoteFormIssue } from '@sveltejs/kit';
 
 	let showPassword = $state(false);
 
-	interface Props {
-		value?: string;
-		errors?: string[];
-		ref?: HTMLInputElement | null;
+	interface Props extends Omit<
+		WithElementRef<HTMLInputAttributes, HTMLInputElement>,
+		'type' | 'files'
+	> {
+		errors?: RemoteFormIssue[];
 	}
 
-	let { value = $bindable(), errors, ref = $bindable(null) }: Props = $props();
+	let { ref = $bindable(null), errors, ...restProps }: Props = $props();
 </script>
 
 <Field.Group class="pb-2">
 	<Field.Field>
 		<Field.Label for="password">Password</Field.Label>
-		<Input
-			bind:value
-			id="password"
-			name="password"
-			type={showPassword ? 'text' : 'password'}
-			required
-			bind:ref
-		/>
+		<Input {...restProps} id="password" bind:ref type={showPassword ? 'text' : 'password'} />
 	</Field.Field>
 
 	<Field.Field orientation="horizontal">

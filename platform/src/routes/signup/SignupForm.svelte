@@ -8,56 +8,26 @@
 	import { env } from '$env/dynamic/public';
 	import PasswordField from '$lib/components/PasswordField.svelte';
 	import GoogleButton from '$lib/components/GoogleButton.svelte';
-	import { enhance } from '$app/forms';
 	import * as Alert from '$lib/components/ui/alert';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
 	import Collapsible from '$lib/components/Collapsible.svelte';
-	import { goto } from '$app/navigation';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
-	import { createEnhanceHandler, focusFirstError } from '$lib/forms/enhance';
-	import type { FormStateProp } from '$lib/forms/types';
-	import type { SignupFormSchema } from '$lib/schemas/auth';
-	import { tick } from 'svelte';
+	import { focusFirstError } from '$lib/forms/enhance';
+	import { signUpWithEmail } from '$lib/api/auth.remote';
 
-	interface Props extends HTMLAttributes<HTMLDivElement> {
-		form?: FormStateProp<SignupFormSchema>;
-	}
+	let { class: className, ...restProps }: HTMLAttributes<HTMLDivElement> = $props();
 
-	let { class: className, form, ...restProps }: Props = $props();
-
-	let submitting = $state(false);
-
-	let fieldRefs: Partial<Record<keyof SignupFormSchema, HTMLInputElement | null>> = $state({
-		email: null,
-		password: null,
-		name: null,
-	});
-
-	let isFormTarget = $derived(form?.target?.resource === 'auth' && form?.action === 'signup');
-
-	let handleSignup = createEnhanceHandler({
-		onStart: () => {
-			submitting = true;
-		},
-		onSuccess: async () => await goto(resolve('/onboarding')),
-		onEnd: async () => {
-			submitting = false;
-
-			await tick(); // lets submitting change propagate first
-
-			if (form?.errors && isFormTarget) {
-				focusFirstError(fieldRefs, form.errors);
-			} else {
-				fieldRefs.email?.focus();
-			}
-		},
-	});
+	let submitting = $derived(!!signUpWithEmail.pending);
+	let systemErrors = $derived(signUpWithEmail.fields.issues() ?? []);
 </script>
 
 <div class={cn('flex flex-col', className)} {...restProps}>
-	<form method="POST" use:enhance={handleSignup}>
+	<form
+		{@attach focusFirstError({ submitting, issues: signUpWithEmail.fields.allIssues() })}
+		{...signUpWithEmail}
+	>
 		<Field.Set disabled={submitting}>
 			<Field.Group>
 				<div class="flex flex-col items-center gap-2 text-center">
@@ -78,24 +48,32 @@
 				<Field.Separator>Or</Field.Separator>
 				<Field.Field>
 					<Field.Label for="name">Name</Field.Label>
-					<Input id="name" name="name" type="name" required bind:ref={fieldRefs.name} />
-					<FieldErrorList errors={form?.errors?.name} />
+					<Input id="name" {...signUpWithEmail.fields.name.as('text')} required />
+					<FieldErrorList errors={signUpWithEmail.fields.name.issues()} />
 				</Field.Field>
 				<Field.Field>
 					<Field.Label for="email">Email</Field.Label>
-					<Input id="email" name="email" type="email" required bind:ref={fieldRefs.email} />
-					<FieldErrorList errors={form?.errors?.email} />
+					<Input id="email" {...signUpWithEmail.fields.email.as('email')} required />
+					<FieldErrorList errors={signUpWithEmail.fields.email.issues()} />
 				</Field.Field>
-				<PasswordField errors={form?.errors?.password} bind:ref={fieldRefs.password} />
+				<PasswordField
+					{...signUpWithEmail.fields.password.as('password')}
+					required
+					errors={signUpWithEmail.fields.password.issues()}
+				/>
 				<div class="flex flex-col items-center gap-3">
 					<Field.Field>
 						<SubmitButton {submitting}>Create Account</SubmitButton>
 					</Field.Field>
-					<Collapsible isOpen={!!form?.error}>
+					<Collapsible isOpen={systemErrors.length > 0}>
 						<Alert.Root variant="destructive">
 							<ErrorIcon />
 							<Alert.Title>Error</Alert.Title>
-							<Alert.Description>{form?.error}</Alert.Description>
+							<Alert.Description>
+								{#each systemErrors as error (error.message)}
+									<p>{error.message}</p>
+								{/each}
+							</Alert.Description>
 						</Alert.Root>
 					</Collapsible>
 					<Field.Description>
