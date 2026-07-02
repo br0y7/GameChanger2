@@ -29,10 +29,12 @@
 				return `Select ${role satisfies OnboardingOrgCreatorRole[]}`;
 		}
 	};
+
+	let selectedRole = $derived(selectOrgCreatorRole.for(role));
 </script>
 
-<form {...selectOrgCreatorRole} class="flex flex-col">
-	<input {...selectOrgCreatorRole.fields.role.as('hidden', role)} />
+<form {...selectedRole} class="flex flex-col">
+	<input {...selectedRole.fields.role.as('hidden', role)} />
 	<button type="submit" aria-label={getAccessibilityLabel()}>
 		<Card.Root
 			class="flex flex-col border-2 
