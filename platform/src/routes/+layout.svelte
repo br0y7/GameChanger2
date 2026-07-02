@@ -3,10 +3,20 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { ModeWatcher } from 'mode-watcher';
 	import ModeToggle from '$lib/components/ui/ModeToggle.svelte';
-	import { page } from '$app/state';
-	import { fade } from 'svelte/transition';
+	import { onNavigate } from '$app/navigation';
 
 	let { children } = $props();
+
+	onNavigate((navigation) => {
+		if (!document.startViewTransition) return;
+
+		return new Promise((resolve) => {
+			document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -14,11 +24,7 @@
 <ModeWatcher />
 
 <div class="bg-background text-foreground min-h-screen w-full">
-	{#key page.url.pathname}
-		<div in:fade={{ duration: 150 }}>
-			{@render children()}
-		</div>
-	{/key}
+	{@render children()}
 
 	<div class="absolute top-4 right-4 z-50">
 		<ModeToggle />
