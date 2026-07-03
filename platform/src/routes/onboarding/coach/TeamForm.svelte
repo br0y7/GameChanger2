@@ -1,74 +1,34 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import * as Field from '$lib/components/ui/field';
-	import Collapsible from '$lib/components/Collapsible.svelte';
-	import * as Alert from '$lib/components/ui/alert';
-	import ErrorIcon from '@lucide/svelte/icons/circle-x';
-	import { type TeamOrgFormSchema } from '$lib/schemas/team';
-	import { createEnhanceHandler, focusFirstError } from '$lib/forms/enhance';
 	import NameSlugFields from '$lib/forms/NameSlugFields.svelte';
 	import { teamFormLabels } from '$lib/forms/labels';
-	import type { FormStateProp } from '$lib/forms/types';
-	import { tick } from 'svelte';
+	import { focusFirstError } from '$lib/forms/enhance';
+	import { createTeam } from '$lib/api/team.remote';
+	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
 
-	interface Props {
-		form?: FormStateProp<TeamOrgFormSchema>;
-		team?: TeamOrgFormSchema;
-		submitting?: boolean;
-	}
-
-	let {
-		team = $bindable({
-			name: '',
-			slug: '',
-		}),
-		form,
-		submitting = $bindable(false),
-	}: Props = $props();
-
-	let fieldRefs: Partial<Record<keyof TeamOrgFormSchema, HTMLInputElement | null>> = $state({
-		name: null,
-		slug: null,
-	});
-
-	let isFormTarget = $derived(form?.target?.resource === 'team' && form?.action === 'create');
-
-	const handleSubmission = createEnhanceHandler({
-		onStart: () => {
-			submitting = true;
-		},
-		onEnd: async () => {
-			submitting = false;
-
-			await tick(); // lets submitting change propagate first
-
-			if (form?.errors && isFormTarget) {
-				focusFirstError(fieldRefs, form.errors);
-			} else {
-				fieldRefs.name?.focus();
-			}
-		},
-	});
+	let submitting = $derived(!!createTeam.pending);
 </script>
 
 <h1 class="text-2xl font-bold text-center">Create your Team</h1>
-<form action="?/createTeam" method="POST" use:enhance={handleSubmission}>
+<form
+	{@attach focusFirstError({
+		submitting,
+		issues: createTeam.fields.allIssues(),
+	})}
+	{...createTeam}
+>
 	<Field.Set disabled={submitting}>
-		<Field.Group>
+		<Field.Group class="px-1">
+			<input {...createTeam.fields.flow.as('hidden', 'solo-coach')} />
 			<NameSlugFields
 				{...teamFormLabels}
-				errors={form?.errors}
-				values={team}
-				bind:refs={fieldRefs}
+				remoteFields={{
+					name: createTeam.fields.name,
+					slug: createTeam.fields.slug,
+				}}
 			/>
-			<Collapsible isOpen={!!form?.error}>
-				<Alert.Root variant="destructive">
-					<ErrorIcon />
-					<Alert.Title>Error</Alert.Title>
-					<Alert.Description>{form?.error}</Alert.Description>
-				</Alert.Root>
-			</Collapsible>
+			<ErrorAlert errors={createTeam.fields.issues()} />
 			<Field.Field class="mt-6">
 				<SubmitButton {submitting}>Create Team</SubmitButton>
 			</Field.Field>

@@ -4,7 +4,7 @@ export type FieldErrorsState<TSchema> = { errors: { [P in keyof TSchema]?: strin
 
 export type ErrorMessageState = { error: string };
 
-export type CrudAction = 'create' | 'update' | 'delete';
+export type CrudAction = 'create' | 'read' | 'update' | 'delete';
 
 export type AuthAction = 'login' | 'signup';
 

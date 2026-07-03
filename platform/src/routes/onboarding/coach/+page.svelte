@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { PageProps } from './$types';
 	import SlideContainer from '$lib/components/SlideContainer.svelte';
 	import { COACH_STEPS, type CoachOnboardingStep } from '$lib/onboarding/steps';
 	import TeamForm from './TeamForm.svelte';
@@ -9,11 +8,21 @@
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import PlayerTable from './PlayerTable.svelte';
+	import { getOnboardingWithUser } from '$lib/api/onboarding.remote';
+	import { getCoachWithUser } from '$lib/api/coach.remote';
+	import { getUser } from '$lib/api/auth.remote';
+	import { getTeam } from '$lib/api/team.remote';
+	import { PUBLIC_APP_NAME } from '$env/static/public';
 
-	let { form, data }: PageProps = $props();
+	const user = $derived(await getUser());
 
-	let currentStep = $derived(data.onboarding.currentStep as CoachOnboardingStep);
-	let team = $derived(data.team); // derived for full reactivity
+	const onboarding = $derived(await getOnboardingWithUser({ id: user.id }));
+	let currentStep = $derived(onboarding.currentStep as CoachOnboardingStep);
+
+	const coach = $derived(await getCoachWithUser({ id: user.id }));
+	const team = $derived(
+		coach?.teamId ? await getTeam({ id: coach.teamId, include: { players: true } }) : null
+	);
 
 	let player = $state({
 		name: '',
@@ -28,10 +37,12 @@
 	});
 
 	let hasPlayers = $derived(team?.players && team.players.length > 0);
-
-	// flag/lock to disable top level forms when any bound form is submitting
 	let submitting = $state(false);
 </script>
+
+<svelte:head>
+	<title>Onboarding Coach {user.name} | {PUBLIC_APP_NAME}</title>
+</svelte:head>
 
 <div
 	class="flex
@@ -46,7 +57,7 @@
 		<div class="grid grid-cols-1 grid-rows-1 overflow-hidden">
 			{#if currentStep === 'create-team'}
 				<SlideContainer class="col-start-1 row-start-1 flex flex-col gap-6">
-					<TeamForm {form} bind:submitting />
+					<TeamForm />
 				</SlideContainer>
 			{:else if currentStep === 'add-players' && team}
 				<SlideContainer class="col-start-1 row-start-1 flex flex-col gap-6">

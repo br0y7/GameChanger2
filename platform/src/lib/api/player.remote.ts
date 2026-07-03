@@ -1,6 +1,7 @@
 import { form, getRequestEvent } from '$app/server';
 import type { CrudAction, ResourceTarget } from '$lib/forms/types';
 import { idOnlySchema } from '$lib/schemas/common';
+import { createPlayerSchema, updatePlayerSchema } from '$lib/schemas/player';
 import { db } from '$lib/server/db';
 import { player, PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT } from '$lib/server/db/schema';
 import { forbidden, internal, notFound, unauthorized } from '$lib/server/fail';
@@ -8,7 +9,6 @@ import { serverLogger } from '$lib/server/logger';
 import { invalid } from '@sveltejs/kit';
 import { SQL } from 'bun';
 import { DrizzleQueryError, eq } from 'drizzle-orm';
-import z from 'zod';
 
 async function assertCoachPermissions(
 	action: CrudAction,
@@ -79,27 +79,6 @@ function isDuplicateJerseyNumber(err: unknown) {
 	);
 }
 
-const playerSchema = {
-	name: z
-		.string()
-		.trim()
-		.min(1, 'Player name is required')
-		.max(50, 'Player name must be less than 50 characters.'),
-	jerseyNumber: z
-		.string()
-		.trim()
-		.regex(/^[0-9]{0,2}$/, 'Jersey number must be 1 or 2 digits (0 to 99)')
-		.transform((value) => (value === '' ? undefined : value))
-		.optional(),
-};
-
-const createPlayerSchema = z.object({
-	...playerSchema,
-	teamId: z.uuid('Please select a team.'),
-});
-
-export type CreatePlayerInput = z.infer<typeof createPlayerSchema>;
-
 export const addPlayer = form(createPlayerSchema, async (data, issue) => {
 	const { locals } = getRequestEvent();
 
@@ -133,13 +112,6 @@ export const addPlayer = form(createPlayerSchema, async (data, issue) => {
 		return invalid('Something went wrong.');
 	}
 });
-
-const updatePlayerSchema = z.object({
-	...playerSchema,
-	id: z.uuid().nonoptional('Player ID is required.'),
-});
-
-export type UpdatePlayerInput = z.infer<typeof updatePlayerSchema>;
 
 export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 	const { locals } = getRequestEvent();

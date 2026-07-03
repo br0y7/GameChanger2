@@ -1,5 +1,5 @@
 import { resolve } from '$app/paths';
-import { form } from '$app/server';
+import { form, getRequestEvent, query } from '$app/server';
 import { loginFormSchema, signupFormSchema } from '$lib/schemas/auth';
 import { auth } from '$lib/server/auth';
 import { serverLogger } from '$lib/server/logger';
@@ -62,4 +62,14 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 
 		return invalid('Something went wrong');
 	}
+});
+
+export const getUser = query(() => {
+	const { user } = getRequestEvent().locals;
+
+	if (!user) {
+		redirect(303, resolve('/login'));
+	}
+
+	return user;
 });
