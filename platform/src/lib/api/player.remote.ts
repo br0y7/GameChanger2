@@ -3,12 +3,13 @@ import type { CrudAction, ResourceTarget } from '$lib/forms/types';
 import { idOnlySchema } from '$lib/schemas/common';
 import { createPlayerSchema, updatePlayerSchema } from '$lib/schemas/player';
 import { db } from '$lib/server/db';
-import { player, PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT } from '$lib/server/db/schema';
+import { PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT } from '$lib/server/db/schema';
 import { forbidden, internal, notFound, unauthorized } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { invalid } from '@sveltejs/kit';
 import { SQL } from 'bun';
 import { DrizzleQueryError, eq } from 'drizzle-orm';
+import * as table from '$lib/server/db/schema';
 
 async function assertCoachPermissions(
 	action: CrudAction,
@@ -49,23 +50,23 @@ async function assertCoachPermissions(
 		);
 	}
 
-	const targetPlayer = await db.query.player.findFirst({
+	const player = await db.query.player.findFirst({
 		where: {
 			id: target.id,
 		},
 		columns: { id: true, teamId: true },
 	});
 
-	if (!targetPlayer) {
+	if (!player) {
 		notFound(target);
 	}
 
-	if (targetPlayer.teamId !== coach.teamId) {
+	if (player.teamId !== coach.teamId) {
 		internal(
 			{ resource: 'player', id: target.id },
 			{
 				action,
-				message: `Somehow different team id for player: ${targetPlayer.id} coach: ${coach.id}`,
+				message: `Somehow different team id for player: ${player.id} coach: ${coach.id}`,
 			}
 		);
 	}
@@ -91,11 +92,11 @@ export const addPlayer = form(createPlayerSchema, async (data, issue) => {
 
 	try {
 		const [created] = await db
-			.insert(player)
+			.insert(table.player)
 			.values({
 				...data,
 			})
-			.returning({ id: player.id });
+			.returning({ id: table.player.id });
 
 		return {
 			data: {
@@ -121,9 +122,9 @@ export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 
 	try {
 		await db
-			.update(player)
+			.update(table.player)
 			.set({ ...data })
-			.where(eq(player.id, id));
+			.where(eq(table.player.id, id));
 	} catch (err) {
 		if (isDuplicateJerseyNumber(err)) {
 			return invalid(issue.jerseyNumber('Jersey number already taken.'));
@@ -139,7 +140,7 @@ export const deletePlayer = form(idOnlySchema, async ({ id }) => {
 
 	await assertCoachPermissions('delete', { resource: 'player', id }, locals);
 
-	await db.delete(player).where(eq(player.id, id));
+	await db.delete(table.player).where(eq(table.player.id, id));
 
 	serverLogger.info(`deleted player: ${id}`);
 });

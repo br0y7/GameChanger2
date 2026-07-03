@@ -1,9 +1,10 @@
 import { ONBOARDING_DONE_STEP, type OnboardingStep } from '$lib/onboarding/steps';
 import { db } from '$lib/server/db';
-import { userOnboarding, type Onboarding } from '$lib/server/db/schema';
+import { type Onboarding } from '$lib/server/db/schema';
 import { internal } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { eq } from 'drizzle-orm';
+import * as table from '$lib/server/db/schema';
 
 /**
  * This shouldn't run, used only to narrow types.
@@ -60,10 +61,10 @@ export async function advanceOnboardingStep<TStep extends OnboardingStep>(
 	);
 
 	await db
-		.update(userOnboarding)
+		.update(table.userOnboarding)
 		.set({
 			currentStep: nextOnboardingStep,
 			status,
 		})
-		.where(eq(userOnboarding.id, onboarding.id));
+		.where(eq(table.userOnboarding.id, onboarding.id));
 }

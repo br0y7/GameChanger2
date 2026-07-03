@@ -2,7 +2,6 @@ import { form, getRequestEvent, query } from '$app/server';
 import { createTeamSchema } from '$lib/schemas/team';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { coach, division, organization, season, team } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUser } from './auth.remote';
 import { serverLogger } from '$lib/server/logger';
@@ -15,6 +14,7 @@ import { advanceOnboardingStep } from './onboarding.server';
 import { requiredId } from '$lib/schemas/common';
 import { getCoachWithUser } from './coach.remote';
 import { z } from 'zod';
+import * as table from '$lib/server/db/schema';
 
 export const createTeam = form(createTeamSchema, async (data, issue) => {
 	const user = await getUser();
@@ -34,7 +34,10 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 					body: { name, slug },
 				});
 
-				await tx.update(organization).set({ type: 'team' }).where(eq(organization.id, teamOrg.id));
+				await tx
+					.update(table.organization)
+					.set({ type: 'team' })
+					.where(eq(table.organization.id, teamOrg.id));
 
 				await auth.api.setActiveOrganization({
 					body: {
@@ -46,24 +49,24 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 				serverLogger.info(`hidden team org created: ${teamOrg.id}`);
 
 				const [defaultSeason] = await tx
-					.insert(season)
+					.insert(table.season)
 					.values({
 						name: `Current Season for ${name}`,
 						slug: 'current',
 						organizationId: teamOrg.id,
 					})
-					.returning({ id: season.id });
+					.returning({ id: table.season.id });
 
 				serverLogger.info(`default season for team org created: ${defaultSeason.id}`);
 
 				const [defaultDivision] = await tx
-					.insert(division)
+					.insert(table.division)
 					.values({
 						name: `Division for ${name}`,
 						slug: `${slug}-division`,
 						seasonId: defaultSeason.id,
 					})
-					.returning({ id: division.id });
+					.returning({ id: table.division.id });
 
 				serverLogger.info(`default division for team org created: ${defaultDivision.id}`);
 
@@ -100,25 +103,25 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 	}
 
 	const [createdTeam] = await db
-		.insert(team)
+		.insert(table.team)
 		.values({
 			name,
 			slug,
 			divisionId,
 		})
-		.returning({ id: team.id });
+		.returning({ id: table.team.id });
 
 	serverLogger.info(`team created ${createdTeam.id}`);
 
 	if (flow === 'solo-coach') {
 		const [createdCoach] = await db
-			.insert(coach)
+			.insert(table.coach)
 			.values({
 				name: user.name,
 				userId: user.id,
 				teamId: createdTeam.id,
 			})
-			.returning({ id: coach.id });
+			.returning({ id: table.coach.id });
 
 		serverLogger.info(`coach created ${createdCoach.id}`);
 

@@ -4,13 +4,13 @@ import { ORG_CREATOR_ROLES, type OnboardingOrgCreatorRole } from '$lib/onboardin
 import { COACH_START_STEP, ORGANIZER_START_STEP } from '$lib/onboarding/steps';
 import { idOnlySchema } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
-import { userOnboarding } from '$lib/server/db/schema';
 import { internal } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { error, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { assertOnboardingExists } from './onboarding.server';
+import * as table from '$lib/server/db/schema';
 
 const roleSchema = z.object({
 	role: z.enum(ORG_CREATOR_ROLES),
@@ -38,13 +38,13 @@ export const selectOrgCreatorRole = form(roleSchema, async ({ role }) => {
 	}
 
 	await db
-		.update(userOnboarding)
+		.update(table.userOnboarding)
 		.set({
 			role,
 			status: 'in_progress',
 			currentStep,
 		})
-		.where(eq(userOnboarding.id, onboarding.id));
+		.where(eq(table.userOnboarding.id, onboarding.id));
 
 	serverLogger.info(`user: ${user?.id} started onboarding`);
 
