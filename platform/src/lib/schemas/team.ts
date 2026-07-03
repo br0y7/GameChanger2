@@ -1,19 +1,15 @@
 import { teamFormLabels } from '$lib/forms/labels';
-import { refineNameSlugSchema } from '$lib/schemas/common';
-import { team } from '$lib/server/db/schema';
-import type { z } from 'better-auth';
-import { createInsertSchema } from 'drizzle-orm/zod';
+import { createNameSlugSchema } from '$lib/schemas/common';
+import { z } from 'zod';
 
-// Modify/extend the existing DB schema to customize the validation error messages.
-export const createTeamSchema = createInsertSchema(team, {
-	...refineNameSlugSchema(teamFormLabels),
+const teamSchema = {
+	...createNameSlugSchema({ ...teamFormLabels }),
+};
+
+export const createTeamSchema = z.object({
+	...teamSchema,
+	flow: z.enum(['standard', 'solo-coach']).default('standard'),
+	divisionId: z.uuid().optional(),
 });
 
-export type TeamFormSchema = z.infer<typeof createTeamSchema>;
-
-export const createTeamOrgSchema = createInsertSchema(team, {
-	...refineNameSlugSchema(teamFormLabels),
-	seasonId: (s) => s.optional(), // For solo coach flow where there is an implicit season
-});
-
-export type TeamOrgFormSchema = z.infer<typeof createTeamOrgSchema>;
+export type CreateTeamInput = z.infer<typeof createTeamSchema>;
