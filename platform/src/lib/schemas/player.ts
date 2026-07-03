@@ -1,19 +1,15 @@
 import { z, ZodString } from 'zod';
 import { createInsertSchema, createUpdateSchema } from 'drizzle-orm/zod';
 import { player } from '$lib/server/db/schema';
-import { emptyStringToNull } from '$lib/utils/string';
+// import { emptyStringToNull } from '$lib/utils/string';
 
 // If the input is an empty string, the regex will test it.
 // By setting it to null the regex test will not run.
 const playerSchema = {
-	jerseyNumber: z.preprocess(
-		emptyStringToNull,
-		z
-			.string()
-			.regex(/^[0-9]{1,2}$/, 'Jersey number must be 1 or 2 digits (0 to 99)')
-			.nullable()
-			.optional()
-	),
+	jerseyNumber: z
+		.string()
+		.regex(/^[0-9]{1,2}$/, 'Jersey number must be 1 or 2 digits (0 to 99)')
+		.optional(),
 	name: (name: ZodString) =>
 		name
 			.trim()

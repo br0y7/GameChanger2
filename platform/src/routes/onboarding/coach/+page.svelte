@@ -5,8 +5,6 @@
 	import TeamForm from './TeamForm.svelte';
 	import PlayerForm from './PlayerForm.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
-	import { enhance } from '$app/forms';
-	import { createEnhanceHandler } from '$lib/forms/enhance';
 	import Collapsible from '$lib/components/Collapsible.svelte';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -33,15 +31,6 @@
 
 	// flag/lock to disable top level forms when any bound form is submitting
 	let submitting = $state(false);
-
-	const handleCompletion = createEnhanceHandler({
-		onStart: () => {
-			submitting = true;
-		},
-		onEnd: () => {
-			submitting = false;
-		},
-	});
 </script>
 
 <div
@@ -68,16 +57,11 @@
 								Add your players below and send invites so they can join your roster.
 							</p>
 						</div>
-						<PlayerForm bind:player {form} bind:submitting />
+						<PlayerForm bind:player bind:submitting />
 						<div>
 							<Collapsible isOpen={hasPlayers} class="flex flex-col gap-6">
-								<PlayerTable players={team.players} {form} />
-								<form
-									action="?/complete"
-									method="POST"
-									use:enhance={handleCompletion}
-									class="w-full flex justify-center"
-								>
+								<PlayerTable players={team.players} />
+								<form action="?/complete" method="POST" class="w-full flex justify-center">
 									<SubmitButton
 										{submitting}
 										class="w-1/2 hover:-translate-y-0.5
@@ -92,12 +76,7 @@
 								</form>
 							</Collapsible>
 							<Collapsible isOpen={!hasPlayers}>
-								<form
-									action="?/complete"
-									method="POST"
-									use:enhance={handleCompletion}
-									class="w-full flex justify-center"
-								>
+								<form action="?/complete" method="POST" class="w-full flex justify-center">
 									<SubmitButton
 										variant="secondary"
 										{submitting}

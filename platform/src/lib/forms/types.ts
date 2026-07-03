@@ -10,7 +10,7 @@ export type AuthAction = 'login' | 'signup';
 
 export type FormAction = CrudAction | AuthAction;
 
-export type Resource = 'auth' | 'player' | 'team' | 'coach' | 'season' | 'division' | 'league';
+export type Resource = 'user' | 'player' | 'team' | 'coach' | 'season' | 'division' | 'league';
 
 export type ResourceTarget = {
 	id?: string;

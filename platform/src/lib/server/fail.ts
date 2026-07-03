@@ -1,5 +1,5 @@
 import type { FieldErrorsState, FormAction, ResourceTarget } from '$lib/forms/types';
-import { fail } from '@sveltejs/kit';
+import { error, fail, type NumericRange } from '@sveltejs/kit';
 import { z, type ZodError } from 'zod';
 
 export type ErrorMessageOptions = {
@@ -7,24 +7,69 @@ export type ErrorMessageOptions = {
 	action?: FormAction;
 };
 
-export function internal(target: ResourceTarget, options: ErrorMessageOptions = {}) {
-	const { message = 'Something went wrong.', action = 'create' } = options;
-	return fail(500, { action, target, error: message });
+function raise(
+	status: NumericRange<400, 599>,
+	defaultMessage: string,
+	target: ResourceTarget,
+	options: ErrorMessageOptions
+): never {
+	const { message = defaultMessage, action = 'create' } = options;
+	error(status, `${message} ${action}:${target.resource} ${target.id ?? ''}`);
 }
 
-export function unauthorized(target: ResourceTarget, options: ErrorMessageOptions = {}) {
-	const { message = 'Unauthorized.', action = 'create' } = options;
-	return fail(401, { action, target, error: message });
+// Marking the return value as `never` helps TypeScript know that program flow
+// will stop when these functions are called (since the error() above will throw).
+// For some reason it doesn't like arrow functions,
+// so keep these as named function declarations.
+
+/**
+ * Throws a 500 HTTP Error
+ * @param target Specifies the target resource and maybe its id
+ * @param options Optional error message and action
+ * @throws HTTPError
+ */
+export function internal(target: ResourceTarget, options: ErrorMessageOptions = {}): never {
+	raise(500, 'Something went wrong.', target, options);
 }
 
-export function forbidden(target: ResourceTarget, options: ErrorMessageOptions = {}) {
-	const { message = 'Access denied.', action = 'create' } = options;
-	return fail(403, { action, target, error: message });
+/**
+ * Throws a 401 HTTP Error
+ * @param target Specifies the target resource and maybe its id
+ * @param options Optional error message and action
+ * @throws HTTPError
+ */
+export function unauthorized(target: ResourceTarget, options: ErrorMessageOptions = {}): never {
+	raise(401, 'Unauthorized.', target, options);
 }
 
-export function badRequest(target: ResourceTarget, options: ErrorMessageOptions = {}) {
-	const { message = 'Bad request', action = 'create' } = options;
-	return fail(400, { action, target, error: message });
+/**
+ * Throws a 403 HTTP Error
+ * @param target Specifies the target resource and maybe its id
+ * @param options Optional error message and action
+ * @throws HTTPError
+ */
+export function forbidden(target: ResourceTarget, options: ErrorMessageOptions = {}): never {
+	raise(403, 'Access denied', target, options);
+}
+
+/**
+ * Throws a 400 HTTP Error
+ * @param target Specifies the target resource and maybe its id
+ * @param options Optional error message and action
+ * @throws HTTPError
+ */
+export function badRequest(target: ResourceTarget, options: ErrorMessageOptions = {}): never {
+	raise(400, 'Bad request', target, options);
+}
+
+/**
+ * Throws a 404 HTTP Error
+ * @param target Specifies the target resource and maybe its id
+ * @param options Optional error message and action
+ * @throws HTTPError
+ */
+export function notFound(target: ResourceTarget, options: ErrorMessageOptions = {}): never {
+	raise(404, 'Not found', target, options);
 }
 
 export type ValidationErrorOptions = {

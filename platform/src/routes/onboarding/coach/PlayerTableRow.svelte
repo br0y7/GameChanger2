@@ -4,115 +4,99 @@
 	import { fade, slide } from 'svelte/transition';
 	import { createAccessibleTransition } from '$lib/accessibility.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
-	import { createEnhanceHandler, focusFirstError } from '$lib/forms/enhance';
-	import { enhance } from '$app/forms';
+	import { focusFirstError } from '$lib/forms/enhance';
 	import { Button } from '$lib/components/ui/button';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import SendIcon from '@lucide/svelte/icons/send';
 	import PencilIcon from '@lucide/svelte/icons/pencil-line';
 	import CloseIcon from '@lucide/svelte/icons/x';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import type { FormStateProp } from '$lib/forms/types';
-	import type { UpdatePlayerFormSchema } from '$lib/schemas/player';
 	import { Input } from '$lib/components/ui/input';
 	import { tick } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import * as Popover from '$lib/components/ui/popover';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
+	import { deletePlayer, updatePlayer, type UpdatePlayerInput } from '$lib/api/player.remote';
 
 	interface Props {
 		player: Player;
 		submitting?: boolean;
-		form?: FormStateProp<UpdatePlayerFormSchema>;
 	}
 
-	let { player, submitting = $bindable(false), form }: Props = $props();
+	let { player, submitting = $bindable(false) }: Props = $props();
 
 	const accessibleSlide = createAccessibleTransition(slide);
 	const fadeOptions = { duration: 200, easing: cubicOut };
 	const cellSlideOptions = { duration: 200 };
 
-	const handleDelete = createEnhanceHandler({
-		onStart: () => {
-			submitting = true;
-		},
-		onEnd: () => {
-			submitting = false;
-		},
-	});
+	let updateButton: HTMLButtonElement | null = $state(null);
 
-	let fieldRefs: Partial<Record<keyof UpdatePlayerFormSchema, HTMLInputElement | null>> = $state({
+	const updateFormId = () => `player-form-${player.id}`;
+	let editing = $state(false);
+
+	let inputs: Partial<Record<keyof UpdatePlayerInput, HTMLInputElement | null>> = $state({
 		name: null,
 		jerseyNumber: null,
 	});
 
-	let isRowTarget = $derived(form?.target?.resource === 'player' && form?.target?.id === player.id);
-	let updateButton: HTMLButtonElement | null = $state(null);
+	let updateForm = $derived(updatePlayer.for(player.id));
 
-	const handleUpdate = createEnhanceHandler({
-		onStart: () => {
-			submitting = true;
-		},
-		onEnd: async () => {
-			submitting = false;
-
-			await tick(); // lets submitting change propagate first
-
-			if (form?.errors && form.action === 'update' && isRowTarget) {
-				focusFirstError(fieldRefs, form.errors);
-			} else if (!form?.error) {
-				stopEditing();
-			}
-		},
+	$effect(() => {
+		submitting = !!updateForm.pending;
 	});
-
-	const updateFormId = () => `player-form-${player.id}`;
-	let editing = $state(false);
-	let draft: UpdatePlayerFormSchema = $state({ id: '', name: '', jerseyNumber: '' });
 
 	async function startEditing() {
 		editing = true;
 
-		const { id, name, jerseyNumber } = player;
-		draft = { id, name, jerseyNumber };
+		const { name, jerseyNumber } = player;
+		updateForm.fields.set({ id: player.id, name, jerseyNumber: jerseyNumber ?? '' });
 
 		await tick();
 
-		fieldRefs.name?.focus();
+		inputs.name?.focus();
 	}
 
+	let updateFormElement: HTMLFormElement | null = $state(null);
+
 	function stopEditing() {
+		updateFormElement?.reset();
 		editing = false;
 	}
+
+	let enhancedUpdateForm = $derived(
+		updateForm.enhance(async (form) => {
+			if (await form.submit()) {
+				stopEditing();
+			}
+		})
+	);
 </script>
 
 <Tooltip.Provider>
-	<Table.Row>
+	<Table.Row
+		{@attach focusFirstError({
+			submitting,
+			issues: updateForm.fields.allIssues(),
+		})}
+	>
 		<Table.Cell class="font-medium">
 			<div transition:accessibleSlide={cellSlideOptions}>
 				{#if editing}
-					{@const nameHasError = form?.errors?.name && isRowTarget && form.action === 'update'}
+					{@const nameHasError = (updateForm.fields.name.issues() ?? []).length > 0}
 					<div in:fade={fadeOptions}>
-						<Tooltip.Root disabled={!nameHasError} open={nameHasError}>
+						<Tooltip.Root open={nameHasError} disabled={!nameHasError}>
 							<Tooltip.Trigger>
-								{#snippet child({ props })}
-									<Input
-										{...props}
-										bind:ref={fieldRefs.name}
-										bind:value={draft.name}
-										form={updateFormId()}
-										disabled={submitting}
-										name="name"
-										required
-										aria-invalid={nameHasError}
-										type="text"
-									/>
-								{/snippet}
+								<Input
+									{...updateForm.fields.name.as('text')}
+									required
+									form={updateFormId()}
+									bind:ref={inputs.name}
+								/>
 							</Tooltip.Trigger>
-							<Tooltip.Content>
-								{#each form?.errors?.name as error (error)}
-									<span class="text-error">{error}</span>
+							<Tooltip.Content customAnchor={inputs.name} class="bg-error-foreground text-error">
+								{#each updateForm.fields.name.issues() as error (error.message)}
+									<span class="text-error">{error.message}</span>
 								{/each}
 							</Tooltip.Content>
 						</Tooltip.Root>
@@ -127,30 +111,26 @@
 		<Table.Cell class="text-center">
 			<div transition:accessibleSlide={cellSlideOptions}>
 				{#if editing}
-					{@const jerseyHasError =
-						form?.errors?.jerseyNumber && isRowTarget && form.action === 'update'}
+					{@const jerseyHasError = (updateForm.fields.jerseyNumber.issues() ?? []).length > 0}
 					<div in:fade={fadeOptions}>
-						<Tooltip.Root disabled={!jerseyHasError} open={jerseyHasError}>
+						<Tooltip.Root open={jerseyHasError} disabled={!jerseyHasError}>
 							<Tooltip.Trigger>
-								{#snippet child({ props })}
-									<Input
-										{...props}
-										bind:ref={fieldRefs.jerseyNumber}
-										bind:value={draft.jerseyNumber}
-										name="jerseyNumber"
-										type="text"
-										aria-invalid={jerseyHasError}
-										form={updateFormId()}
-										placeholder={!player.jerseyNumber ? 'N/A' : null}
-										inputmode="numeric"
-										pattern="[0-9]+"
-										title="Numbers only from 0-99"
-									/>
-								{/snippet}
+								<Input
+									{...updateForm.fields.jerseyNumber.as('text')}
+									placeholder={!player.jerseyNumber ? 'N/A' : null}
+									inputmode="numeric"
+									pattern="[0-9]+"
+									title="Numbers only from 0-99"
+									form={updateFormId()}
+									bind:ref={inputs.jerseyNumber}
+								/>
 							</Tooltip.Trigger>
-							<Tooltip.Content class="bg-error-foreground text-error">
-								{#each form?.errors?.jerseyNumber as error (error)}
-									<span>{error}</span>
+							<Tooltip.Content
+								customAnchor={inputs.jerseyNumber}
+								class="bg-error-foreground text-error"
+							>
+								{#each updateForm.fields.jerseyNumber.issues() as error (error.message)}
+									<span>{error.message}</span>
 								{/each}
 							</Tooltip.Content>
 						</Tooltip.Root>
@@ -167,7 +147,6 @@
 		<Table.Cell>
 			<div transition:accessibleSlide={cellSlideOptions}>
 				{#if editing}
-					{@const hasError = !!(form?.error && isRowTarget && form.action === 'update')}
 					<div in:fade={fadeOptions} class="w-24 flex justify-end">
 						<Button
 							disabled={submitting}
@@ -181,12 +160,15 @@
 							/>
 						</Button>
 						<form
+							{@attach focusFirstError({
+								submitting,
+								issues: updateForm.fields.allIssues(),
+							})}
+							{...enhancedUpdateForm}
 							id={updateFormId()}
-							action="?/updatePlayer"
-							method="POST"
-							use:enhance={handleUpdate}
+							bind:this={updateFormElement}
 						>
-							<input type="hidden" name="id" value={draft.id} />
+							<input {...updateForm.fields.id.as('hidden', player.id)} />
 							<SubmitButton
 								bind:ref={updateButton}
 								class="group"
@@ -201,7 +183,7 @@
 									/>
 								{/snippet}
 							</SubmitButton>
-							<Popover.Root open={hasError}>
+							<Popover.Root open={(updateForm.fields.issues() ?? []).length > 0}>
 								<Popover.Content
 									customAnchor={updateButton}
 									class="bg-error-foreground flex flex-col gap-0.5"
@@ -212,7 +194,9 @@
 										<ErrorIcon class="stroke-error" aria-hidden="true" />
 										<h4 class="font-bold text-error">Can't save changes</h4>
 									</div>
-									<p class="text-error">{form?.error}</p>
+									{#each updateForm.fields.issues() as error (error.message)}
+										<p class="text-error">{error.message}</p>
+									{/each}
 								</Popover.Content>
 							</Popover.Root>
 						</form>
@@ -225,8 +209,8 @@
 						<Button onclick={startEditing} class="group" variant="ghost" size="icon">
 							<PencilIcon class="group-hover:stroke-info transition-colors duration-200" />
 						</Button>
-						<form action="?/deletePlayer" method="post" use:enhance={handleDelete}>
-							<input type="hidden" name="id" value={player.id} />
+						<form {...deletePlayer.for(player.id)}>
+							<input {...deletePlayer.for(player.id).fields.id.as('hidden', player.id)} />
 
 							<SubmitButton
 								class="group"
