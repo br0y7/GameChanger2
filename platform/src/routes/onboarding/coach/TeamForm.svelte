@@ -22,7 +22,7 @@
 		<Field.Group class="px-1">
 			<input {...createTeam.fields.flow.as('hidden', 'solo-coach')} />
 			<NameSlugFields
-				{...teamFormLabels}
+				labels={teamFormLabels}
 				remoteFields={{
 					name: createTeam.fields.name,
 					slug: createTeam.fields.slug,

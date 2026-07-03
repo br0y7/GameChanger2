@@ -2,9 +2,13 @@ import { z } from 'zod';
 
 const CHAR_LIMIT = 100;
 
+export interface NameSlugSchema {
+	name: string;
+	slug: string;
+}
+
 export interface NameSlugSchemaOptions {
-	nameLabel?: string;
-	slugLabel?: string;
+	labels?: Partial<NameSlugSchema>;
 	characterLimit?: number;
 }
 
@@ -23,24 +27,23 @@ export const requiredName = (label: string, characterLimit = CHAR_LIMIT) => {
 };
 
 export const createNameSlugSchema = (options?: NameSlugSchemaOptions) => {
-	const nameLabel = options?.nameLabel ?? 'Name';
-	const slugLabel = options?.slugLabel ?? 'Slug';
+	const { name = 'Name', slug = 'Slug' } = options?.labels ?? {};
 
 	return {
-		...requiredName(nameLabel),
+		...requiredName(name),
 		slug: z
 			.string()
 			.trim()
-			.min(1, `${slugLabel} is required`)
+			.min(1, `${slug} is required`)
 			// pipe only runs if the previous func (min) is valid
 			// The benefit is only showing one error, as an empty string
 			// triggers the regex below as well.
 			.pipe(
 				z
 					.string()
-					.max(CHAR_LIMIT, `${slugLabel} must be ${CHAR_LIMIT} characters or less`)
+					.max(CHAR_LIMIT, `${slug} must be ${CHAR_LIMIT} characters or less`)
 					.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-						message: `${slugLabel} must be lowercase letters, numbers, and hyphens only`,
+						message: `${slug} must be lowercase letters, numbers, and hyphens only`,
 					})
 			),
 	};

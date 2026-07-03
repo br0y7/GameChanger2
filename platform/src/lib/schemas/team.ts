@@ -3,7 +3,7 @@ import { createNameSlugSchema } from '$lib/schemas/common';
 import { z } from 'zod';
 
 const teamSchema = {
-	...createNameSlugSchema({ ...teamFormLabels }),
+	...createNameSlugSchema({ labels: teamFormLabels }),
 };
 
 export const createTeamSchema = z.object({
