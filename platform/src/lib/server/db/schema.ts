@@ -17,6 +17,8 @@ import { ONBOARDING_DEFAULT_STEP } from '$lib/onboarding/steps';
 
 export const seasonStatusEnum = pgEnum('season_status', ['active', 'completed']);
 
+export const SEASON_UNIQUE_SLUG_PER_ORG_CONSTRAINT = 'season_slug_org_uq';
+
 export const season = snakeCase.table(
 	'season',
 	{
@@ -29,24 +31,53 @@ export const season = snakeCase.table(
 	},
 	(table) => [
 		index('season_organizationId_idx').on(table.organizationId),
+		unique(SEASON_UNIQUE_SLUG_PER_ORG_CONSTRAINT).on(table.organizationId, table.slug),
 		uniqueIndex('season_slug_uidx').on(table.organizationId, table.slug),
 	]
 );
 
 export type Season = typeof season.$inferSelect;
 
-export const team = snakeCase.table(
-	'team',
+export const divisionTypeEnum = pgEnum('division_type', [
+	'competitive',
+	'community',
+	'recreational',
+]);
+
+export const DIVISION_UNIQUE_SLUG_PER_SEASON_CONSTRAINT = 'division_slug_season_uq';
+
+export const division = snakeCase.table(
+	'division',
 	{
 		...baseFields,
 		...nameSlugFields,
+		type: divisionTypeEnum().notNull().default('community'),
 		seasonId: uuid()
 			.notNull()
 			.references(() => season.id, { onDelete: 'cascade' }),
 	},
 	(table) => [
-		index('team_seasonId_idx').on(table.seasonId),
-		uniqueIndex('team_slug_uidx').on(table.seasonId, table.slug),
+		index('division_seasonId_idx').on(table.seasonId),
+		unique(DIVISION_UNIQUE_SLUG_PER_SEASON_CONSTRAINT).on(table.seasonId, table.slug),
+		uniqueIndex('division_slug_uidx').on(table.seasonId, table.slug),
+	]
+);
+
+export const TEAM_UNIQUE_SLUG_PER_DIVISION_CONSTRAINT = 'team_slug_division_uq';
+
+export const team = snakeCase.table(
+	'team',
+	{
+		...baseFields,
+		...nameSlugFields,
+		divisionId: uuid()
+			.notNull()
+			.references(() => division.id, { onDelete: 'cascade' }),
+	},
+	(table) => [
+		index('team_divisionId_idx').on(table.divisionId),
+		unique(TEAM_UNIQUE_SLUG_PER_DIVISION_CONSTRAINT).on(table.divisionId, table.slug),
+		uniqueIndex('team_slug_uidx').on(table.divisionId, table.slug),
 	]
 );
 
@@ -94,7 +125,7 @@ export const game = snakeCase.table(
 		scheduledAt: timestamp(),
 		completedAt: timestamp(),
 
-		status: gameStatusEnum().default('upcoming'),
+		status: gameStatusEnum().notNull().default('upcoming'),
 	},
 	(table) => [
 		index('game_seasonId_idx').on(table.seasonId),
@@ -147,7 +178,7 @@ export const playerFollower = snakeCase.table(
 		playerId: uuid()
 			.notNull()
 			.references(() => player.id, { onDelete: 'cascade' }),
-		relationship: relationshipEnum().default('fan'),
+		relationship: relationshipEnum().notNull().default('fan'),
 	},
 	(table) => [
 		index('playerFollower_userId_idx').on(table.userId),

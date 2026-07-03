@@ -17,5 +17,5 @@ export const baseFields = {
 
 export const nameSlugFields = {
 	name: text().notNull(),
-	slug: text().notNull().unique(),
+	slug: text().notNull(),
 };
