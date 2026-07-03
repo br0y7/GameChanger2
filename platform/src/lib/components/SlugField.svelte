@@ -5,31 +5,32 @@
 	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import Button from './ui/button/button.svelte';
 	import { slugify } from '$lib/utils/string';
+	import type { RemoteFormField } from '@sveltejs/kit';
 
 	interface Props {
 		source: string;
-		value: string;
-		errors?: string[];
 		required?: boolean;
 		id?: string;
 		label?: string;
 		ref?: HTMLInputElement | null;
+		remoteField: RemoteFormField<string>;
 	}
 
 	let {
 		source,
-		value = $bindable(),
-		errors,
 		required = true,
 		id = 'slug',
 		label = 'Slug',
 		ref = $bindable(null),
+		remoteField,
 	}: Props = $props();
 	let isCustom = $state(false);
 
+	let value = $derived(remoteField.value() ?? '');
+
 	$effect(() => {
 		if (!isCustom) {
-			value = slugify(source);
+			remoteField.set(slugify(source));
 		}
 	});
 
@@ -40,14 +41,14 @@
 		if (!value) {
 			reset();
 		}
-		value = slugify(value);
+		remoteField.set(slugify(value));
 	};
 </script>
 
 <Field.Field>
 	<Field.Label for={id}>{label}</Field.Label>
 	<div class="relative">
-		<Input bind:value {id} name="slug" {required} {onblur} {oninput} bind:ref />
+		<Input {...remoteField.as('text')} {id} name="slug" {required} {onblur} {oninput} bind:ref />
 		{#if isCustom}
 			<Button
 				class="absolute right-0 text-muted-foreground hover:text-foreground transition-colors "
@@ -61,4 +62,4 @@
 	</div>
 </Field.Field>
 
-<FieldErrorList {errors} />
+<FieldErrorList errors={remoteField.issues()} />

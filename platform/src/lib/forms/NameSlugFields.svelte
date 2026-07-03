@@ -4,7 +4,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { slugify } from '$lib/utils/string';
-	import { type FieldErrorsState } from './types';
+	import type { RemoteFormField } from '@sveltejs/kit';
 
 	interface NameSlugFieldValues {
 		name: string;
@@ -14,18 +14,19 @@
 	interface Props {
 		nameLabel: string;
 		slugLabel: string;
-		values?: NameSlugFieldValues;
-		errors?: FieldErrorsState<NameSlugFieldValues>['errors'];
 		required?: boolean;
+		remoteFields: {
+			name: RemoteFormField<string>;
+			slug: RemoteFormField<string>;
+		};
 		refs?: Partial<Record<keyof NameSlugFieldValues, HTMLInputElement | null>>;
 	}
 
 	let {
 		nameLabel,
 		slugLabel,
-		required = true,
-		values = $bindable({ name: '', slug: '' }),
-		errors,
+		required = false,
+		remoteFields,
 		refs = $bindable({ name: null, slug: null }),
 	}: Props = $props();
 
@@ -35,22 +36,14 @@
 
 <Field.Field>
 	<Field.Label for={nameId}>{nameLabel}</Field.Label>
-	<Input
-		id={slugId}
-		name="name"
-		type="text"
-		bind:value={values.name}
-		{required}
-		bind:ref={refs.name}
-	/>
-	<FieldErrorList errors={errors?.name} />
+	<Input id={slugId} {...remoteFields.name.as('text')} {required} bind:ref={refs.name} />
+	<FieldErrorList errors={remoteFields.name.issues()} />
 </Field.Field>
 <SlugField
 	label={slugLabel}
 	id={slugId}
-	source={values.name}
-	bind:value={values.slug}
-	errors={errors?.slug}
+	source={remoteFields.name.value() ?? ''}
 	bind:ref={refs.slug}
+	remoteField={remoteFields.slug}
 	{required}
 />
