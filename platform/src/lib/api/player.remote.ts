@@ -72,7 +72,7 @@ async function assertCoachPermissions(
 	}
 }
 
-export const addPlayer = form(createPlayerSchema, async (data, issue) => {
+export const createPlayer = form(createPlayerSchema, async (data, issue) => {
 	const { locals } = getRequestEvent();
 
 	if (!locals.onboarding) {

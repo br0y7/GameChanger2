@@ -4,7 +4,7 @@
 	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import PlusIcon from '@lucide/svelte/icons/user-plus';
-	import { addPlayer } from '$lib/api/player.remote';
+	import { createPlayer } from '$lib/api/player.remote';
 	import { focusFirstError } from '$lib/forms/enhance';
 	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
 	import type { CreatePlayerInput } from '$lib/schemas/player';
@@ -23,26 +23,26 @@
 	}: Props = $props();
 
 	$effect(() => {
-		submitting = !!addPlayer.pending;
+		submitting = !!createPlayer.pending;
 	});
 </script>
 
 <form
-	{@attach focusFirstError({ submitting, issues: addPlayer.fields.allIssues() })}
-	{...addPlayer}
+	{@attach focusFirstError({ submitting, issues: createPlayer.fields.allIssues() })}
+	{...createPlayer}
 >
-	<input {...addPlayer.fields.teamId.as('hidden', player.teamId)} />
+	<input {...createPlayer.fields.teamId.as('hidden', player.teamId)} />
 	<Field.Set disabled={submitting} class="flex flex-col gap-4">
 		<Field.Group class="grid grid-cols-5 gap-1">
 			<Field.Field class="col-span-3 w-full px-1">
 				<Field.Label for="player-name">Player Name</Field.Label>
-				<Input id="player-name" {...addPlayer.fields.name.as('text')} required autofocus />
+				<Input id="player-name" {...createPlayer.fields.name.as('text')} required autofocus />
 			</Field.Field>
 			<Field.Field class="w-full">
 				<Field.Label for="player-jersey-number">Jersey #</Field.Label>
 				<Input
 					id="player-jersey-number"
-					{...addPlayer.fields.jerseyNumber.as('text')}
+					{...createPlayer.fields.jerseyNumber.as('text')}
 					inputmode="numeric"
 					pattern="[0-9]+"
 					title="Numbers only from 0-99"
@@ -58,9 +58,9 @@
 			</Field.Field>
 		</Field.Group>
 		<Field.Group class="gap-0.5">
-			<FieldErrorList errors={addPlayer.fields.name.issues()} />
-			<FieldErrorList errors={addPlayer.fields.jerseyNumber.issues()} />
+			<FieldErrorList errors={createPlayer.fields.name.issues()} />
+			<FieldErrorList errors={createPlayer.fields.jerseyNumber.issues()} />
 		</Field.Group>
-		<ErrorAlert errors={addPlayer.fields.issues()} />
+		<ErrorAlert errors={createPlayer.fields.issues()} />
 	</Field.Set>
 </form>
