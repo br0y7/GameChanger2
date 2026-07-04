@@ -4,9 +4,10 @@
 	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import PlusIcon from '@lucide/svelte/icons/user-plus';
-	import { addPlayer, type CreatePlayerInput } from '$lib/api/player.remote';
+	import { addPlayer } from '$lib/api/player.remote';
 	import { focusFirstError } from '$lib/forms/enhance';
 	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
+	import type { CreatePlayerInput } from '$lib/schemas/player';
 
 	interface Props {
 		player: CreatePlayerInput;

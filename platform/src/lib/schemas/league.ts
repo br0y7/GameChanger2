@@ -1,21 +1,15 @@
-import type { z } from 'better-auth';
-import { refineNameSlugSchema, type NameSlugSchemaOptions } from './common';
-import { organization } from '$lib/server/db/auth-schema';
-import { createInsertSchema } from 'drizzle-orm/zod';
+import { leagueFormLabels } from '$lib/forms/labels';
+import { createNameSlugSchema, requiredId } from './common';
+import { z } from 'zod';
 
-const labels: NameSlugSchemaOptions = {
-	nameLabel: 'League Name',
-	slugLabel: 'League Slug',
+const leagueSchema = {
+	...createNameSlugSchema({ labels: leagueFormLabels }),
 };
 
-// These functions just modify/extend the existing DB schema to customize the
-// validation error messages
-export const createLeagueSchema = createInsertSchema(
-	organization,
-	refineNameSlugSchema(labels)
-).pick({
-	name: true,
-	slug: true,
-});
+export const createLeagueSchema = z.object({ ...leagueSchema });
 
-export type LeagueFormSchema = z.infer<typeof createLeagueSchema>;
+export type CreateLeagueInput = z.infer<typeof createLeagueSchema>;
+
+export const updateLeagueSchema = z.object({ ...leagueSchema, ...requiredId });
+
+export type UpdateLeagueInput = z.infer<typeof updateLeagueSchema>;

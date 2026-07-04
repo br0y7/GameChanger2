@@ -1,17 +1,15 @@
-import { refineNameSlugSchema, type NameSlugSchemaOptions } from '$lib/schemas/common';
-import { season } from '$lib/server/db/schema';
-import type { z } from 'better-auth';
-import { createInsertSchema } from 'drizzle-orm/zod';
+import { seasonFormLabels } from '$lib/forms/labels';
+import { createNameSlugSchema, requiredId } from './common';
+import { z } from 'zod';
 
-const labels: NameSlugSchemaOptions = {
-	nameLabel: 'Season Name',
-	slugLabel: 'Season Slug',
+const seasonSchema = {
+	...createNameSlugSchema({ labels: seasonFormLabels }),
 };
 
-// Modify/extend the existing DB schema to customize the validation error messages.
-export const createSeasonSchema = createInsertSchema(season, {
-	...refineNameSlugSchema(labels),
-	organizationId: (s) => s.optional(), // the server should set this, not form submissions
-});
+export const createSeasonSchema = z.object({ ...seasonSchema });
 
-export type SeasonFormSchema = z.infer<typeof createSeasonSchema>;
+export type CreateSeasonInput = z.infer<typeof createSeasonSchema>;
+
+export const updateSeasonSchema = z.object({ ...seasonSchema, ...requiredId });
+
+export type UpdateSeasonInput = z.infer<typeof updateSeasonSchema>;

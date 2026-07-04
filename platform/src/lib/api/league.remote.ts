@@ -1,0 +1,62 @@
+import { form, getRequestEvent } from '$app/server';
+import { createLeagueSchema } from '$lib/schemas/league';
+import { auth } from '$lib/server/auth';
+import { db } from '$lib/server/db';
+import { getUser } from './auth.remote';
+import { eq } from 'drizzle-orm';
+import { serverLogger } from '$lib/server/logger';
+import { advanceOnboardingStep } from './onboarding.server';
+import { getOnboardingWithUser } from './onboarding.remote';
+import { isAPIError } from 'better-auth/api';
+import { invalid } from '@sveltejs/kit';
+import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps';
+import * as table from '$lib/server/db/schema';
+import { leagueFormLabels } from '$lib/forms/labels';
+
+export const createLeague = form(createLeagueSchema, async (data, issue) => {
+	const user = await getUser();
+	const onboarding = await getOnboardingWithUser({ id: user.id });
+
+	const {
+		request: { headers },
+	} = getRequestEvent();
+	try {
+		const league = await auth.api.createOrganization({
+			headers,
+			body: { ...data },
+		});
+
+		await db
+			.update(table.organization)
+			.set({ type: 'league' })
+			.where(eq(table.organization.id, league.id));
+
+		await auth.api.setActiveOrganization({
+			headers,
+			body: { organizationId: league.id },
+		});
+
+		serverLogger.info(`league created: ${league.id}`);
+
+		await advanceOnboardingStep(onboarding, NEXT_ORGANIZER_ONBOARDING_STEP);
+	} catch (err) {
+		if (isAPIError(err) && err.body) {
+			serverLogger.error(err, err.body);
+
+			const { $ERROR_CODES } = auth;
+
+			switch (err.body.code) {
+				case $ERROR_CODES.ORGANIZATION_ALREADY_EXISTS.code:
+				case $ERROR_CODES.ORGANIZATION_SLUG_ALREADY_TAKEN.code:
+					return invalid(issue.slug(`${leagueFormLabels.slug} already taken.`));
+				case $ERROR_CODES.YOU_ARE_NOT_ALLOWED_TO_CREATE_A_NEW_ORGANIZATION.code:
+				case $ERROR_CODES.YOU_HAVE_REACHED_THE_MAXIMUM_NUMBER_OF_ORGANIZATIONS.code:
+					return invalid(`You are not allowed to make a league.`);
+			}
+		}
+
+		serverLogger.error(err);
+
+		return invalid('Something went wrong.');
+	}
+});

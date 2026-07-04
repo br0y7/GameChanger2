@@ -7,9 +7,9 @@ import { PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT } from '$lib/server/db/schema'
 import { forbidden, internal, notFound, unauthorized } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { invalid } from '@sveltejs/kit';
-import { SQL } from 'bun';
-import { DrizzleQueryError, eq } from 'drizzle-orm';
 import * as table from '$lib/server/db/schema';
+import { isConstraintError } from './errors.server';
+import { eq } from 'drizzle-orm';
 
 async function assertCoachPermissions(
 	action: CrudAction,
@@ -72,14 +72,6 @@ async function assertCoachPermissions(
 	}
 }
 
-function isDuplicateJerseyNumber(err: unknown) {
-	return (
-		err instanceof DrizzleQueryError &&
-		err.cause instanceof SQL.PostgresError &&
-		err.cause.constraint === PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT
-	);
-}
-
 export const addPlayer = form(createPlayerSchema, async (data, issue) => {
 	const { locals } = getRequestEvent();
 
@@ -104,7 +96,7 @@ export const addPlayer = form(createPlayerSchema, async (data, issue) => {
 			},
 		};
 	} catch (err) {
-		if (isDuplicateJerseyNumber(err)) {
+		if (isConstraintError(err, PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT)) {
 			return invalid(issue.jerseyNumber('Jersey number already taken.'));
 		}
 
@@ -126,7 +118,7 @@ export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 			.set({ ...data })
 			.where(eq(table.player.id, id));
 	} catch (err) {
-		if (isDuplicateJerseyNumber(err)) {
+		if (isConstraintError(err, PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT)) {
 			return invalid(issue.jerseyNumber('Jersey number already taken.'));
 		}
 

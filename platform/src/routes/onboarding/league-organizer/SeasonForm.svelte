@@ -1,59 +1,15 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import * as Field from '$lib/components/ui/field';
-	import type { SubmitFunction } from '@sveltejs/kit';
-	import Collapsible from '$lib/components/Collapsible.svelte';
-	import * as Alert from '$lib/components/ui/alert';
-	import ErrorIcon from '@lucide/svelte/icons/circle-x';
-	import type { FormStateProp } from '$lib/forms/types';
-	import type { SeasonFormSchema } from '$lib/schemas/season';
-	import { createEnhanceHandler, focusFirstError } from '$lib/forms/enhance';
 	import NameSlugFields from '$lib/forms/NameSlugFields.svelte';
 	import { seasonFormLabels } from '$lib/forms/labels';
-	import { tick } from 'svelte';
+	import { createSeason } from '$lib/api/season.remote';
+	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
 
-	interface Props {
-		form?: FormStateProp<SeasonFormSchema>;
-		season?: SeasonFormSchema;
-	}
-
-	let {
-		season = $bindable({
-			name: '',
-			slug: '',
-		}),
-		form,
-	}: Props = $props();
-
-	let submitting = $state(false);
-
-	let fieldRefs: Partial<Record<keyof SeasonFormSchema, HTMLInputElement | null>> = $state({
-		name: null,
-		slug: null,
-	});
-
-	let isFormTarget = $derived(form?.target?.resource === 'season' && form?.action === 'create');
-
-	const handleSubmission: SubmitFunction = createEnhanceHandler({
-		onStart: () => {
-			submitting = true;
-		},
-		onEnd: async () => {
-			submitting = false;
-
-			await tick(); // lets submitting change propagate first
-
-			if (form?.errors && isFormTarget) {
-				focusFirstError(fieldRefs, form.errors);
-			} else {
-				fieldRefs.name?.focus();
-			}
-		},
-	});
+	let submitting = $derived(!!createSeason.pending);
 </script>
 
-<form action="?/createSeason" method="POST" use:enhance={handleSubmission}>
+<form {...createSeason}>
 	<Field.Set disabled={submitting}>
 		<Field.Group>
 			<div class="flex flex-col gap-1">
@@ -63,18 +19,13 @@
 				</p>
 			</div>
 			<NameSlugFields
-				{...seasonFormLabels}
-				errors={form?.errors}
-				values={season}
-				bind:refs={fieldRefs}
+				labels={seasonFormLabels}
+				remoteFields={{
+					name: createSeason.fields.name,
+					slug: createSeason.fields.slug,
+				}}
 			/>
-			<Collapsible isOpen={!!form?.error}>
-				<Alert.Root variant="destructive">
-					<ErrorIcon />
-					<Alert.Title>Error</Alert.Title>
-					<Alert.Description>{form?.error}</Alert.Description>
-				</Alert.Root>
-			</Collapsible>
+			<ErrorAlert errors={createSeason.fields.issues()} />
 			<Field.Field class="mt-6">
 				<SubmitButton {submitting}>Create Season</SubmitButton>
 			</Field.Field>
