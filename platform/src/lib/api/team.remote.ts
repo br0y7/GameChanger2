@@ -3,7 +3,7 @@ import { createTeamSchema } from '$lib/schemas/team';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
-import { getUser } from './auth.remote';
+import { requireUser } from './auth.remote';
 import { serverLogger } from '$lib/server/logger';
 import { invalid } from '@sveltejs/kit';
 import { internal } from '$lib/server/fail';
@@ -17,7 +17,7 @@ import { z } from 'zod';
 import * as table from '$lib/server/db/schema';
 
 export const createTeam = form(createTeamSchema, async (data, issue) => {
-	const user = await getUser();
+	const user = await requireUser();
 
 	const { name, slug, flow } = data;
 	let { divisionId } = data;

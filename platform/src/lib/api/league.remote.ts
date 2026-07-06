@@ -2,7 +2,7 @@ import { form, getRequestEvent } from '$app/server';
 import { createLeagueSchema } from '$lib/schemas/league';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { getUser } from './auth.remote';
+import { requireUser } from './auth.remote';
 import { eq } from 'drizzle-orm';
 import { serverLogger } from '$lib/server/logger';
 import { advanceOnboardingStep } from './onboarding.server';
@@ -14,7 +14,7 @@ import * as table from '$lib/server/db/schema';
 import { leagueFormLabels } from '$lib/forms/labels';
 
 export const createLeague = form(createLeagueSchema, async (data, issue) => {
-	const user = await getUser();
+	const user = await requireUser();
 	const onboarding = await getOnboardingWithUser({ id: user.id });
 
 	const {

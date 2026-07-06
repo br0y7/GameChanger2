@@ -41,7 +41,7 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 			body: { ...data },
 		});
 
-		serverLogger.info('new user sign up', user);
+		serverLogger.info('new user sign up', user.id);
 
 		redirect(303, resolve('/onboarding'));
 	} catch (err) {
@@ -64,12 +64,15 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 	}
 });
 
-export const getUser = query(() => {
-	const { user } = getRequestEvent().locals;
+const requireAuth = () => {
+	const { session, user } = getRequestEvent().locals;
 
-	if (!user) {
+	if (!session || !user) {
 		redirect(303, resolve('/login'));
 	}
 
-	return user;
-});
+	return { session, user };
+};
+
+export const requireUser = query(() => requireAuth().user);
+export const requireSession = query(() => requireAuth().session);

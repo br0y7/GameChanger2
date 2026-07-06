@@ -1,7 +1,7 @@
-import { form, getRequestEvent } from '$app/server';
+import { form, getRequestEvent, query } from '$app/server';
 import { createSeasonSchema } from '$lib/schemas/season';
 import { db } from '$lib/server/db';
-import { getUser } from './auth.remote';
+import { requireUser } from './auth.remote';
 import { serverLogger } from '$lib/server/logger';
 import { advanceOnboardingStep } from './onboarding.server';
 import { unauthorized } from '$lib/server/fail';
@@ -11,9 +11,11 @@ import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps';
 import * as table from '$lib/server/db/schema';
 import { isConstraintError } from './errors.server';
 import { seasonFormLabels } from '$lib/forms/labels';
+import { requiredId } from '$lib/schemas/common';
+import z from 'zod';
 
 export const createSeason = form(createSeasonSchema, async (data, issue) => {
-	const user = await getUser();
+	const user = await requireUser();
 	const onboarding = await getOnboardingWithUser({ id: user.id });
 
 	const {
@@ -47,3 +49,21 @@ export const createSeason = form(createSeasonSchema, async (data, issue) => {
 		return invalid('Something went wrong.');
 	}
 });
+
+const includes = {
+	divisions: z.boolean().optional(),
+	games: z.boolean().optional(),
+};
+
+export const getCurrentSeasonByOrgId = query(
+	z.object({
+		...requiredId,
+		include: z.object(includes).default({}),
+	}),
+	async ({ id, include }) =>
+		await db.query.season.findFirst({
+			where: { organizationId: id, status: 'active' },
+			orderBy: { createdAt: 'desc' },
+			with: include,
+		})
+);
