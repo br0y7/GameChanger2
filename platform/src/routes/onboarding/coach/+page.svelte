@@ -10,11 +10,11 @@
 	import PlayerTable from './PlayerTable.svelte';
 	import { getOnboardingWithUser } from '$lib/api/onboarding.remote';
 	import { getCoachWithUser } from '$lib/api/coach.remote';
-	import { getUser } from '$lib/api/auth.remote';
+	import { requireUser } from '$lib/api/auth.remote';
 	import { getTeam } from '$lib/api/team.remote';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
 
-	const user = $derived(await getUser());
+	const user = $derived(await requireUser());
 
 	const onboarding = $derived(await getOnboardingWithUser({ id: user.id }));
 	let currentStep = $derived(onboarding.currentStep as CoachOnboardingStep);

@@ -17,7 +17,8 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import * as Popover from '$lib/components/ui/popover';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
-	import { deletePlayer, updatePlayer, type UpdatePlayerInput } from '$lib/api/player.remote';
+	import { deletePlayer, updatePlayer } from '$lib/api/player.remote';
+	import type { UpdatePlayerInput } from '$lib/schemas/player';
 
 	interface Props {
 		player: Player;
