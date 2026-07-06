@@ -5,7 +5,7 @@
 	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import Button from './ui/button/button.svelte';
 	import { slugify } from '$lib/utils/string';
-	import type { RemoteFormField } from '@sveltejs/kit';
+	import type { RemoteFormField, RemoteFormIssue } from '@sveltejs/kit';
 
 	interface Props {
 		source: string;
@@ -14,17 +14,17 @@
 		label?: string;
 		ref?: HTMLInputElement | null;
 		remoteField: RemoteFormField<string>;
-		hideErrors?: boolean;
+		errors?: RemoteFormIssue[];
 	}
 
 	let {
 		source,
-		required = true,
+		required = false,
 		id = 'slug',
 		label = 'Slug',
 		ref = $bindable(null),
 		remoteField,
-		hideErrors = false,
+		errors,
 	}: Props = $props();
 	let isCustom = $state(false);
 
@@ -64,6 +64,4 @@
 	</div>
 </Field.Field>
 
-{#if !hideErrors}
-	<FieldErrorList errors={remoteField.issues()} />
-{/if}
+<FieldErrorList {errors} />

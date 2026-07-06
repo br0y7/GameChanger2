@@ -41,5 +41,6 @@
 	source={remoteFields.name.value() ?? ''}
 	bind:ref={refs.slug}
 	remoteField={remoteFields.slug}
+	errors={remoteFields.slug.issues()}
 	{required}
 />
