@@ -5,7 +5,7 @@ import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
 import { organization, admin, openAPI } from 'better-auth/plugins';
-import * as schema from '$lib/server/db/schema';
+import * as table from '$lib/server/db/schema';
 import { PUBLIC_APP_URL } from '$env/static/public';
 import { dev } from '$app/environment';
 import { type BetterAuthPlugin } from 'better-auth';
@@ -24,7 +24,7 @@ if (dev) {
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
 	secret: env.BETTER_AUTH_SECRET,
-	database: drizzleAdapter(db, { provider: 'pg', schema }),
+	database: drizzleAdapter(db, { provider: 'pg', schema: table }),
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: false, // TODO: Eventually set to true and test with a local email server
@@ -54,8 +54,10 @@ export const auth = betterAuth({
 					},
 				},
 			},
+			// For simplicity, a user can only be a member of one organization.
+			membershipLimit: 1,
 			/// This can be a function that returns a boolean if you want a user
-			// to potentially manage multiple leagues but you want to limit it.
+			// to potentially manage multiple leagues, but you want to limit it.
 			// One for now for simplicity
 			organizationLimit: 1,
 			allowUserToCreateOrganization: async (user) => {
@@ -85,15 +87,44 @@ export const auth = betterAuth({
 		}),
 		admin(),
 		...optionalPlugins,
-		sveltekitCookies(getRequestEvent), // make sure this is the last plugin in the array],
+		sveltekitCookies(getRequestEvent), // make sure this is the last plugin in the array,
 	],
 	databaseHooks: {
 		user: {
 			create: {
 				after: async (user) => {
-					await db.insert(schema.userOnboarding).values({
+					await db.insert(table.userOnboarding).values({
 						userId: user.id,
 					});
+				},
+			},
+		},
+		session: {
+			create: {
+				before: async (session) => {
+					// NOTE: This hook will only work if a user is only a member
+					// of ONE organization. (see `membershipLimit` above)
+					// If that isn't the case then change the code below.
+					const member = await db.query.member.findFirst({
+						where: { userId: session.userId },
+						columns: { organizationId: true },
+					});
+
+					if (!member) {
+						return { data: session };
+					}
+
+					const organization = await db.query.organization.findFirst({
+						where: { id: member.organizationId },
+						columns: { id: true },
+					});
+
+					return {
+						data: {
+							...session,
+							activeOrganizationId: organization?.id,
+						},
+					};
 				},
 			},
 		},
