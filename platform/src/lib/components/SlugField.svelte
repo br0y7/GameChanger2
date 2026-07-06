@@ -14,6 +14,7 @@
 		label?: string;
 		ref?: HTMLInputElement | null;
 		remoteField: RemoteFormField<string>;
+		hideErrors?: boolean;
 	}
 
 	let {
@@ -23,6 +24,7 @@
 		label = 'Slug',
 		ref = $bindable(null),
 		remoteField,
+		hideErrors = false,
 	}: Props = $props();
 	let isCustom = $state(false);
 
@@ -62,4 +64,6 @@
 	</div>
 </Field.Field>
 
-<FieldErrorList errors={remoteField.issues()} />
+{#if !hideErrors}
+	<FieldErrorList errors={remoteField.issues()} />
+{/if}
