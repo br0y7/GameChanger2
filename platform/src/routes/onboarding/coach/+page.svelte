@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SlideContainer from '$lib/components/SlideContainer.svelte';
 	import { COACH_STEPS, type CoachOnboardingStep } from '$lib/onboarding/steps';
-	import TeamForm from './TeamForm.svelte';
+	import SoloCoachTeamForm from './SoloCoachTeamForm.svelte';
 	import PlayerForm from './PlayerForm.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import Collapsible from '$lib/components/Collapsible.svelte';
@@ -57,7 +57,7 @@
 		<div class="grid grid-cols-1 grid-rows-1 overflow-hidden">
 			{#if currentStep === 'create-team'}
 				<SlideContainer class="col-start-1 row-start-1 flex flex-col gap-6">
-					<TeamForm />
+					<SoloCoachTeamForm />
 				</SlideContainer>
 			{:else if currentStep === 'add-players' && team}
 				<SlideContainer class="col-start-1 row-start-1 flex flex-col gap-6">
