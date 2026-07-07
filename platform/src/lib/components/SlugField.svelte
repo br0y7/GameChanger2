@@ -8,6 +8,7 @@
 	import type { RemoteFormField, RemoteFormIssue } from '@sveltejs/kit';
 	import type { ClassValue } from 'clsx';
 	import { cn } from '$lib/utils';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		source: string;
@@ -18,43 +19,72 @@
 		remoteField: RemoteFormField<string>;
 		errors?: RemoteFormIssue[];
 		class?: ClassValue;
+		form?: string;
 	}
 
 	let {
 		source,
 		required = false,
-		id = 'slug',
-		label = 'Slug',
+		id,
+		label,
 		ref = $bindable(null),
 		remoteField,
+		form,
 		errors,
 		class: className,
 	}: Props = $props();
 	let isCustom = $state(false);
 
-	let value = $derived(remoteField.value() ?? '');
+	let value = $state('');
 
-	$effect(() => {
-		if (!isCustom) {
-			remoteField.set(slugify(source));
+	onMount(() => {
+		value = remoteField.value() ?? '';
+		if (slugify(source) !== value) {
+			isCustom = true;
 		}
 	});
 
-	const reset = () => (isCustom = false);
+	$effect(() => {
+		if (!isCustom) {
+			value = slugify(source);
+		}
+	});
+
+	$effect(() => {
+		if (label && !id) {
+			id = slugify(label);
+		}
+	});
+
+	const reset = () => {
+		isCustom = false;
+	};
 
 	const oninput = () => (isCustom = true);
 	const onblur = () => {
 		if (!value) {
 			reset();
 		}
-		remoteField.set(slugify(value));
+
+		value = slugify(value);
 	};
 </script>
 
 <Field.Field class={cn(className)}>
-	<Field.Label for={id}>{label}</Field.Label>
+	{#if label}
+		<Field.Label for={id}>{label}</Field.Label>
+	{/if}
 	<div class="relative">
-		<Input {...remoteField.as('text')} {id} name="slug" {required} {onblur} {oninput} bind:ref />
+		<Input
+			{...{ ...remoteField.as('text'), value: undefined }}
+			{id}
+			{required}
+			{onblur}
+			{oninput}
+			{form}
+			bind:ref
+			bind:value
+		/>
 		{#if isCustom}
 			<Button
 				class="absolute right-0 text-muted-foreground hover:text-foreground transition-colors "
