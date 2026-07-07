@@ -64,15 +64,17 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 	}
 });
 
-const requireAuth = () => {
-	const { session, user } = getRequestEvent().locals;
+const requireAuth = async () => {
+	const authSession = await auth.api.getSession({
+		headers: getRequestEvent().request.headers,
+	});
 
-	if (!session || !user) {
+	if (!authSession) {
 		redirect(303, resolve('/login'));
 	}
 
-	return { session, user };
+	return authSession;
 };
 
-export const requireUser = query(() => requireAuth().user);
-export const requireSession = query(() => requireAuth().session);
+export const requireUser = query(async () => (await requireAuth()).user);
+export const requireSession = query(async () => (await requireAuth()).session);
