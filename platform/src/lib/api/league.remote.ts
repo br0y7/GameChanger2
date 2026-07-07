@@ -1,8 +1,8 @@
-import { form, getRequestEvent } from '$app/server';
+import { form, getRequestEvent, query } from '$app/server';
 import { createLeagueSchema } from '$lib/schemas/league';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { requireUser } from './auth.remote';
+import { requireSession, requireUser } from './auth.remote';
 import { eq } from 'drizzle-orm';
 import { serverLogger } from '$lib/server/logger';
 import { advanceOnboardingStep } from './onboarding.server';
@@ -12,6 +12,7 @@ import { invalid } from '@sveltejs/kit';
 import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps';
 import * as table from '$lib/server/db/schema';
 import { leagueFormLabels } from '$lib/forms/labels';
+import type { MemberRole } from '$lib/schemas/member';
 
 export const createLeague = form(createLeagueSchema, async (data, issue) => {
 	const user = await requireUser();
@@ -59,4 +60,37 @@ export const createLeague = form(createLeagueSchema, async (data, issue) => {
 
 		return invalid('Something went wrong.');
 	}
+});
+
+export const isUserLeagueOrganizer = query(async () => {
+	const { activeOrganizationId } = await requireSession();
+
+	if (!activeOrganizationId) {
+		return false;
+	}
+
+	const organization = await db.query.organization.findFirst({
+		where: { id: activeOrganizationId },
+		columns: { type: true },
+	});
+
+	if (organization?.type !== 'league') {
+		return false;
+	}
+
+	const user = await requireUser();
+
+	const member = await db.query.member.findFirst({
+		where: {
+			organizationId: activeOrganizationId,
+			userId: user.id,
+		},
+		columns: {
+			role: true,
+		},
+	});
+
+	const ORGANIZER_ROLES: MemberRole[] = ['owner', 'admin'];
+
+	return ORGANIZER_ROLES.includes((member?.role as MemberRole) ?? '');
 });
