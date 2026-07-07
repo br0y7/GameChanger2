@@ -6,9 +6,10 @@
 	interface Props {
 		children: Snippet;
 		remoteField: RemoteFormField<string>;
-		ref: HTMLElement | null;
+		anchor: HTMLElement | null;
 	}
-	let { ref, children, remoteField }: Props = $props();
+
+	let { anchor, children, remoteField }: Props = $props();
 
 	const hasErrors = $derived((remoteField.issues() ?? []).length > 0);
 </script>
@@ -18,7 +19,7 @@
 		<Tooltip.Trigger>
 			{@render children()}
 		</Tooltip.Trigger>
-		<Tooltip.Content customAnchor={ref} class="bg-error-foreground text-error">
+		<Tooltip.Content customAnchor={anchor} class="bg-error-foreground text-error">
 			{#each remoteField.issues() as error (error)}
 				{error.message}
 			{/each}
