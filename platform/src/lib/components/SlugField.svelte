@@ -6,6 +6,8 @@
 	import Button from './ui/button/button.svelte';
 	import { slugify } from '$lib/utils/string';
 	import type { RemoteFormField, RemoteFormIssue } from '@sveltejs/kit';
+	import type { ClassValue } from 'clsx';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		source: string;
@@ -15,6 +17,7 @@
 		ref?: HTMLInputElement | null;
 		remoteField: RemoteFormField<string>;
 		errors?: RemoteFormIssue[];
+		class?: ClassValue;
 	}
 
 	let {
@@ -25,6 +28,7 @@
 		ref = $bindable(null),
 		remoteField,
 		errors,
+		class: className,
 	}: Props = $props();
 	let isCustom = $state(false);
 
@@ -47,7 +51,7 @@
 	};
 </script>
 
-<Field.Field>
+<Field.Field class={cn(className)}>
 	<Field.Label for={id}>{label}</Field.Label>
 	<div class="relative">
 		<Input {...remoteField.as('text')} {id} name="slug" {required} {onblur} {oninput} bind:ref />
