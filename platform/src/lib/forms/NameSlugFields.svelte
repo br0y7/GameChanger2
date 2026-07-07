@@ -60,7 +60,7 @@
 <Field.Field class={cn(fieldClasses?.name)}>
 	<Field.Label for={ids.name}>{labels.name}</Field.Label>
 	{#if errorDisplayType === 'tooltip'}
-		<FieldErrorTooltip remoteField={remoteFields.name} ref={refs.name}>
+		<FieldErrorTooltip remoteField={remoteFields.name} anchor={refs.name}>
 			{@render nameField()}
 		</FieldErrorTooltip>
 	{:else}
@@ -72,7 +72,7 @@
 </Field.Field>
 {#if errorDisplayType === 'tooltip'}
 	<div class={cn(fieldClasses?.slug)}>
-		<FieldErrorTooltip remoteField={remoteFields.slug} ref={refs.slug}>
+		<FieldErrorTooltip remoteField={remoteFields.slug} anchor={refs.slug}>
 			{@render slugField()}
 		</FieldErrorTooltip>
 	</div>
