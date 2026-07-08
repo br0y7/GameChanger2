@@ -14,6 +14,7 @@ import {
 import { organization, user } from './auth-schema.ts';
 import { baseFields, creationFields, nameSlugFields } from './base-schema.ts';
 import { ONBOARDING_DEFAULT_STEP } from '$lib/onboarding/steps';
+import { divisionTypes } from '$lib/schemas/division';
 
 export const seasonStatusEnum = pgEnum('season_status', ['active', 'completed']);
 
@@ -38,11 +39,7 @@ export const season = snakeCase.table(
 
 export type Season = typeof season.$inferSelect;
 
-export const divisionTypeEnum = pgEnum('division_type', [
-	'competitive',
-	'community',
-	'recreational',
-]);
+export const divisionTypeEnum = pgEnum('division_type', divisionTypes);
 
 export const DIVISION_UNIQUE_SLUG_PER_SEASON_CONSTRAINT = 'division_slug_season_uq';
 
@@ -63,6 +60,8 @@ export const division = snakeCase.table(
 	]
 );
 
+export type Division = typeof division.$inferSelect;
+
 export const TEAM_UNIQUE_SLUG_PER_DIVISION_CONSTRAINT = 'team_slug_division_uq';
 
 export const team = snakeCase.table(
@@ -80,6 +79,8 @@ export const team = snakeCase.table(
 		uniqueIndex('team_slug_uidx').on(table.divisionId, table.slug),
 	]
 );
+
+export type Team = typeof team.$inferSelect;
 
 export const coach = snakeCase.table(
 	'coach',

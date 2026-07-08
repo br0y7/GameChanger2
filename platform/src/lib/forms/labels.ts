@@ -14,3 +14,8 @@ export const seasonFormLabels = {
 	name: 'Season Name',
 	slug: 'Season Slug',
 } as const satisfies NameSlugSchema;
+
+export const divisionFormLabels = {
+	name: 'Division Name',
+	slug: 'Division Slug',
+} as const satisfies NameSlugSchema;

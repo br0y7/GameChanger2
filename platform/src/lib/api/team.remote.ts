@@ -1,20 +1,61 @@
 import { form, getRequestEvent, query } from '$app/server';
-import { createTeamSchema } from '$lib/schemas/team';
-import { auth } from '$lib/server/auth';
+import { createTeamSchema, updateTeamSchema } from '$lib/schemas/team';
+import { auth, type User } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 import { requireUser } from './auth.remote';
 import { serverLogger } from '$lib/server/logger';
 import { invalid } from '@sveltejs/kit';
-import { internal } from '$lib/server/fail';
-import { getOnboardingWithUser } from './onboarding.remote';
+import { forbidden, internal, internalNoId, notFound } from '$lib/server/fail';
+import { getOnboarding } from './onboarding.remote';
 import { NEXT_COACH_ONBOARDING_STEP } from '$lib/onboarding/steps';
 import { isAPIError } from 'better-auth/api';
 import { advanceOnboardingStep } from './onboarding.server';
-import { requiredId } from '$lib/schemas/common';
-import { getCoachWithUser } from './coach.remote';
+import { idField, idOnlySchema, requiredId } from '$lib/schemas/common';
+import { getCoach } from './coach.remote';
 import { z } from 'zod';
 import * as table from '$lib/server/db/schema';
+import type { CrudAction, ResourceTarget } from '$lib/forms/types';
+import { isConstraintError } from './errors.server';
+import { teamFormLabels } from '$lib/forms/labels';
+import { isUserLeagueOrganizer } from './league.remote';
+import { isUserOrgAdmin } from './organization.remote';
+
+async function assertPermissions(
+	action: CrudAction,
+	target: ResourceTarget,
+	user: User
+): Promise<void> {
+	if (action === 'create' && !(await isUserOrgAdmin())) {
+		forbidden(target);
+	}
+
+	const modifyingActions: CrudAction[] = ['update', 'delete'];
+
+	if (!modifyingActions.includes(action)) {
+		return;
+	}
+
+	if (!target.id) {
+		internalNoId(target, { action });
+	}
+
+	const team = await getTeam({ id: target.id });
+
+	if (!team) {
+		notFound(target);
+	}
+
+	if (await isUserLeagueOrganizer()) {
+		return;
+	}
+
+	const coach = await getCoach({ userId: user.id, teamId: team.id });
+
+	if (!coach) {
+		forbidden(target);
+	}
+}
 
 export const createTeam = form(createTeamSchema, async (data, issue) => {
 	const user = await requireUser();
@@ -102,49 +143,107 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 		}
 	}
 
-	const [createdTeam] = await db
-		.insert(table.team)
-		.values({
-			name,
-			slug,
-			divisionId,
-		})
-		.returning({ id: table.team.id });
+	await assertPermissions('create', { resource: 'team' }, user);
 
-	serverLogger.info(`team created ${createdTeam.id}`);
-
-	if (flow === 'solo-coach') {
-		const [createdCoach] = await db
-			.insert(table.coach)
+	try {
+		const [createdTeam] = await db
+			.insert(table.team)
 			.values({
-				name: user.name,
-				userId: user.id,
-				teamId: createdTeam.id,
+				name,
+				slug,
+				divisionId,
 			})
-			.returning({ id: table.coach.id });
+			.returning({ id: table.team.id });
 
-		serverLogger.info(`coach created ${createdCoach.id}`);
+		serverLogger.info(`team created ${createdTeam.id}`);
 
-		const onboarding = await getOnboardingWithUser({ id: user.id });
+		if (flow === 'solo-coach') {
+			const [createdCoach] = await db
+				.insert(table.coach)
+				.values({
+					name: user.name,
+					userId: user.id,
+					teamId: createdTeam.id,
+				})
+				.returning({ id: table.coach.id });
 
-		await advanceOnboardingStep(onboarding, NEXT_COACH_ONBOARDING_STEP);
+			serverLogger.info(`coach created ${createdCoach.id}`);
 
-		// refresh the queries to update the page
-		void getOnboardingWithUser({ id: user.id }).refresh();
-		void getCoachWithUser({ id: user.id }).refresh();
+			const onboarding = await getOnboarding({ userId: user.id });
+
+			await advanceOnboardingStep(onboarding, NEXT_COACH_ONBOARDING_STEP);
+
+			// refresh the queries to update the page
+			void getOnboarding({ userId: user.id }).refresh();
+			void getCoach({ userId: user.id }).refresh();
+		}
+	} catch (err) {
+		if (isConstraintError(err, table.TEAM_UNIQUE_SLUG_PER_DIVISION_CONSTRAINT)) {
+			return invalid(issue.slug(`${teamFormLabels.slug} already taken`));
+		}
+
+		serverLogger.error(err);
+		return invalid('Something went wrong');
 	}
 });
+
+export const updateTeam = form(updateTeamSchema, async (data, issue) => {
+	const user = await requireUser();
+
+	const { id, ...values } = data;
+
+	await assertPermissions('update', { resource: 'team', id }, user);
+
+	try {
+		await db
+			.update(table.team)
+			.set({ ...values })
+			.where(eq(table.team.id, id));
+
+		serverLogger.info('team updated', id);
+	} catch (err) {
+		if (isConstraintError(err, table.TEAM_UNIQUE_SLUG_PER_DIVISION_CONSTRAINT)) {
+			return invalid(issue.slug(`${teamFormLabels.slug} already taken`));
+		}
+
+		serverLogger.error(err);
+		return invalid('Something went wrong');
+	}
+});
+
+export const deleteTeam = form(idOnlySchema, async ({ id }) => {
+	const user = await requireUser();
+
+	await assertPermissions('delete', { resource: 'team', id }, user);
+
+	await db.delete(table.team).where(eq(table.team.id, id));
+
+	serverLogger.info('team deleted', id);
+});
+
+const includes = {
+	players: z.boolean().optional(),
+	coaches: z.boolean().optional(),
+	division: z.boolean().optional(),
+};
 
 export const getTeam = query(
 	z.object({
 		...requiredId,
-		include: z
-			.object({
-				players: z.boolean().optional(),
-				coaches: z.boolean().optional(),
-				division: z.boolean().optional(),
-			})
-			.default({}),
+		include: z.object(includes).default({}),
 	}),
 	async ({ id, include }) => await db.query.team.findFirst({ where: { id }, with: include })
+);
+
+export const getTeams = query(
+	z.object({
+		divisionId: idField,
+		include: z.object(includes).default({}),
+	}),
+	async ({ divisionId, include }) =>
+		await db.query.team.findMany({
+			where: { divisionId },
+			with: include,
+			orderBy: (team, { asc }) => [asc(team.name)],
+		})
 );
