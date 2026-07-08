@@ -2,7 +2,7 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import type { RemoteFormField, RemoteFormIssue } from '@sveltejs/kit';
-	import type { Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { slugify } from '$lib/utils/string';
 	import FieldErrorList from './FieldErrorList.svelte';
 
@@ -40,6 +40,12 @@
 	let value = $state('');
 	let triggerContent = $derived(value || placeholder);
 	let isPlaceholder = $derived(triggerContent === placeholder);
+
+	onMount(() => {
+		if (value !== field.value()) {
+			value = field.value() ?? '';
+		}
+	});
 </script>
 
 {#if label}
