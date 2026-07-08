@@ -1,8 +1,11 @@
 import { query } from '$app/server';
-import { idOnlySchema } from '$lib/schemas/common';
+import { idField } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
+import z from 'zod';
 
-export const getCoachWithUser = query(
-	idOnlySchema,
-	async ({ id }) => await db.query.coach.findFirst({ where: { userId: id } })
+export const getCoach = query(
+	z.object({
+		userId: idField,
+	}),
+	async ({ userId }) => await db.query.coach.findFirst({ where: { userId } })
 );

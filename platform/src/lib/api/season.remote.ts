@@ -1,26 +1,24 @@
-import { form, getRequestEvent, query } from '$app/server';
+import { form, query } from '$app/server';
 import { createSeasonSchema } from '$lib/schemas/season';
 import { db } from '$lib/server/db';
-import { requireUser } from './auth.remote';
+import { requireSession, requireUser } from './auth.remote';
 import { serverLogger } from '$lib/server/logger';
 import { advanceOnboardingStep } from './onboarding.server';
 import { unauthorized } from '$lib/server/fail';
-import { getOnboardingWithUser } from './onboarding.remote';
+import { getOnboarding } from './onboarding.remote';
 import { invalid } from '@sveltejs/kit';
 import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps';
 import * as table from '$lib/server/db/schema';
 import { isConstraintError } from './errors.server';
 import { seasonFormLabels } from '$lib/forms/labels';
-import { requiredId } from '$lib/schemas/common';
+import { idField } from '$lib/schemas/common';
 import z from 'zod';
 
 export const createSeason = form(createSeasonSchema, async (data, issue) => {
 	const user = await requireUser();
-	const onboarding = await getOnboardingWithUser({ id: user.id });
+	const onboarding = await getOnboarding({ userId: user.id });
 
-	const {
-		locals: { session },
-	} = getRequestEvent();
+	const session = await requireSession();
 
 	if (!session?.activeOrganizationId) {
 		serverLogger.error('tried creating a season but no active organization');
@@ -50,20 +48,13 @@ export const createSeason = form(createSeasonSchema, async (data, issue) => {
 	}
 });
 
-const includes = {
-	divisions: z.boolean().optional(),
-	games: z.boolean().optional(),
-};
-
-export const getCurrentSeasonByOrgId = query(
+export const getCurrentSeason = query(
 	z.object({
-		...requiredId,
-		include: z.object(includes).default({}),
+		organizationId: idField,
 	}),
-	async ({ id, include }) =>
+	async ({ organizationId }) =>
 		await db.query.season.findFirst({
-			where: { organizationId: id, status: 'active' },
+			where: { organizationId, status: 'active' },
 			orderBy: { createdAt: 'desc' },
-			with: include,
 		})
 );

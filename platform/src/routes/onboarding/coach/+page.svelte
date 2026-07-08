@@ -8,18 +8,18 @@
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import PlayerTable from './PlayerTable.svelte';
-	import { getOnboardingWithUser } from '$lib/api/onboarding.remote';
-	import { getCoachWithUser } from '$lib/api/coach.remote';
+	import { getOnboarding } from '$lib/api/onboarding.remote';
+	import { getCoach } from '$lib/api/coach.remote';
 	import { requireUser } from '$lib/api/auth.remote';
 	import { getTeam } from '$lib/api/team.remote';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
 
 	const user = $derived(await requireUser());
 
-	const onboarding = $derived(await getOnboardingWithUser({ id: user.id }));
+	const onboarding = $derived(await getOnboarding({ userId: user.id }));
 	let currentStep = $derived(onboarding.currentStep as CoachOnboardingStep);
 
-	const coach = $derived(await getCoachWithUser({ id: user.id }));
+	const coach = $derived(await getCoach({ userId: user.id }));
 	const team = $derived(
 		coach?.teamId ? await getTeam({ id: coach.teamId, include: { players: true } }) : null
 	);

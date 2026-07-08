@@ -2,7 +2,7 @@ import { resolve } from '$app/paths';
 import { form, getRequestEvent, query } from '$app/server';
 import { ORG_CREATOR_ROLES, type OnboardingOrgCreatorRole } from '$lib/onboarding/roles';
 import { COACH_START_STEP, ORGANIZER_START_STEP } from '$lib/onboarding/steps';
-import { idOnlySchema } from '$lib/schemas/common';
+import { idField, idOnlySchema } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
 import { internal } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
@@ -59,13 +59,18 @@ export const selectOrgCreatorRole = form(roleSchema, async ({ role }) => {
 	}
 });
 
-export const getOnboardingWithUser = query(idOnlySchema, async ({ id }) => {
-	const onboarding = await db.query.userOnboarding.findFirst({ where: { userId: id } });
+export const getOnboarding = query(
+	z.object({
+		userId: idField,
+	}),
+	async ({ userId }) => {
+		const onboarding = await db.query.userOnboarding.findFirst({ where: { userId } });
 
-	assertOnboardingExists(onboarding);
+		assertOnboardingExists(onboarding);
 
-	return onboarding;
-});
+		return onboarding;
+	}
+);
 
 export const completeOnboarding = form(idOnlySchema, async (data) => {
 	const { onboarding } = getRequestEvent().locals;

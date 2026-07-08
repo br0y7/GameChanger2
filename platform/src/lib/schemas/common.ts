@@ -49,12 +49,12 @@ export const createNameSlugSchema = (options?: NameSlugSchemaOptions) => {
 	};
 };
 
+export const idField = z.uuid();
+
 export const requiredId = {
-	id: z.uuid().nonoptional(),
+	id: idField,
 };
 
 export const idOnlySchema = z.object({
 	...requiredId,
 });
-
-export type IdOnlySchema = z.infer<typeof idOnlySchema>;
