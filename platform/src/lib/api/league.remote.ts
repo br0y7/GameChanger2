@@ -6,17 +6,17 @@ import { requireSession, requireUser } from './auth.remote';
 import { eq } from 'drizzle-orm';
 import { serverLogger } from '$lib/server/logger';
 import { advanceOnboardingStep } from './onboarding.server';
-import { getOnboardingWithUser } from './onboarding.remote';
+import { getOnboarding } from './onboarding.remote';
 import { isAPIError } from 'better-auth/api';
 import { invalid } from '@sveltejs/kit';
 import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps';
 import * as table from '$lib/server/db/schema';
 import { leagueFormLabels } from '$lib/forms/labels';
-import type { MemberRole } from '$lib/schemas/member';
+import { isUserOrgAdmin } from './organization.remote';
 
 export const createLeague = form(createLeagueSchema, async (data, issue) => {
 	const user = await requireUser();
-	const onboarding = await getOnboardingWithUser({ id: user.id });
+	const onboarding = await getOnboarding({ userId: user.id });
 
 	const {
 		request: { headers },
@@ -74,23 +74,5 @@ export const isUserLeagueOrganizer = query(async () => {
 		columns: { type: true },
 	});
 
-	if (organization?.type !== 'league') {
-		return false;
-	}
-
-	const user = await requireUser();
-
-	const member = await db.query.member.findFirst({
-		where: {
-			organizationId: activeOrganizationId,
-			userId: user.id,
-		},
-		columns: {
-			role: true,
-		},
-	});
-
-	const ORGANIZER_ROLES: MemberRole[] = ['owner', 'admin'];
-
-	return ORGANIZER_ROLES.includes((member?.role as MemberRole) ?? '');
+	return organization?.type === 'league' && (await isUserOrgAdmin());
 });
