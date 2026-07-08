@@ -1,6 +1,5 @@
-import type { FieldErrorsState, FormAction, ResourceTarget } from '$lib/forms/types';
-import { error, fail, type NumericRange } from '@sveltejs/kit';
-import { z, type ZodError } from 'zod';
+import type { FormAction, ResourceTarget } from '$lib/forms/types';
+import { error, type NumericRange } from '@sveltejs/kit';
 
 export type ErrorMessageOptions = {
 	message?: string;
@@ -72,29 +71,13 @@ export function notFound(target: ResourceTarget, options: ErrorMessageOptions = 
 	raise(404, 'Not found', target, options);
 }
 
-export type ValidationErrorOptions = {
-	action?: FormAction;
-};
-
-export function parseError<TSchema>(
-	error: ZodError<TSchema>,
-	target: ResourceTarget,
-	options: ValidationErrorOptions = {}
-) {
-	const { action = 'create' } = options;
-	return fail(400, {
-		...options,
-		action,
-		target,
-		errors: z.flattenError(error).fieldErrors,
-	});
-}
-
-export function validationError<TSchema>(
-	errors: FieldErrorsState<TSchema>['errors'],
-	target: ResourceTarget,
-	options: ValidationErrorOptions = {}
-) {
-	const { action = 'create' } = options;
-	return fail(400, { ...options, target, action, errors });
+/**
+ * Throws a 500 HTTP Error, has default message about having no id
+ * @param target Specifies the target resource and maybe the id
+ * @param options Optional error message and action
+ * @throws HTTPError
+ */
+export function internalNoId(target: ResourceTarget, options: ErrorMessageOptions = {}): never {
+	const { action, message = `This should not happen, pass the ${target.resource} id` } = options;
+	internal(target, { action, message });
 }
