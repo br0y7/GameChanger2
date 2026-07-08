@@ -6,6 +6,7 @@ import z from 'zod';
 export const getCoach = query(
 	z.object({
 		userId: idField,
+		teamId: idField.optional(),
 	}),
 	async ({ userId }) => await db.query.coach.findFirst({ where: { userId } })
 );
