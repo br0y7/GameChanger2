@@ -4,7 +4,7 @@
 	import { ORGANIZER_STEPS, type OrganizerOnboardingStep } from '$lib/onboarding/steps';
 	import LeagueForm from './LeagueForm.svelte';
 	import { requireSession, requireUser } from '$lib/api/auth.remote';
-	import { getOnboarding } from '$lib/api/onboarding.remote';
+	import { completeOnboarding, getOnboarding } from '$lib/api/onboarding.remote';
 	import CreateDivisionForm from './CreateDivisionForm.svelte';
 	import { getCurrentSeason } from '$lib/api/season.remote';
 	import Collapsible from '$lib/components/Collapsible.svelte';
@@ -65,7 +65,7 @@
 							<CreateDivisionForm seasonId={season.id} />
 							<Collapsible isOpen={divisions.length > 0} class="flex flex-col gap-4">
 								<DivisionAccordion {divisions} />
-								<form action="?/complete" method="POST" class="w-full flex justify-center">
+								<form {...completeOnboarding} class="w-full flex justify-center">
 									<SubmitButton
 										{submitting}
 										class="w-1/2 hover:-translate-y-0.5
@@ -80,7 +80,7 @@
 								</form>
 							</Collapsible>
 							<Collapsible isOpen={divisions.length <= 0}>
-								<form action="?/complete" method="POST" class="w-full flex justify-center">
+								<form {...completeOnboarding} class="w-full flex justify-center">
 									<SubmitButton
 										variant="secondary"
 										{submitting}

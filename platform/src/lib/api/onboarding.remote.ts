@@ -1,16 +1,20 @@
 import { resolve } from '$app/paths';
 import { form, getRequestEvent, query } from '$app/server';
 import { ORG_CREATOR_ROLES, type OnboardingOrgCreatorRole } from '$lib/onboarding/roles';
-import { COACH_START_STEP, ORGANIZER_START_STEP } from '$lib/onboarding/steps';
-import { idField, idOnlySchema } from '$lib/schemas/common';
+import {
+	COACH_START_STEP,
+	ONBOARDING_DONE_STEP,
+	ORGANIZER_START_STEP,
+} from '$lib/onboarding/steps';
+import { idField } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
-import { internal } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { error, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { assertOnboardingExists } from './onboarding.server';
 import * as table from '$lib/server/db/schema';
+import { requireUser } from './auth.remote';
 
 const roleSchema = z.object({
 	role: z.enum(ORG_CREATOR_ROLES),
@@ -72,17 +76,20 @@ export const getOnboarding = query(
 	}
 );
 
-export const completeOnboarding = form(idOnlySchema, async (data) => {
-	const { onboarding } = getRequestEvent().locals;
+export const completeOnboarding = form('unchecked', async () => {
+	const { id: userId } = await requireUser();
+	const onboarding = await getOnboarding({ userId });
 
-	assertOnboardingExists(onboarding);
+	await db
+		.update(table.userOnboarding)
+		.set({
+			currentStep: ONBOARDING_DONE_STEP,
+			status: 'complete',
+		})
+		.where(eq(table.userOnboarding.id, onboarding.id));
 
-	if (onboarding.id != data.id) {
-		internal(
-			{ resource: 'user' },
-			{ action: 'update', message: 'Passed id different than local onboarding id' }
-		);
-	}
+	// void -> no need to wait for this
+	void getOnboarding({ userId }).refresh();
 
-	return onboarding;
+	redirect(303, resolve('/dashboard'));
 });

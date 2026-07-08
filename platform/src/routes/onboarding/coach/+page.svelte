@@ -8,7 +8,7 @@
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import PlayerTable from './PlayerTable.svelte';
-	import { getOnboarding } from '$lib/api/onboarding.remote';
+	import { completeOnboarding, getOnboarding } from '$lib/api/onboarding.remote';
 	import { getCoach } from '$lib/api/coach.remote';
 	import { requireUser } from '$lib/api/auth.remote';
 	import { getTeam } from '$lib/api/team.remote';
@@ -72,7 +72,7 @@
 						<div>
 							<Collapsible isOpen={hasPlayers} class="flex flex-col gap-6">
 								<PlayerTable players={team.players} />
-								<form action="?/complete" method="POST" class="w-full flex justify-center">
+								<form {...completeOnboarding} class="w-full flex justify-center">
 									<SubmitButton
 										{submitting}
 										class="w-1/2 hover:-translate-y-0.5
@@ -87,7 +87,7 @@
 								</form>
 							</Collapsible>
 							<Collapsible isOpen={!hasPlayers}>
-								<form action="?/complete" method="POST" class="w-full flex justify-center">
+								<form {...completeOnboarding} method="POST" class="w-full flex justify-center">
 									<SubmitButton
 										variant="secondary"
 										{submitting}
