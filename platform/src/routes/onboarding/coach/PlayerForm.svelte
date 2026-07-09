@@ -36,7 +36,13 @@
 		<Field.Group class="grid grid-cols-5 gap-1">
 			<Field.Field class="col-span-3 w-full px-1">
 				<Field.Label for="player-name">Player Name</Field.Label>
-				<Input id="player-name" {...createPlayer.fields.name.as('text')} required autofocus />
+				<Input
+					id="player-name"
+					{...createPlayer.fields.name.as('text')}
+					required
+					autofocus
+					autocomplete="off"
+				/>
 			</Field.Field>
 			<Field.Field class="w-full">
 				<Field.Label for="player-jersey-number">Jersey #</Field.Label>
@@ -46,6 +52,7 @@
 					inputmode="numeric"
 					pattern="[0-9]+"
 					title="Numbers only from 0-99"
+					autocomplete="off"
 				/>
 			</Field.Field>
 			<Field.Field class="w-full mt-auto">

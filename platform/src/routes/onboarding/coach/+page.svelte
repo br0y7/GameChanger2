@@ -72,7 +72,7 @@
 						<div>
 							<Collapsible isOpen={hasPlayers} class="flex flex-col gap-6">
 								<PlayerTable players={team.players} />
-								<form {...completeOnboarding} class="w-full flex justify-center">
+								<form {...completeOnboarding.for('done')} class="w-full flex justify-center">
 									<SubmitButton
 										{submitting}
 										class="w-1/2 hover:-translate-y-0.5
@@ -87,7 +87,11 @@
 								</form>
 							</Collapsible>
 							<Collapsible isOpen={!hasPlayers}>
-								<form {...completeOnboarding} method="POST" class="w-full flex justify-center">
+								<form
+									{...completeOnboarding.for('skip')}
+									method="POST"
+									class="w-full flex justify-center"
+								>
 									<SubmitButton
 										variant="secondary"
 										{submitting}
