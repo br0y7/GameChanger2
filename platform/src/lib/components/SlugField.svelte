@@ -82,6 +82,7 @@
 			{onblur}
 			{oninput}
 			{form}
+			autocomplete="off"
 			bind:ref
 			bind:value
 		/>

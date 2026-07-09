@@ -27,6 +27,7 @@
 					name: createTeam.fields.name,
 					slug: createTeam.fields.slug,
 				}}
+				required
 			/>
 			<ErrorAlert errors={createTeam.fields.issues()} />
 			<Field.Field class="mt-6">

@@ -39,6 +39,7 @@
 					slug: 'col-span-2 w-full',
 				}}
 				errorDisplayType="tooltip"
+				required
 			/>
 			<ErrorAlert errors={createTeamForm.fields.issues()} />
 			<Field.Field class="mt-auto">

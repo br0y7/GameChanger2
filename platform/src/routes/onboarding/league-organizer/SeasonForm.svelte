@@ -24,6 +24,7 @@
 					name: createSeason.fields.name,
 					slug: createSeason.fields.slug,
 				}}
+				required
 			/>
 			<ErrorAlert errors={createSeason.fields.issues()} />
 			<Field.Field class="mt-6">

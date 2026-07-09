@@ -41,7 +41,13 @@
 </script>
 
 {#snippet nameField()}
-	<Input id={ids.name} {...remoteFields.name.as('text')} {required} bind:ref={refs.name} />
+	<Input
+		id={ids.name}
+		{...remoteFields.name.as('text')}
+		{required}
+		bind:ref={refs.name}
+		autocomplete="off"
+	/>
 {/snippet}
 
 {#snippet slugField()}
