@@ -6,7 +6,6 @@
 	import { focusFirstError } from '$lib/forms/enhance';
 	import { Button } from '$lib/components/ui/button';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import SendIcon from '@lucide/svelte/icons/send';
 	import PencilIcon from '@lucide/svelte/icons/pencil-line';
 	import CloseIcon from '@lucide/svelte/icons/x';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -129,7 +128,7 @@
 	<Table.Cell>
 		<ExpandTransition>
 			{#if editing}
-				<div in:fade={fadeOptions} class="w-24 flex justify-end">
+				<div in:fade={fadeOptions} class="flex justify-end">
 					<Button
 						disabled={submitting}
 						onclick={stopEditing}
@@ -170,10 +169,7 @@
 					</form>
 				</div>
 			{:else}
-				<div in:fade={fadeOptions} class="w-24 flex justify-end">
-					<Button class="group" variant="ghost">
-						<SendIcon class="group-hover:stroke-info transition-colors duration-200" />
-					</Button>
+				<div in:fade={fadeOptions} class="flex justify-end">
 					<Button onclick={startEditing} class="group" variant="ghost" size="icon">
 						<PencilIcon class="group-hover:stroke-info transition-colors duration-200" />
 					</Button>

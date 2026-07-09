@@ -13,9 +13,9 @@
 <Table.Root>
 	<Table.Header>
 		<Table.Row>
-			<Table.Head class="w-full">Player Name</Table.Head>
-			<Table.Head class="text-center">Jersey #</Table.Head>
-			<Table.Head class="text-end" />
+			<Table.Head class="w-3/5">Player Name</Table.Head>
+			<Table.Head class="w-1/5 text-center">Jersey #</Table.Head>
+			<Table.Head class="w-1/5" />
 		</Table.Row>
 	</Table.Header>
 	<Table.Body>

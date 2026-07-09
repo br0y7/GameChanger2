@@ -65,7 +65,8 @@
 						<div>
 							<h1 class="text-2xl font-bold text-center">Add Players to {team.name}</h1>
 							<p class="text-muted-foreground text-center">
-								Add your players below and send invites so they can join your roster.
+								Add your players below. You can manage your roster and invite players and their
+								families anytime after setup.
 							</p>
 						</div>
 						<PlayerForm bind:player bind:submitting />
