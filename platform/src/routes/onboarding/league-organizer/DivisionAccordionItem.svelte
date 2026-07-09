@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { getTeams } from '$lib/api/team.remote';
-	import Collapsible from '$lib/components/Collapsible.svelte';
 	import ExpandTransition from '$lib/components/transitions/ExpandTransition.svelte';
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import type { Division } from '$lib/server/db/schema';
@@ -13,9 +11,6 @@
 	}
 
 	let { division }: Props = $props();
-	const teams = $derived(await getTeams({ divisionId: division.id }));
-
-	let submitting = $state(false);
 </script>
 
 <ExpandTransition class="not-last:border-b">
@@ -29,12 +24,10 @@
 			</span>
 		</Accordion.Trigger>
 		<Accordion.Content class="flex flex-col gap-4">
-			<DivisionSettings {division} {submitting} />
+			<DivisionSettings {division} />
 			<h3 class="text-lg text-center">Teams for {division.name}</h3>
 			<AddTeamForm divisionId={division.id} />
-			<Collapsible isOpen={teams.length > 0}>
-				<TeamTable {teams} />
-			</Collapsible>
+			<TeamTable divisionId={division.id} />
 		</Accordion.Content>
 	</Accordion.Item>
 </ExpandTransition>
