@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SlideContainer from '$lib/components/SlideContainer.svelte';
 	import SeasonForm from './SeasonForm.svelte';
 	import { ORGANIZER_STEPS, type OrganizerOnboardingStep } from '$lib/onboarding/steps';
 	import LeagueForm from './LeagueForm.svelte';
@@ -7,6 +6,7 @@
 	import { requireSession, requireUser } from '$lib/api/auth.remote';
 	import { getOnboarding } from '$lib/api/onboarding.remote';
 	import SetupLeagueStep from './SetupLeagueStep.svelte';
+	import SlideTransition from '$lib/components/transitions/SlideTransition.svelte';
 
 	const user = await requireUser();
 	const onboarding = $derived(await getOnboarding({ userId: user.id }));
@@ -35,20 +35,20 @@
 		<!-- Use css grid so the layout doesn't shift when transitioning. -->
 		<div class="grid grid-cols-1 grid-rows-1 overflow-hidden">
 			{#if currentStep === 'create-league'}
-				<SlideContainer class="col-start-1 row-start-1 flex flex-col gap-6 p-1">
+				<SlideTransition class="col-start-1 row-start-1 flex flex-col gap-6 p-1">
 					<LeagueForm />
-				</SlideContainer>
+				</SlideTransition>
 			{:else if currentStep === 'create-season'}
-				<SlideContainer class="col-start-1 row-start-1 flex flex-col gap-6 p-1">
+				<SlideTransition class="col-start-1 row-start-1 flex flex-col gap-6 p-1">
 					<SeasonForm />
-				</SlideContainer>
+				</SlideTransition>
 			{:else if currentStep === 'setup-league'}
-				<SlideContainer class="col-start-1 row-start-1 w-full h-full p-1">
+				<SlideTransition class="col-start-1 row-start-1 w-full h-full p-1">
 					{const season = await seasonPromise}
 					{#if season}
 						<SetupLeagueStep seasonId={season.id} />
 					{/if}
-				</SlideContainer>
+				</SlideTransition>
 			{/if}
 		</div>
 	</div>

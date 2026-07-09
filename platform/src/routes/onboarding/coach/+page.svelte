@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SlideContainer from '$lib/components/SlideContainer.svelte';
 	import { COACH_STEPS, type CoachOnboardingStep } from '$lib/onboarding/steps';
 	import SoloCoachTeamForm from './SoloCoachTeamForm.svelte';
 	import PlayerForm from './PlayerForm.svelte';
@@ -13,6 +12,7 @@
 	import { requireUser } from '$lib/api/auth.remote';
 	import { getTeam } from '$lib/api/team.remote';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
+	import SlideTransition from '$lib/components/transitions/SlideTransition.svelte';
 
 	const user = $derived(await requireUser());
 
@@ -56,11 +56,11 @@
 		<!-- Use css grid so the layout doesn't shift when transitioning. -->
 		<div class="grid grid-cols-1 grid-rows-1 overflow-hidden">
 			{#if currentStep === 'create-team'}
-				<SlideContainer class="col-start-1 row-start-1 flex flex-col gap-6">
+				<SlideTransition class="col-start-1 row-start-1 flex flex-col gap-6">
 					<SoloCoachTeamForm />
-				</SlideContainer>
+				</SlideTransition>
 			{:else if currentStep === 'add-players' && team}
-				<SlideContainer class="col-start-1 row-start-1 flex flex-col gap-6">
+				<SlideTransition class="col-start-1 row-start-1 flex flex-col gap-6">
 					<div class="flex flex-col gap-4">
 						<div>
 							<h1 class="text-2xl font-bold text-center">Add Players to {team.name}</h1>
@@ -108,7 +108,7 @@
 							</Collapsible>
 						</div>
 					</div>
-				</SlideContainer>
+				</SlideTransition>
 			{/if}
 		</div>
 	</div>
