@@ -26,7 +26,7 @@
 	let value = Tween.of(() => start);
 </script>
 
-<div
+<span
 	{@attach inView({
 		once: false,
 		onEnter() {
@@ -38,9 +38,9 @@
 			visible = false;
 		},
 	})}
+	style:opacity={visible ? 1 : 0}
+	style:transition="opacity 300ms ease-out"
 	class={cn(className)}
 >
-	<span style:opacity={visible ? 1 : 0} style:transition="opacity 300ms ease-out">
-		{format(value.current)}
-	</span>
-</div>
+	{format(value.current)}
+</span>
