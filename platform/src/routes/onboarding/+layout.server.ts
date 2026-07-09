@@ -1,21 +1,18 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { resolve } from '$app/paths';
-import { PUBLIC_APP_URL } from '$env/static/public';
 import { isAdmin } from '$lib/server/guards';
 import { serverLogger } from '$lib/server/logger';
 import type { RouteId } from '$app/types';
+import { requireUser } from '$lib/api/auth.remote';
+import { getOnboarding } from '$lib/api/onboarding.remote';
 
-export const load: LayoutServerLoad = async ({ locals, url }) => {
-	const { user, onboarding } = locals;
-
-	if (!user || !onboarding) {
-		serverLogger.warn('No user but hit onboarding');
-		redirect(303, resolve('/login'));
-	}
+export const load: LayoutServerLoad = async ({ url }) => {
+	const user = await requireUser();
+	const onboarding = await getOnboarding({ userId: user.id });
 
 	if (isAdmin(user) || onboarding.status === 'complete') {
-		redirect(303, PUBLIC_APP_URL);
+		redirect(303, resolve('/dashboard'));
 	}
 
 	const BASE_ROUTE: RouteId = '/onboarding';
@@ -25,7 +22,7 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
 			redirect(303, BASE_ROUTE);
 		}
 
-		return { onboarding, user };
+		return;
 	}
 
 	// TODO: add the full redirects
@@ -40,6 +37,4 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
 		serverLogger.warn(`Redirected from ${url.pathname} to ${targetRoute}`);
 		redirect(303, targetRoute);
 	}
-
-	return { onboarding, user };
 };

@@ -4,11 +4,9 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import OnboardingCard from './OnboardingCard.svelte';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
-	import type { PageProps } from './$types';
+	import { requireUser } from '$lib/api/auth.remote';
 
-	let { data }: PageProps = $props();
-
-	let name = $derived(data.user.name);
+	const user = await requireUser();
 
 	const coachFeatures = [
 		'Create and customize a team roster',
@@ -24,7 +22,7 @@
 </script>
 
 <svelte:head>
-	<title>Onboarding {name} | {PUBLIC_APP_NAME}</title>
+	<title>Onboarding {user.name} | {PUBLIC_APP_NAME}</title>
 </svelte:head>
 
 <div
@@ -36,7 +34,7 @@
 	<div class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4">
 		<div class="text-center space-y-1">
 			<h1 class="text-4xl font-extrabold tracking-tight">
-				Welcome, <span class="text-primary">{name}</span>
+				Welcome, <span class="text-primary">{user.name}</span>
 			</h1>
 			<p class="text-muted-foreground text-base max-w-md mx-auto">
 				Choose how you want to get started.

@@ -1,33 +1,27 @@
-import { form, getRequestEvent } from '$app/server';
+import { form, query } from '$app/server';
 import type { CrudAction, ResourceTarget } from '$lib/forms/types';
 import { idOnlySchema } from '$lib/schemas/common';
 import { createPlayerSchema, updatePlayerSchema } from '$lib/schemas/player';
 import { db } from '$lib/server/db';
 import { PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT } from '$lib/server/db/schema';
-import { forbidden, internal, notFound, unauthorized } from '$lib/server/fail';
+import { forbidden, internal, internalNoId, notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { invalid } from '@sveltejs/kit';
 import * as table from '$lib/server/db/schema';
 import { isConstraintError } from './errors.server';
 import { eq } from 'drizzle-orm';
+import { requireUser } from './auth.remote';
+import { getCoach } from './coach.remote';
 
-async function assertCoachPermissions(
-	action: CrudAction,
-	target: ResourceTarget,
-	locals: App.Locals
-): Promise<void> {
-	const { user } = locals;
+export const getPlayer = query(
+	idOnlySchema,
+	async ({ id }) => await db.query.player.findFirst({ where: { id } })
+);
 
-	if (!user) {
-		unauthorized({ resource: 'user' });
-	}
+async function assertCoachPermissions(action: CrudAction, target: ResourceTarget): Promise<void> {
+	const user = await requireUser();
 
-	const coach = await db.query.coach.findFirst({
-		where: {
-			userId: user.id,
-		},
-		columns: { id: true, teamId: true },
-	});
+	const coach = await getCoach({ userId: user.id });
 
 	if (!coach) {
 		forbidden({ resource: 'user' });
@@ -40,47 +34,25 @@ async function assertCoachPermissions(
 	}
 
 	if (!target.id) {
-		internal(
-			{ resource: 'player' },
-			{
-				action,
-				message:
-					"This shouldn't happen, pass the player id in target.id when updating or deleting.",
-			}
-		);
+		internalNoId(target, { action });
 	}
 
-	const player = await db.query.player.findFirst({
-		where: {
-			id: target.id,
-		},
-		columns: { id: true, teamId: true },
-	});
+	const player = await getPlayer({ id: target.id });
 
 	if (!player) {
 		notFound(target);
 	}
 
 	if (player.teamId !== coach.teamId) {
-		internal(
-			{ resource: 'player', id: target.id },
-			{
-				action,
-				message: `Somehow different team id for player: ${player.id} coach: ${coach.id}`,
-			}
-		);
+		internal(target, {
+			action,
+			message: `Somehow different team id for player: ${player.id} coach: ${coach.id}`,
+		});
 	}
 }
 
 export const createPlayer = form(createPlayerSchema, async (data, issue) => {
-	const { locals } = getRequestEvent();
-
-	if (!locals.onboarding) {
-		// this shouldn't run, for defensive and type-safety only
-		return internal({ resource: 'player' });
-	}
-
-	await assertCoachPermissions('create', { resource: 'player' }, locals);
+	await assertCoachPermissions('create', { resource: 'player' });
 
 	try {
 		const [created] = await db
@@ -107,10 +79,9 @@ export const createPlayer = form(createPlayerSchema, async (data, issue) => {
 });
 
 export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
-	const { locals } = getRequestEvent();
 	const { id } = data;
 
-	await assertCoachPermissions('update', { resource: 'player', id }, locals);
+	await assertCoachPermissions('update', { resource: 'player', id });
 
 	try {
 		await db
@@ -128,9 +99,7 @@ export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 });
 
 export const deletePlayer = form(idOnlySchema, async ({ id }) => {
-	const { locals } = getRequestEvent();
-
-	await assertCoachPermissions('delete', { resource: 'player', id }, locals);
+	await assertCoachPermissions('delete', { resource: 'player', id });
 
 	await db.delete(table.player).where(eq(table.player.id, id));
 

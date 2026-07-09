@@ -115,4 +115,6 @@ export const deleteDivision = form(idOnlySchema, async ({ id }) => {
 	await assertPermissions('delete', { resource: 'division', id });
 
 	await db.delete(table.division).where(eq(table.division.id, id));
+
+	serverLogger.info('division deleted:', id);
 });
