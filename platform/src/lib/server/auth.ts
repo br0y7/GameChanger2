@@ -11,9 +11,15 @@ import { dev } from '$app/environment';
 import { type BetterAuthPlugin } from 'better-auth';
 import { type Organization } from '$lib/server/db/schema';
 import { serverLogger } from './logger';
-import { isAdmin } from './guards';
 import { ORG_CREATOR_ROLES } from '$lib/onboarding/roles';
-import { COACH_START_STEP, ORGANIZER_START_STEP } from '$lib/onboarding/steps';
+import {
+	COACH_START_STEP,
+	ONBOARDING_DONE_STEP,
+	ORGANIZER_START_STEP,
+} from '$lib/onboarding/steps';
+import { USER_ROLE } from '$lib/schemas/user';
+import { getUserCount } from '$lib/api/user.remote';
+import { isAdmin } from '$lib/api/user.server';
 
 const optionalPlugins: BetterAuthPlugin[] = [];
 
@@ -92,10 +98,33 @@ export const auth = betterAuth({
 	databaseHooks: {
 		user: {
 			create: {
+				before: async (user) => {
+					if ((await getUserCount()) > 0) {
+						return {
+							data: user,
+						};
+					}
+
+					serverLogger.info('creating first admin account');
+
+					return {
+						data: {
+							...user,
+							role: USER_ROLE.admin,
+						},
+					};
+				},
 				after: async (user) => {
 					await db.insert(table.userOnboarding).values({
 						userId: user.id,
+						...(isAdmin(user as User) && {
+							status: 'complete',
+							currentStep: ONBOARDING_DONE_STEP,
+						}),
 					});
+
+					// void, no need to wait
+					void getUserCount().refresh();
 				},
 			},
 		},
@@ -131,5 +160,7 @@ export const auth = betterAuth({
 	},
 });
 
+// Prefer to import these types to have all
+// the necessary keys/properties.
 export type Session = typeof auth.$Infer.Session;
 export type User = Session['user'];

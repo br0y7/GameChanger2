@@ -10,14 +10,23 @@
 	import GoogleButton from '$lib/components/GoogleButton.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import ErrorIcon from '@lucide/svelte/icons/circle-x';
-	import InfoIcon from '@lucide/svelte/icons/info';
 	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
 	import Collapsible from '$lib/components/Collapsible.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import { focusFirstError } from '$lib/forms/enhance';
 	import { signUpWithEmail } from '$lib/api/auth.remote';
 
-	let { class: className, ...restProps }: HTMLAttributes<HTMLDivElement> = $props();
+	interface Props extends HTMLAttributes<HTMLDivElement> {
+		title?: string;
+		description?: string;
+	}
+
+	let {
+		class: className,
+		title = 'Create your account',
+		description = 'Get started to track stats, manage teams, and more.',
+		...restProps
+	}: Props = $props();
 
 	let submitting = $derived(!!signUpWithEmail.pending);
 	let systemErrors = $derived(signUpWithEmail.fields.issues() ?? []);
@@ -37,9 +46,9 @@
 						</div>
 						<span class="sr-only">{env.PUBLIC_APP_NAME}</span>
 					</a>
-					<h1 class="text-2xl font-bold">Create your account</h1>
+					<h1 class="text-2xl font-bold">{title}</h1>
 					<Field.FieldDescription class="text-center">
-						Get started to track stats, manage teams, and more.
+						{description}
 					</Field.FieldDescription>
 				</div>
 				<Field.Field>
@@ -80,14 +89,6 @@
 						Already have an account? <a href={resolve('/login')}>Log In</a>
 					</Field.Description>
 				</div>
-				<Alert.Root variant="no-border">
-					<InfoIcon class="size-6 stroke-info" />
-					<Alert.Title class="text-base text-info-foreground">Player, Parent, or Fan?</Alert.Title>
-					<Alert.Description class="text-foreground">
-						You need an invite link to join. Check your email for an invitation, or ask your coach
-						or organizer for access.
-					</Alert.Description>
-				</Alert.Root>
 			</Field.Group>
 		</Field.Set>
 	</form>

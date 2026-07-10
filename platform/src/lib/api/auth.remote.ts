@@ -1,7 +1,9 @@
 import { resolve } from '$app/paths';
 import { form, getRequestEvent, query } from '$app/server';
 import { loginFormSchema, signupFormSchema } from '$lib/schemas/auth';
+import { USER_ROLE } from '$lib/schemas/user';
 import { auth } from '$lib/server/auth';
+import { forbidden } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { invalid, isRedirect, redirect } from '@sveltejs/kit';
 import { isAPIError } from 'better-auth/api';
@@ -64,10 +66,13 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 	}
 });
 
-const requireAuth = async () => {
-	const authSession = await auth.api.getSession({
+const getAuthSession = async () =>
+	await auth.api.getSession({
 		headers: getRequestEvent().request.headers,
 	});
+
+const requireAuth = async () => {
+	const authSession = await getAuthSession();
 
 	if (!authSession) {
 		redirect(303, resolve('/login'));
@@ -78,3 +83,20 @@ const requireAuth = async () => {
 
 export const requireUser = query(async () => (await requireAuth()).user);
 export const requireSession = query(async () => (await requireAuth()).session);
+
+export const isAuthenticated = query(async () => !!(await getAuthSession()));
+export const isUserAdmin = query(async () => {
+	const authSession = await getAuthSession();
+
+	if (!authSession) {
+		return false;
+	}
+
+	return authSession.user?.role === USER_ROLE.admin;
+});
+
+export const requireAdmin = query(async () => {
+	if (!(await isUserAdmin())) {
+		forbidden({ resource: 'user' });
+	}
+});

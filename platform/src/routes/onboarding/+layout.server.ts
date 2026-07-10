@@ -1,7 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { resolve } from '$app/paths';
-import { isAdmin } from '$lib/server/guards';
 import { serverLogger } from '$lib/server/logger';
 import type { RouteId } from '$app/types';
 import { requireUser } from '$lib/api/auth.remote';
@@ -11,7 +10,7 @@ export const load: LayoutServerLoad = async ({ url }) => {
 	const user = await requireUser();
 	const onboarding = await getOnboarding({ userId: user.id });
 
-	if (isAdmin(user) || onboarding.status === 'complete') {
+	if (onboarding.status === 'complete') {
 		redirect(303, resolve('/dashboard'));
 	}
 
