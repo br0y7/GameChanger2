@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { isAuthenticated } from '$lib/api/auth.remote';
 	import { authClient } from '$lib/auth-client';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount } from 'svelte';
@@ -10,6 +11,7 @@
 	// won't clear the cookie.
 	onMount(async () => {
 		await authClient.signOut();
+		await isAuthenticated().refresh();
 		await goto(resolve('/'));
 	});
 </script>
