@@ -96,6 +96,8 @@ export const isUserAdmin = query(async () => {
 });
 
 export const requireAdmin = query(async () => {
+	await requireUser();
+
 	if (!(await isUserAdmin())) {
 		forbidden({ resource: 'user' });
 	}
