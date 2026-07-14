@@ -108,7 +108,7 @@ export const game = snakeCase.table(
 		...baseFields,
 		seasonId: uuid()
 			.notNull()
-			.references(() => organization.id, { onDelete: 'cascade' }),
+			.references(() => season.id, { onDelete: 'cascade' }),
 		homeTeamId: uuid()
 			.notNull()
 			.references(() => team.id, { onDelete: 'cascade' }),
@@ -193,7 +193,7 @@ export const playerGameStat = snakeCase.table(
 		...baseFields,
 		playerId: uuid()
 			.notNull()
-			.references(() => team.id, { onDelete: 'cascade' }),
+			.references(() => player.id, { onDelete: 'cascade' }),
 		gameId: uuid()
 			.notNull()
 			.references(() => game.id, { onDelete: 'cascade' }),
