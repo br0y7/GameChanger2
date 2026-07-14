@@ -58,3 +58,13 @@ export const getCurrentSeason = query(
 			orderBy: { createdAt: 'desc' },
 		})
 );
+
+const includes = {
+	organization: z.boolean().optional(),
+	games: z.boolean().optional(),
+	divisions: z.boolean().optional(),
+};
+
+export const getSeasons = query(z.object(includes), async (include) => {
+	return await db.query.season.findMany({ with: { ...include } });
+});

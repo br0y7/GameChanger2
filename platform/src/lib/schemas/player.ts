@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { requiredName } from './common';
 
-const playerSchema = {
+export const playerSchema = {
 	...requiredName('Player name'),
 	jerseyNumber: z
 		.string()

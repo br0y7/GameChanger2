@@ -4,6 +4,7 @@
 	import { ModeWatcher } from 'mode-watcher';
 	import ModeToggle from '$lib/components/ui/ModeToggle.svelte';
 	import { onNavigate } from '$app/navigation';
+	import { Toaster } from '$lib/components/ui/sonner/index.js';
 
 	let { children } = $props();
 
@@ -24,6 +25,8 @@
 <ModeWatcher />
 
 <div class="bg-background text-foreground min-h-screen w-full">
+	<Toaster />
+
 	{@render children()}
 
 	<div class="absolute top-4 right-4 z-50">
