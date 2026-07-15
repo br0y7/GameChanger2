@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
-	import { isAuthenticated } from '$lib/api/auth.remote';
+	import { isAuthenticated, requireUser } from '$lib/api/auth.remote';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import MenuIcon from '@lucide/svelte/icons/menu';
@@ -23,6 +23,8 @@
 		</div>
 		<div class="hidden items-center gap-2 md:flex">
 			{#if await isAuthenticated()}
+				{const user = await requireUser()}
+				<span>{user.name}</span>
 				<Button variant="outline" href="/logout">Logout</Button>
 			{:else}
 				{#if !page.url.pathname.startsWith('/login')}
@@ -47,7 +49,26 @@
 				</Sheet.Trigger>
 
 				<Sheet.Content side="right">
-					<div class="m-4 mt-16 flex flex-col gap-2">
+					<Sheet.Header>
+						<Sheet.Title>
+							{#if await isAuthenticated()}
+								{const user = await requireUser()}
+								<span class="max-w-1/4 truncate">
+									Hi, {user.name}
+								</span>
+							{:else}
+								{PUBLIC_APP_NAME}
+							{/if}
+						</Sheet.Title>
+						<Sheet.Description>
+							{#if await isAuthenticated()}
+								Welcome back to {PUBLIC_APP_NAME}
+							{:else}
+								Sign up or log in to start using {PUBLIC_APP_NAME}
+							{/if}
+						</Sheet.Description>
+					</Sheet.Header>
+					<div class="mx-4 flex flex-col gap-2">
 						<Button variant="ghost" href="/">Home</Button>
 
 						{#if await isAuthenticated()}
