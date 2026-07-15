@@ -16,12 +16,14 @@
 
 	let { preview }: Props = $props();
 
-	function getBadgeColor(status: ReconciliationStatus) {
+	function getBadgeVariant(status: ReconciliationStatus) {
 		switch (status) {
 			case 'new':
 				return 'info';
 			case 'update':
 				return 'warning';
+			default:
+				return 'default';
 		}
 	}
 </script>
@@ -41,7 +43,7 @@
 				<Table.Row>
 					<Table.Cell class="flex gap-2">
 						{stat.jerseyNumber}
-						<Badge class={`bg-${getBadgeColor(stat._status)}`}>
+						<Badge variant={getBadgeVariant(stat._status)}>
 							{stat._status}
 						</Badge>
 					</Table.Cell>
@@ -59,7 +61,7 @@
 		<Accordion.Item value={`team-${team.name}`}>
 			<Accordion.Trigger class="flex gap-2">
 				{team.name}
-				<Badge class={`bg-${getBadgeColor(team._status)}`}>
+				<Badge variant={getBadgeVariant(team._status)}>
 					{team._status}
 				</Badge>
 			</Accordion.Trigger>
