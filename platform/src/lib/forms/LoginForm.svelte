@@ -8,14 +8,12 @@
 	import { env } from '$env/dynamic/public';
 	import PasswordField from '$lib/components/PasswordField.svelte';
 	import GoogleButton from '$lib/components/GoogleButton.svelte';
-	import Collapsible from '$lib/components/Collapsible.svelte';
-	import * as Alert from '$lib/components/ui/alert';
-	import ErrorIcon from '@lucide/svelte/icons/circle-x';
 	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import { focusFirstError } from '$lib/forms/enhance';
 	import { loginWithEmail } from '$lib/api/auth.remote';
 	import { onMount } from 'svelte';
+	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
 
 	interface Props extends HTMLAttributes<HTMLDivElement> {
 		email?: string;
@@ -23,7 +21,6 @@
 	let { class: className, email, ...restProps }: Props = $props();
 
 	let submitting = $derived(!!loginWithEmail.pending);
-	let systemErrors = $derived(loginWithEmail.fields.issues() ?? []);
 
 	let passwordField: HTMLInputElement | null = $state(null);
 	onMount(() => {
@@ -59,17 +56,7 @@
 					<GoogleButton disabled={submitting} />
 				</Field.Field>
 				<Field.Separator>Or</Field.Separator>
-				<Collapsible isOpen={systemErrors.length > 0}>
-					<Alert.Root variant="destructive">
-						<ErrorIcon />
-						<Alert.Title>Error</Alert.Title>
-						<Alert.Description>
-							{#each systemErrors as error (error.message)}
-								<p>{error.message}</p>
-							{/each}
-						</Alert.Description>
-					</Alert.Root>
-				</Collapsible>
+				<ErrorAlert errors={loginWithEmail.fields.issues()} />
 				<Field.Field>
 					<Field.Label for="email">Email</Field.Label>
 					<Input id="email" {...loginWithEmail.fields.email.as('email', email ?? '')} required />

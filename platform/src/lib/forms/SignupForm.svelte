@@ -8,13 +8,11 @@
 	import { env } from '$env/dynamic/public';
 	import PasswordField from '$lib/components/PasswordField.svelte';
 	import GoogleButton from '$lib/components/GoogleButton.svelte';
-	import * as Alert from '$lib/components/ui/alert';
-	import ErrorIcon from '@lucide/svelte/icons/circle-x';
 	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
-	import Collapsible from '$lib/components/Collapsible.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import { focusFirstError } from '$lib/forms/enhance';
 	import { signUpWithEmail } from '$lib/api/auth.remote';
+	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
 
 	interface Props extends HTMLAttributes<HTMLDivElement> {
 		title?: string;
@@ -29,7 +27,6 @@
 	}: Props = $props();
 
 	let submitting = $derived(!!signUpWithEmail.pending);
-	let systemErrors = $derived(signUpWithEmail.fields.issues() ?? []);
 </script>
 
 <div class={cn('flex flex-col', className)} {...restProps}>
@@ -74,17 +71,7 @@
 					<Field.Field>
 						<SubmitButton {submitting}>Create Account</SubmitButton>
 					</Field.Field>
-					<Collapsible isOpen={systemErrors.length > 0}>
-						<Alert.Root variant="destructive">
-							<ErrorIcon />
-							<Alert.Title>Error</Alert.Title>
-							<Alert.Description>
-								{#each systemErrors as error (error.message)}
-									<p>{error.message}</p>
-								{/each}
-							</Alert.Description>
-						</Alert.Root>
-					</Collapsible>
+					<ErrorAlert errors={signUpWithEmail.fields.issues()} />
 					<Field.Description>
 						Already have an account? <a href={resolve('/login')}>Log In</a>
 					</Field.Description>

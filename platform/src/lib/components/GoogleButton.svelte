@@ -2,9 +2,9 @@
 	import { authClient } from '$lib/auth-client';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { clientLogger } from '$lib/logger/client';
-	import Collapsible from './Collapsible.svelte';
 	import * as Field from '$lib/components/ui/field/index';
 	import { resolve } from '$app/paths';
+	import ExpandTransition from './transitions/ExpandTransition.svelte';
 
 	let { disabled = $bindable(false) } = $props();
 
@@ -38,6 +38,8 @@
 	Continue with Google
 </Button>
 
-<Collapsible isOpen={hasError}>
-	<Field.Error class="text-center">Something went wrong.</Field.Error>
-</Collapsible>
+{#if hasError}
+	<ExpandTransition>
+		<Field.Error class="text-center">Something went wrong.</Field.Error>
+	</ExpandTransition>
+{/if}

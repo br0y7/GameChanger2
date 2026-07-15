@@ -3,7 +3,6 @@
 	import SoloCoachTeamForm from './SoloCoachTeamForm.svelte';
 	import PlayerForm from './PlayerForm.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
-	import Collapsible from '$lib/components/Collapsible.svelte';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import PlayerTable from './PlayerTable.svelte';
@@ -13,6 +12,7 @@
 	import { getTeam } from '$lib/api/team.remote';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
 	import SlideTransition from '$lib/components/transitions/SlideTransition.svelte';
+	import ExpandTransition from '$lib/components/transitions/ExpandTransition.svelte';
 
 	const user = $derived(await requireUser());
 
@@ -71,42 +71,43 @@
 						</div>
 						<PlayerForm bind:player bind:submitting />
 						<div>
-							<Collapsible isOpen={hasPlayers} class="flex flex-col gap-6">
-								<PlayerTable players={team.players} />
-								<form {...completeOnboarding.for('done')} class="w-full flex justify-center">
-									<SubmitButton
-										{submitting}
-										class="w-1/2 hover:-translate-y-0.5
+							{#if hasPlayers}
+								<ExpandTransition class="flex flex-col gap-6">
+									<PlayerTable players={team.players} />
+									<form {...completeOnboarding.for('done')} class="w-full flex justify-center">
+										<SubmitButton
+											{submitting}
+											class="w-1/2 hover:-translate-y-0.5 duration-300 transition-transform group"
+										>
+											Finish Setup
+											<ArrowRight
+												class="-translate-x-1 transition-transform duration-200 group-hover:translate-x-0"
+											/>
+										</SubmitButton>
+									</form>
+								</ExpandTransition>
+							{:else}
+								<ExpandTransition>
+									<form
+										{...completeOnboarding.for('skip')}
+										method="POST"
+										class="w-full flex justify-center"
+									>
+										<SubmitButton
+											variant="secondary"
+											{submitting}
+											class="w-1/2 hover:-translate-y-0.5
 											duration-300 transition-transform
 											group"
-									>
-										Finish Setup
-										<ArrowRight
-											class="-translate-x-1 transition-transform duration-200 group-hover:translate-x-0"
-										/>
-									</SubmitButton>
-								</form>
-							</Collapsible>
-							<Collapsible isOpen={!hasPlayers}>
-								<form
-									{...completeOnboarding.for('skip')}
-									method="POST"
-									class="w-full flex justify-center"
-								>
-									<SubmitButton
-										variant="secondary"
-										{submitting}
-										class="w-1/2 hover:-translate-y-0.5
-											duration-300 transition-transform
-											group"
-									>
-										Skip for now
-										<ChevronRight
-											class="-translate-x-1 transition-transform duration-200 group-hover:translate-x-0"
-										/>
-									</SubmitButton>
-								</form>
-							</Collapsible>
+										>
+											Skip for now
+											<ChevronRight
+												class="-translate-x-1 transition-transform duration-200 group-hover:translate-x-0"
+											/>
+										</SubmitButton>
+									</form>
+								</ExpandTransition>
+							{/if}
 						</div>
 					</div>
 				</SlideTransition>

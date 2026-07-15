@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { completeOnboarding } from '$lib/api/onboarding.remote';
 	import CreateDivisionForm from './CreateDivisionForm.svelte';
-	import Collapsible from '$lib/components/Collapsible.svelte';
 	import DivisionAccordion from './DivisionAccordion.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import { getDivisions } from '$lib/api/division.remote';
+	import ExpandTransition from '$lib/components/transitions/ExpandTransition.svelte';
 
 	interface Props {
 		seasonId: string;
@@ -27,36 +27,39 @@
 		</p>
 	</div>
 	<CreateDivisionForm {seasonId} />
-	<Collapsible isOpen={hasDivisions} class="flex flex-col gap-4">
-		<DivisionAccordion {divisions} />
-		<form {...completeOnboarding.for('done')} class="w-full flex justify-center">
-			<SubmitButton
-				{submitting}
-				class="w-1/2 hover:-translate-y-0.5
-											duration-300 transition-transform
-											group"
-			>
-				Finish Setup
-				<ArrowRight
-					class="-translate-x-1 transition-transform duration-200 group-hover:translate-x-0"
-				/>
-			</SubmitButton>
-		</form>
-	</Collapsible>
-	<Collapsible isOpen={!hasDivisions}>
-		<form {...completeOnboarding.for('skip')} class="w-full flex justify-center">
-			<SubmitButton
-				variant="secondary"
-				{submitting}
-				class="w-1/2 hover:-translate-y-0.5
-											duration-300 transition-transform
-											group"
-			>
-				Skip for now
-				<ChevronRight
-					class="-translate-x-1 transition-transform duration-200 group-hover:translate-x-0"
-				/>
-			</SubmitButton>
-		</form>
-	</Collapsible>
+	{#if hasDivisions}
+		<ExpandTransition class="flex flex-col gap-4">
+			<DivisionAccordion {divisions} />
+			<form {...completeOnboarding.for('done')} class="w-full flex justify-center">
+				<SubmitButton
+					{submitting}
+					class="w-1/2 hover:-translate-y-0.5
+									duration-300 transition-transform
+									group"
+				>
+					Finish Setup
+					<ArrowRight
+						class="-translate-x-1 transition-transform duration-200 group-hover:translate-x-0"
+					/>
+				</SubmitButton>
+			</form>
+		</ExpandTransition>
+	{:else}
+		<ExpandTransition>
+			<form {...completeOnboarding.for('skip')} class="w-full flex justify-center">
+				<SubmitButton
+					variant="secondary"
+					{submitting}
+					class="w-1/2 hover:-translate-y-0.5
+												duration-300 transition-transform
+												group"
+				>
+					Skip for now
+					<ChevronRight
+						class="-translate-x-1 transition-transform duration-200 group-hover:translate-x-0"
+					/>
+				</SubmitButton>
+			</form>
+		</ExpandTransition>
+	{/if}
 </div>
