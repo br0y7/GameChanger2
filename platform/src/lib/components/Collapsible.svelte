@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { createAccessibleTransition } from '$lib/accessibility.svelte';
 	import { cn } from '$lib/utils';
 	import type { ClassValue } from 'clsx';
 	import type { Snippet } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { slide, type SlideParams } from 'svelte/transition';
+	import { createAccessibleTransition } from './transitions/accessibility.svelte';
 
 	let {
 		isOpen,

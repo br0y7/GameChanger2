@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { reducedMotion } from '$lib/accessibility.svelte';
+	import { IsReducedMotion } from '$lib/hooks/is-reduced-motion.svelte';
 	import { cn } from '$lib/utils';
 	import type { ClassValue } from 'clsx';
 	import type { Snippet } from 'svelte';
@@ -27,8 +27,10 @@
 	};
 
 	let fadeOptions = { duration: 100 };
+	let isReducedMotion = new IsReducedMotion();
+
 	let enter = (node: HTMLElement) => {
-		if (reducedMotion.current) {
+		if (isReducedMotion.current) {
 			return fade(node, { ...fadeOptions, delay: fadeOptions.duration });
 		}
 
@@ -47,7 +49,7 @@
 	};
 
 	let exit = (node: HTMLElement) => {
-		if (reducedMotion.current) {
+		if (isReducedMotion.current) {
 			return fade(node, fadeOptions);
 		}
 

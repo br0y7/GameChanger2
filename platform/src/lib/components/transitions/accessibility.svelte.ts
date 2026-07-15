@@ -1,7 +1,5 @@
-import { MediaQuery } from 'svelte/reactivity';
+import { IsReducedMotion } from '$lib/hooks/is-reduced-motion.svelte';
 import { fade, type TransitionConfig } from 'svelte/transition';
-
-export const reducedMotion = new MediaQuery('(prefers-reduced-motion: reduce)');
 
 type SvelteTransition<TParams> = (node: HTMLElement, params: TParams) => TransitionConfig;
 
@@ -11,8 +9,10 @@ type SvelteTransition<TParams> = (node: HTMLElement, params: TParams) => Transit
  * @returns transition you can with transition directive
  */
 export function createAccessibleTransition<TParams>(originalTransition: SvelteTransition<TParams>) {
+	const isReducedMotion = new IsReducedMotion();
+
 	return (node: HTMLElement, options: TParams): TransitionConfig => {
-		if (reducedMotion.current) {
+		if (isReducedMotion.current) {
 			// quick fade
 			return fade(node, { ...options, duration: 100 });
 		}
