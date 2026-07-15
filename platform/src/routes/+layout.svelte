@@ -4,7 +4,6 @@
 	import { ModeWatcher } from 'mode-watcher';
 	import { onNavigate } from '$app/navigation';
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
-	import NavBar from '$lib/components/NavBar.svelte';
 
 	let { children } = $props();
 
@@ -24,10 +23,6 @@
 
 <ModeWatcher />
 
-<NavBar />
+<Toaster />
 
-<div class="bg-background text-foreground min-h-screen w-full">
-	<Toaster />
-
-	{@render children()}
-</div>
+{@render children()}
