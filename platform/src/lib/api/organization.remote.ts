@@ -1,6 +1,7 @@
 import { query } from '$app/server';
 import type { MemberRole } from '$lib/schemas/member';
 import { db } from '$lib/server/db';
+import { notFound } from '$lib/server/fail';
 import { requireSession, requireUser } from './auth.remote';
 
 export const isUserOrgAdmin = query(async () => {
@@ -26,4 +27,20 @@ export const isUserOrgAdmin = query(async () => {
 	const ADMIN_ROLES: MemberRole[] = ['owner', 'admin'];
 
 	return ADMIN_ROLES.includes((member?.role as MemberRole) ?? '');
+});
+
+export const getOrganization = query(async () => {
+	const { activeOrganizationId: id } = await requireSession();
+
+	if (!id) {
+		notFound({ resource: 'organization', id: id ?? '' });
+	}
+
+	const org = await db.query.organization.findFirst({ where: { id } });
+
+	if (!org) {
+		notFound({ resource: 'organization', id: id ?? '' });
+	}
+
+	return org;
 });
