@@ -15,8 +15,9 @@ import { organization, user } from './auth-schema.ts';
 import { baseFields, creationFields, nameSlugFields } from './base-schema.ts';
 import { ONBOARDING_DEFAULT_STEP } from '$lib/onboarding/steps';
 import { divisionTypes } from '$lib/schemas/division';
+import { seasonStatuses } from '$lib/schemas/season';
 
-export const seasonStatusEnum = pgEnum('season_status', ['active', 'completed']);
+export const seasonStatusEnum = pgEnum('season_status', seasonStatuses);
 
 export const SEASON_UNIQUE_SLUG_PER_ORG_CONSTRAINT = 'season_slug_org_uq';
 

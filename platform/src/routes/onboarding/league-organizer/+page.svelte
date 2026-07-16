@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SeasonForm from './SeasonForm.svelte';
 	import { ORGANIZER_STEPS, type OrganizerOnboardingStep } from '$lib/onboarding/steps';
 	import LeagueForm from './LeagueForm.svelte';
 	import { getCurrentSeason } from '$lib/api/season.remote';
@@ -7,6 +6,7 @@
 	import { getOnboarding } from '$lib/api/onboarding.remote';
 	import SetupLeagueStep from './SetupLeagueStep.svelte';
 	import SlideTransition from '$lib/components/transitions/SlideTransition.svelte';
+	import SeasonForm from '$lib/forms/SeasonForm.svelte';
 
 	const user = await requireUser();
 	const onboarding = $derived(await getOnboarding({ userId: user.id }));
@@ -40,7 +40,13 @@
 				</SlideTransition>
 			{:else if currentStep === 'create-season'}
 				<SlideTransition class="col-start-1 row-start-1 flex flex-col gap-6 p-1">
-					<SeasonForm />
+					<div class="flex flex-col gap-1">
+						<h1 class="text-2xl font-bold text-center">Create your first Season</h1>
+						<p class="text-center text-muted-foreground">
+							Track teams, schedule games, and log results for your new season.
+						</p>
+					</div>
+					<SeasonForm hideStatus />
 				</SlideTransition>
 			{:else if currentStep === 'setup-league'}
 				<SlideTransition class="col-start-1 row-start-1 w-full h-full p-1">

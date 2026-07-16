@@ -10,10 +10,15 @@ export const leagueFormLabels = {
 	slug: 'League Slug',
 } as const satisfies NameSlugSchema;
 
+type SeasonFormLabels = NameSlugSchema & {
+	status: string;
+};
+
 export const seasonFormLabels = {
 	name: 'Season Name',
 	slug: 'Season Slug',
-} as const satisfies NameSlugSchema;
+	status: 'Season Status',
+} as const satisfies SeasonFormLabels;
 
 export const divisionFormLabels = {
 	name: 'Division Name',

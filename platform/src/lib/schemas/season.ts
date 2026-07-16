@@ -2,8 +2,11 @@ import { seasonFormLabels } from '$lib/forms/labels';
 import { createNameSlugSchema, requiredId } from './common';
 import { z } from 'zod';
 
-const seasonSchema = {
+export const seasonStatuses = ['active', 'completed'] as const;
+
+export const seasonSchema = {
 	...createNameSlugSchema({ labels: seasonFormLabels }),
+	status: z.enum(seasonStatuses, 'Season Status is required'),
 };
 
 export const createSeasonSchema = z.object({ ...seasonSchema });
