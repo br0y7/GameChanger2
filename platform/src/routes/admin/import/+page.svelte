@@ -15,7 +15,7 @@
 	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
-	const seasons = $derived(await getSeasons({ organization: true }));
+	const seasons = $derived(await getSeasons({ include: { organization: true } }));
 
 	interface Selected {
 		season: (typeof seasons)[number] | null;

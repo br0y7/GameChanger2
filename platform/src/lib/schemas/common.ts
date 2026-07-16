@@ -58,3 +58,5 @@ export const requiredId = {
 export const idOnlySchema = z.object({
 	...requiredId,
 });
+
+export type IdOnlySchema = z.infer<typeof idOnlySchema>;
