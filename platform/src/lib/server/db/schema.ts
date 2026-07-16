@@ -1,7 +1,6 @@
 import {
 	text,
 	index,
-	uniqueIndex,
 	timestamp,
 	pgEnum,
 	real,
@@ -34,7 +33,6 @@ export const season = snakeCase.table(
 	(table) => [
 		index('season_organizationId_idx').on(table.organizationId),
 		unique(SEASON_UNIQUE_SLUG_PER_ORG_CONSTRAINT).on(table.organizationId, table.slug),
-		uniqueIndex('season_slug_uidx').on(table.organizationId, table.slug),
 	]
 );
 
@@ -57,7 +55,6 @@ export const division = snakeCase.table(
 	(table) => [
 		index('division_seasonId_idx').on(table.seasonId),
 		unique(DIVISION_UNIQUE_SLUG_PER_SEASON_CONSTRAINT).on(table.seasonId, table.slug),
-		uniqueIndex('division_slug_uidx').on(table.seasonId, table.slug),
 	]
 );
 
@@ -77,7 +74,6 @@ export const team = snakeCase.table(
 	(table) => [
 		index('team_divisionId_idx').on(table.divisionId),
 		unique(TEAM_UNIQUE_SLUG_PER_DIVISION_CONSTRAINT).on(table.divisionId, table.slug),
-		uniqueIndex('team_slug_uidx').on(table.divisionId, table.slug),
 	]
 );
 
