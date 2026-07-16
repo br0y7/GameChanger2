@@ -15,7 +15,7 @@
 		required?: boolean;
 		id?: string;
 		label?: string;
-		ref?: HTMLInputElement | null;
+		ref?: HTMLElement | null;
 		remoteField: RemoteFormField<string>;
 		errors?: RemoteFormIssue[];
 		class?: ClassValue;

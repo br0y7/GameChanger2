@@ -23,6 +23,8 @@
 		label?: string;
 		id?: string;
 		errors?: RemoteFormIssue[];
+		ref?: HTMLElement | null;
+		form?: string;
 	}
 
 	let {
@@ -35,6 +37,8 @@
 		clearOptionLabel = 'None',
 		placeholder = 'Select an option',
 		id = label ? slugify(label) : undefined,
+		ref = $bindable(null),
+		form,
 	}: Props = $props();
 
 	let value = $state('');
@@ -53,7 +57,7 @@
 {/if}
 
 <Select.Root type="single" bind:value>
-	<Select.Trigger {id} aria-invalid={field.as('hidden', value)['aria-invalid']}>
+	<Select.Trigger {id} aria-invalid={field.as('hidden', value)['aria-invalid']} bind:ref>
 		{#if trigger}
 			{@render trigger({ content: triggerContent, isPlaceholder })}
 		{:else}
@@ -66,7 +70,7 @@
 		{/if}
 		{@render children?.()}
 	</Select.Content>
-	<input {...field.as('hidden', value)} bind:value />
+	<input {...field.as('hidden', value)} bind:value {form} />
 </Select.Root>
 
 <FieldErrorList {errors} />
