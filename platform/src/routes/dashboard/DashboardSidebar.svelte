@@ -7,7 +7,6 @@
 	import { getOrganization } from '$lib/api/organization.remote';
 	import TrophyIcon from '@lucide/svelte/icons/trophy';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
 	let {
@@ -16,7 +15,7 @@
 		...restProps
 	}: ComponentProps<typeof Sidebar.Root> = $props();
 
-	const org = await getOrganization();
+	const org = $derived(await getOrganization());
 
 	const iconMap: Record<(typeof org)['type'], typeof TrophyIcon> = {
 		league: TrophyIcon,
@@ -28,16 +27,20 @@
 
 <Sidebar.Root bind:ref {collapsible} {...restProps}>
 	<Sidebar.Header>
-		<Sidebar.MenuButton onclick={() => goto(resolve('/dashboard'))}>
-			<HeaderIcon />
-			<div class="grid flex-1 text-start text-sm leading-tight">
-				<span class="truncate leading-tight font-medium">
-					{org.name}
-				</span>
-				<span class="capitalize text-xs text-muted-foreground">
-					{org.type}
-				</span>
-			</div>
+		<Sidebar.MenuButton>
+			{#snippet child({ props })}
+				<a href={resolve('/dashboard')} {...props}>
+					<HeaderIcon class="shrink-0" />
+					<div class="flex flex-col">
+						<span class="truncate leading-tight font-medium">
+							{org.name}
+						</span>
+						<span class="capitalize text-xs text-muted-foreground">
+							{org.type}
+						</span>
+					</div>
+				</a>
+			{/snippet}
 		</Sidebar.MenuButton>
 	</Sidebar.Header>
 	<Sidebar.Content>
