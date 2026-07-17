@@ -5,6 +5,7 @@ import { internal } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { eq } from 'drizzle-orm';
 import * as table from '$lib/server/db/schema';
+import { getOnboarding } from './onboarding.remote';
 
 /**
  * This shouldn't run, used only to narrow types.
@@ -67,4 +68,6 @@ export async function advanceOnboardingStep<TStep extends OnboardingStep>(
 			status,
 		})
 		.where(eq(table.userOnboarding.id, onboarding.id));
+
+	void getOnboarding({ userId: onboarding.userId }).refresh();
 }
