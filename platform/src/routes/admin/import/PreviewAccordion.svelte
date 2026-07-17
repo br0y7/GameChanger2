@@ -6,7 +6,7 @@
 	import {
 		statKeys,
 		type PlayerGameStatsPreview,
-		type ReconciliationStatus,
+		type ImportStatus,
 		type SpreadsheetPreview,
 		type TeamPreview,
 	} from '$lib/schemas/preview';
@@ -16,7 +16,7 @@
 
 	let { preview }: Props = $props();
 
-	function getBadgeVariant(status: ReconciliationStatus) {
+	function getBadgeVariant(status: ImportStatus) {
 		switch (status) {
 			case 'new':
 				return 'info';

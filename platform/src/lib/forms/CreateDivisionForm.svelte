@@ -19,6 +19,8 @@
 	let { seasonId }: Props = $props();
 
 	const submitting = $derived(!!createDivision.pending);
+
+	createDivision.fields.type.set('community');
 </script>
 
 <form

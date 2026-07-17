@@ -22,9 +22,11 @@
 	interface Props {
 		division: Division;
 		submitting?: boolean;
+		confirmDelete?: boolean;
+		onRequestDelete?: (division: Division) => void;
 	}
 
-	let { division, submitting = $bindable(false) }: Props = $props();
+	let { division, submitting = $bindable(false), confirmDelete, onRequestDelete }: Props = $props();
 
 	let editing = $state(false);
 
@@ -104,7 +106,7 @@
 							label={divisionFormLabels.slug}
 						/>
 					</Field.Field>
-					<Field.Field class="flex justify-end">
+					<Field.Field class="mt-auto flex justify-end" orientation="horizontal">
 						<div class="flex">
 							<Button
 								onclick={stopEditing}
@@ -159,21 +161,32 @@
 				<PencilIcon class="group-hover:stroke-info transition-colors duration-200" />
 				<span class="group-hover:text-info transition-colors duration-200"> Edit </span>
 			</Button>
-			<form {...deleteDivision.for(division.id)}>
-				<input {...deleteDivision.for(division.id).fields.id.as('hidden', division.id)} />
-
+			{#snippet deleteButton()}
 				<SubmitButton
 					class="group"
 					variant="ghost"
 					{submitting}
 					aria-label={`Delete ${division.name}`}
+					onclick={() => {
+						if (confirmDelete) {
+							onRequestDelete?.(division);
+						}
+					}}
 				>
 					{#snippet icon()}
 						<TrashIcon class="group-hover:stroke-destructive transition-colors duration-200" />
 					{/snippet}
 					<span class="group-hover:text-destructive transition-colors duration-200"> Delete </span>
 				</SubmitButton>
-			</form>
+			{/snippet}
+			{#if confirmDelete}
+				{@render deleteButton()}
+			{:else}
+				<form {...deleteDivision.for(division.id)}>
+					<input {...deleteDivision.for(division.id).fields.id.as('hidden', division.id)} />
+					{@render deleteButton()}
+				</form>
+			{/if}
 		</div>
 	</div>
 {/if}

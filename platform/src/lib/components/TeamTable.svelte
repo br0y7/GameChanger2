@@ -4,12 +4,15 @@
 	import TeamTableRow from './TeamTableRow.svelte';
 	import { getTeams } from '$lib/api/team.remote';
 	import ExpandTransition from '$lib/components/transitions/ExpandTransition.svelte';
+	import type { Team } from '$lib/server/db/schema';
 
 	interface Props {
 		divisionId: string;
+		confirmDelete?: boolean;
+		onRequestDelete?: (team: Team) => void;
 	}
 
-	let { divisionId }: Props = $props();
+	let { divisionId, confirmDelete, onRequestDelete }: Props = $props();
 	const teams = $derived(await getTeams({ divisionId }));
 </script>
 
@@ -25,7 +28,7 @@
 			</Table.Header>
 			<Table.Body>
 				{#each teams as team (team.id)}
-					<TeamTableRow {team} />
+					<TeamTableRow {team} {confirmDelete} {onRequestDelete} />
 				{/each}
 			</Table.Body>
 		</Table.Root>

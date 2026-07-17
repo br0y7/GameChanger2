@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { completeOnboarding } from '$lib/api/onboarding.remote';
-	import CreateDivisionForm from './CreateDivisionForm.svelte';
-	import DivisionAccordion from './DivisionAccordion.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import { getDivisions } from '$lib/api/division.remote';
 	import ExpandTransition from '$lib/components/transitions/ExpandTransition.svelte';
+	import CreateDivisionForm from '$lib/forms/CreateDivisionForm.svelte';
+	import DivisionAccordion from '$lib/components/DivisionAccordion.svelte';
 
 	interface Props {
 		seasonId: string;

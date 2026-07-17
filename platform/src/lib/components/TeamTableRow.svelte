@@ -21,9 +21,11 @@
 
 	interface Props {
 		team: Team;
+		confirmDelete?: boolean;
+		onRequestDelete?: (team: Team) => void;
 	}
 
-	let { team }: Props = $props();
+	let { team, confirmDelete, onRequestDelete }: Props = $props();
 
 	const fadeOptions = { duration: 200, easing: cubicOut };
 
@@ -176,21 +178,32 @@
 					>
 						<PencilIcon class="group-hover:stroke-info transition-colors duration-200" />
 					</Button>
-					<form {...deleteTeam.for(team.id)}>
-						<input {...deleteTeam.for(team.id).fields.id.as('hidden', team.id)} />
-
+					{#snippet deleteButton()}
 						<SubmitButton
 							class="group"
 							variant="ghost"
 							size="icon"
 							{submitting}
 							aria-label={`Delete ${team.name}`}
+							onclick={() => {
+								if (confirmDelete) {
+									onRequestDelete?.(team);
+								}
+							}}
 						>
 							{#snippet icon()}
 								<TrashIcon class="group-hover:stroke-destructive transition-colors duration-200" />
 							{/snippet}
 						</SubmitButton>
-					</form>
+					{/snippet}
+					{#if confirmDelete}
+						{@render deleteButton()}
+					{:else}
+						<form {...deleteTeam.for(team.id)}>
+							<input {...deleteTeam.for(team.id).fields.id.as('hidden', team.id)} />
+							{@render deleteButton()}
+						</form>
+					{/if}
 				</div>
 			{/if}
 		</ExpandTransition>
