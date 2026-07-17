@@ -84,6 +84,7 @@
 										onclick={() => {
 											selected.season = season;
 											activeItem = 'division';
+											preview = undefined;
 										}}
 										variant="outline">Select</Button
 									>
@@ -117,6 +118,7 @@
 											onclick={() => {
 												selected.division = division;
 												activeItem = 'upload';
+												preview = undefined;
 											}}
 											variant="outline">Select</Button
 										>
