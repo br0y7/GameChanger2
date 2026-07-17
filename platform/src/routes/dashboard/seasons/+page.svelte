@@ -1,8 +1,5 @@
 <script lang="ts">
-<<<<<<< Updated upstream
-=======
 	import { requireLeagueOrganizer } from '$lib/api/league.remote';
->>>>>>> Stashed changes
 	import { getOrganization } from '$lib/api/organization.remote';
 	import SeasonTable from '$lib/components/SeasonTable.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
@@ -10,14 +7,7 @@
 	import SeasonForm from '$lib/forms/SeasonForm.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 
-	const org = await getOrganization();
-<<<<<<< Updated upstream
-</script>
-
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-8">
-	<section class="lg:col-span-2">
-		<h1 class="text-2xl text-center font-bold">Seasons for {org.name}</h1>
-=======
+	const org = $derived(await getOrganization());
 
 	await requireLeagueOrganizer();
 </script>
@@ -26,7 +16,6 @@
 	<section class="lg:col-span-2 text-center">
 		<h1 class="text-2xl text-center font-bold">Seasons for {org.name}</h1>
 		<p class="text-sm">You can manage divisions by clicking a season's name below.</p>
->>>>>>> Stashed changes
 	</section>
 
 	<Separator class="lg:col-span-2" />
