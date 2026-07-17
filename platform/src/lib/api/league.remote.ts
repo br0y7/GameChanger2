@@ -1,5 +1,5 @@
 import { form, getRequestEvent, query } from '$app/server';
-import { createLeagueSchema } from '$lib/schemas/league';
+import { createLeagueSchema, updateLeagueSchema } from '$lib/schemas/league';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { requireSession, requireUser } from './auth.remote';
@@ -12,7 +12,8 @@ import { invalid } from '@sveltejs/kit';
 import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps';
 import * as table from '$lib/server/db/schema';
 import { leagueFormLabels } from '$lib/forms/labels';
-import { isUserOrgAdmin } from './organization.remote';
+import { getOrganization, isUserOrgAdmin } from './organization.remote';
+import { forbidden } from '$lib/server/fail';
 
 export const createLeague = form(createLeagueSchema, async (data, issue) => {
 	const user = await requireUser();
@@ -37,7 +38,7 @@ export const createLeague = form(createLeagueSchema, async (data, issue) => {
 			body: { organizationId: league.id },
 		});
 
-		serverLogger.info(`league created: ${league.id}`);
+		serverLogger.info('league created', league.id);
 
 		await advanceOnboardingStep(onboarding, NEXT_ORGANIZER_ONBOARDING_STEP);
 	} catch (err) {
@@ -75,4 +76,49 @@ export const isUserLeagueOrganizer = query(async () => {
 	});
 
 	return organization?.type === 'league' && (await isUserOrgAdmin());
+});
+
+export const requireLeagueOrganizer = query(async () => {
+	if (!(await isUserLeagueOrganizer())) {
+		forbidden({ resource: 'user' });
+	}
+});
+
+export const updateLeague = form(updateLeagueSchema, async ({ id, ...values }, issue) => {
+	await requireLeagueOrganizer();
+
+	const {
+		request: { headers },
+	} = getRequestEvent();
+	try {
+		await auth.api.updateOrganization({
+			body: {
+				data: {
+					...values,
+				},
+				organizationId: id,
+			},
+			headers,
+		});
+
+		serverLogger.info('league updated', id);
+
+		void getOrganization().refresh();
+	} catch (err) {
+		if (isAPIError(err) && err.body) {
+			serverLogger.error(err, err.body);
+
+			const { $ERROR_CODES } = auth;
+
+			switch (err.body.code) {
+				case $ERROR_CODES.ORGANIZATION_ALREADY_EXISTS.code:
+				case $ERROR_CODES.ORGANIZATION_SLUG_ALREADY_TAKEN.code:
+					return invalid(issue.slug(`${leagueFormLabels.slug} already taken.`));
+			}
+		}
+
+		serverLogger.error(err);
+
+		return invalid('Something went wrong.');
+	}
 });
