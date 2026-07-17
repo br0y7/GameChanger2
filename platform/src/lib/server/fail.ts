@@ -12,7 +12,7 @@ function raise(
 	target: ResourceTarget,
 	options: ErrorMessageOptions
 ): never {
-	const { message = defaultMessage, action = 'create' } = options;
+	const { message = defaultMessage, action = 'read' } = options;
 	error(status, `${message} ${action}:${target.resource} ${target.id ?? ''}`);
 }
 
