@@ -8,7 +8,6 @@ export const isUserOrgAdmin = query(async () => {
 	const { activeOrganizationId } = await requireSession();
 
 	if (!activeOrganizationId) {
-		console.log('no active organization id');
 		return false;
 	}
 
