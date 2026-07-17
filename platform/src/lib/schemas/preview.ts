@@ -56,14 +56,14 @@ const statKeysSchema = z.enum(statKeys);
 
 export type StatKey = z.infer<typeof statKeysSchema>;
 
-const reconciliationStatusSchema = z.enum(['new', 'update']);
+const importStatusSchema = z.enum(['new', 'update']);
 
-export type ReconciliationStatus = z.infer<typeof reconciliationStatusSchema>;
+export type ImportStatus = z.infer<typeof importStatusSchema>;
 
 export const playerGameStatPreviewSchema = z.object({
 	playerId: idField.optional(),
 	jerseyNumber: playerSchema.jerseyNumber,
-	_status: reconciliationStatusSchema.default('new'),
+	_status: importStatusSchema.default('new'),
 
 	stats: z.record(statKeysSchema, z.number()),
 });
@@ -75,7 +75,7 @@ export const teamPreviewSchema = z.object({
 	...requiredName('Team Name'),
 	score: z.number().default(0),
 	playerStats: z.array(playerGameStatPreviewSchema),
-	_status: reconciliationStatusSchema.default('new'),
+	_status: importStatusSchema.default('new'),
 });
 
 export type TeamPreview = z.infer<typeof teamPreviewSchema>;

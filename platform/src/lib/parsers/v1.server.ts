@@ -13,6 +13,7 @@ import {
 	type TeamPreview,
 } from '$lib/schemas/preview';
 import { Temporal } from 'temporal-polyfill';
+import { serverLogger } from '$lib/server/logger';
 
 type Header = StatKey | 'jerseyNumber';
 
@@ -24,7 +25,9 @@ const HEADER_REPLACEMENTS: Record<string, Header> = {
 	'player no.': 'jerseyNumber',
 };
 
-function parseStatsRow(row: number[], headers: Header[]): PlayerGameStatsPreview {
+type RowValue = string | number | undefined;
+
+function parseStatsRow(row: RowValue[], headers: Header[]): PlayerGameStatsPreview {
 	let jerseyNumber = '';
 	const stats: Partial<PlayerGameStatsPreview['stats']> = {};
 
@@ -35,12 +38,25 @@ function parseStatsRow(row: number[], headers: Header[]): PlayerGameStatsPreview
 			continue;
 		}
 
+		const value = row[i];
 		if (header === 'jerseyNumber') {
-			jerseyNumber = row[i].toString();
+			if (typeof value === 'undefined') {
+				throw new SpreadsheetParserError(`undefined player ${row}`);
+			}
+
+			jerseyNumber = value.toString();
 			continue;
 		}
 
-		stats[header] = row[i];
+		const statValue = Number(value);
+
+		if (isNaN(statValue)) {
+			serverLogger.warn('row value either undefined or not a number, defaulting to 0', header, row);
+			stats[header] = 0;
+			continue;
+		}
+
+		stats[header] = statValue;
 	}
 
 	return {
@@ -58,7 +74,7 @@ function parseGameSheet(
 	const rows = xlsx.utils.sheet_to_json(sheet, {
 		header: 1,
 		blankrows: false,
-	}) as (string | number)[][];
+	}) as RowValue[][];
 
 	let gameTime = Temporal.Now.zonedDateTimeISO();
 
@@ -97,6 +113,10 @@ function parseGameSheet(
 		}
 
 		if (typeof first === 'string' && firstLowerText.startsWith('player no')) {
+			if (!row.every((h) => typeof h === 'string')) {
+				throw new SpreadsheetParserError('Invalid headers', { cause: row });
+			}
+
 			currentHeaders = row
 				.map((v) => v.toString().toLowerCase())
 				.map((h) => HEADER_REPLACEMENTS[h] ?? h);
@@ -116,7 +136,7 @@ function parseGameSheet(
 			continue;
 		}
 
-		const playerStats = parseStatsRow(row as number[], currentHeaders);
+		const playerStats = parseStatsRow(row, currentHeaders);
 		currentTeam?.playerStats.push(playerStats);
 	}
 

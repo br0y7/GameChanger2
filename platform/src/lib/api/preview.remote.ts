@@ -24,7 +24,7 @@ import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { slugify } from '$lib/utils/string';
 
-async function reconcilePlayers(playerPreviews: PlayerGameStatsPreview[], players: Player[]) {
+async function annotatePlayers(playerPreviews: PlayerGameStatsPreview[], players: Player[]) {
 	const playerMap = new Map<string, Player>();
 
 	for (const player of players) {
@@ -41,7 +41,7 @@ async function reconcilePlayers(playerPreviews: PlayerGameStatsPreview[], player
 	}
 }
 
-async function reconcile(preview: SpreadsheetPreview, divisionId: string) {
+async function annotatePreview(preview: SpreadsheetPreview, divisionId: string) {
 	const teams = await getTeams({ divisionId, include: { players: true } });
 
 	for (const game of preview.games) {
@@ -51,7 +51,7 @@ async function reconcile(preview: SpreadsheetPreview, divisionId: string) {
 			game.homeTeam._status = 'update';
 			game.homeTeam.id = homeTeam.id;
 
-			await reconcilePlayers(game.homeTeam.playerStats, homeTeam.players);
+			await annotatePlayers(game.homeTeam.playerStats, homeTeam.players);
 		}
 
 		const awayTeam = teams.find((team) => team.name === game.awayTeam.name);
@@ -60,7 +60,7 @@ async function reconcile(preview: SpreadsheetPreview, divisionId: string) {
 			game.awayTeam._status = 'update';
 			game.awayTeam.id = awayTeam.id;
 
-			await reconcilePlayers(game.awayTeam.playerStats, awayTeam.players);
+			await annotatePlayers(game.awayTeam.playerStats, awayTeam.players);
 		}
 	}
 
@@ -79,7 +79,7 @@ export const previewSpreadsheet = form(
 			const buffer = await spreadsheet.arrayBuffer();
 			const preview = parsers[version].parse(xlsx.read(buffer), { timeZone });
 
-			await reconcile(preview, divisionId);
+			await annotatePreview(preview, divisionId);
 
 			return preview;
 		} catch (err) {
@@ -101,18 +101,16 @@ async function saveTeam(tx: Transaction, teamPreview: TeamPreview, divisionId: s
 		return await tx.query.team.findFirst({ where: { id: teamPreview.id } });
 	}
 
-	const slug = slugify(teamPreview.name);
+	const { name } = teamPreview;
+	const slug = slugify(name);
 	// Check first if a previous iteration already made the team
 	// in the current transaction
-	const team = await tx.query.team.findFirst({ where: { slug } });
+	const team = await tx.query.team.findFirst({ where: { slug, divisionId } });
 	if (team) {
 		return team;
 	}
 
-	const [created] = await tx
-		.insert(table.team)
-		.values({ divisionId, name: teamPreview.name, slug: slugify(teamPreview.name) })
-		.returning();
+	const [created] = await tx.insert(table.team).values({ divisionId, name, slug }).returning();
 	return created;
 }
 
@@ -210,6 +208,8 @@ export const savePreview = command(savePreviewSchema, async ({ games, divisionId
 	}
 
 	try {
+		// Transactions will roll back (discard changes)
+		// if any operation fails.
 		await db.transaction(async (tx) => {
 			if (!division.season) {
 				notFound({ resource: 'season' });
