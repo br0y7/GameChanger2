@@ -77,11 +77,11 @@
 	{/if}
 </Field.Field>
 {#if errorDisplayType === 'tooltip'}
-	<div class={cn(fieldClasses?.slug)}>
+	<Field.Field class={cn(fieldClasses?.slug)}>
 		<FieldErrorTooltip remoteField={remoteFields.slug} anchor={refs.slug}>
 			{@render slugField()}
 		</FieldErrorTooltip>
-	</div>
+	</Field.Field>
 {:else}
 	{@render slugField()}
 {/if}
