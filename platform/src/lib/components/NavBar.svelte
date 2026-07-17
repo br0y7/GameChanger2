@@ -17,9 +17,11 @@
 				{PUBLIC_APP_NAME}
 			</a>
 
-			<span class="hidden md:inline-block">
-				<Button variant="ghost" href="/dashboard">Dashboard</Button>
-			</span>
+			{#if await isAuthenticated()}
+				<span class="hidden md:inline-block">
+					<Button variant="ghost" href="/dashboard">Dashboard</Button>
+				</span>
+			{/if}
 		</div>
 		<div class="hidden items-center gap-2 md:flex">
 			{#if await isAuthenticated()}

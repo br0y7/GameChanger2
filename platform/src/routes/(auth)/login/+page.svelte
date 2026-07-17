@@ -2,6 +2,13 @@
 	import { env } from '$env/dynamic/public';
 	import { page } from '$app/state';
 	import LoginForm from '$lib/forms/LoginForm.svelte';
+	import { isAuthenticated } from '$lib/api/auth.remote';
+	import { resolve } from '$app/paths';
+	import { redirect } from '@sveltejs/kit';
+
+	if (await isAuthenticated()) {
+		redirect(307, resolve('/'));
+	}
 
 	let email = $derived(page.url.searchParams.get('email') ?? '');
 </script>

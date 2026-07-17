@@ -1,8 +1,15 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { env } from '$env/dynamic/public';
+	import { isAuthenticated } from '$lib/api/auth.remote';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import SignupForm from '$lib/forms/SignupForm.svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
+	import { redirect } from '@sveltejs/kit';
+
+	if (await isAuthenticated()) {
+		redirect(307, resolve('/'));
+	}
 </script>
 
 <svelte:head>
