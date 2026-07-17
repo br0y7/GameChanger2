@@ -19,7 +19,7 @@
 		<Tooltip.Trigger>
 			{@render children()}
 		</Tooltip.Trigger>
-		<Tooltip.Content customAnchor={anchor} class="bg-error-foreground text-error">
+		<Tooltip.Content customAnchor={anchor} class="bg-error-foreground text-error" role="alert">
 			{#each remoteField.issues() as error (error)}
 				{error.message}
 			{/each}

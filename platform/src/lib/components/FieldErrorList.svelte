@@ -10,7 +10,7 @@
 {#if (errors ?? []).length > 0}
 	<ExpandTransition class={className}>
 		{#each errors as error (error.message)}
-			<Field.Error>{error.message}</Field.Error>
+			<Field.Error role="alert">{error.message}</Field.Error>
 		{/each}
 	</ExpandTransition>
 {/if}

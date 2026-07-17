@@ -14,8 +14,8 @@
 
 {#if (errors ?? []).length > 0}
 	<ExpandTransition>
-		<Alert.Root variant="destructive">
-			<ErrorIcon />
+		<Alert.Root variant="destructive" role="alert">
+			<ErrorIcon aria-hidden="true" />
 			<Alert.Title>{title}</Alert.Title>
 			<Alert.Description>
 				{#each errors as error (error.message)}
