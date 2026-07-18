@@ -18,6 +18,8 @@
 	import FieldErrorTooltip from '$lib/components/FieldErrorTooltip.svelte';
 	import SlugField from '$lib/components/SlugField.svelte';
 	import ErrorPopover from '$lib/components/ErrorPopover.svelte';
+	import { resolve } from '$app/paths';
+	import { getDivision } from '$lib/api/division.remote';
 
 	interface Props {
 		team: Team;
@@ -69,6 +71,8 @@
 			}
 		})
 	);
+
+	const division = $derived(await getDivision({ id: team.divisionId, include: { season: true } }));
 </script>
 
 <Table.Row
@@ -99,7 +103,19 @@
 				</div>
 			{:else}
 				<div in:fade={fadeOptions}>
-					{team.name}
+					<a
+						href={resolve(
+							'/dashboard/seasons/[seasonSlug]/divisions/[divisionSlug]/teams/[teamSlug]',
+							{
+								seasonSlug: division.season?.slug ?? '',
+								divisionSlug: division.slug,
+								teamSlug: team.slug,
+							}
+						)}
+						class="underline"
+					>
+						{team.name}
+					</a>
 				</div>
 			{/if}
 		</ExpandTransition>
