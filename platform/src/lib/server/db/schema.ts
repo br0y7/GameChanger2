@@ -132,6 +132,8 @@ export const game = snakeCase.table(
 	]
 );
 
+export type Game = typeof game.$inferSelect;
+
 export const PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT = 'player_jerseyNumber_team_uq';
 
 export const player = snakeCase.table(
@@ -227,6 +229,8 @@ export const playerGameStat = snakeCase.table(
 		index('playerGameStat_gameId_idx').on(table.gameId),
 	]
 );
+
+export type RawPlayerGameStat = typeof playerGameStat.$inferSelect;
 
 export const onboardingRole = pgEnum('onboarding_role', [
 	'organizer',

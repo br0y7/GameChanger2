@@ -2,7 +2,7 @@ import { teamFormLabels } from '$lib/forms/labels';
 import { createNameSlugSchema, requiredId } from '$lib/schemas/common';
 import { z } from 'zod';
 
-const teamSchema = {
+export const teamSchema = {
 	...createNameSlugSchema({ labels: teamFormLabels }),
 };
 

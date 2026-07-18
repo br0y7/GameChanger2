@@ -3,6 +3,7 @@ import { spreadsheetParserVersions as versions } from '../parsers/base';
 import { idField, requiredName } from './common';
 import { playerSchema } from './player';
 import { Temporal } from 'temporal-polyfill';
+import { rawStatKeys } from './player-game-stat';
 
 const TIME_ZONE_ERROR = 'Time Zone is invalid. Follow IANA time zone format: America/Winnipeg';
 
@@ -36,23 +37,7 @@ export const uploadSpreadsheetSchema = z.object({
 	// ),
 });
 
-export const statKeys = [
-	'fgm',
-	'fga',
-	'fg3m',
-	'fg3a',
-	'ftm',
-	'fta',
-	'oreb',
-	'dreb',
-	'ast',
-	'stl',
-	'blk',
-	'tov',
-	'pf',
-];
-
-const statKeysSchema = z.enum(statKeys);
+const statKeysSchema = z.enum(rawStatKeys);
 
 export type StatKey = z.infer<typeof statKeysSchema>;
 

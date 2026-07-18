@@ -6,7 +6,6 @@ import {
 import * as xlsx from 'xlsx';
 import { applyExcelTime, convertExcelDate } from './date-time';
 import {
-	statKeys,
 	type GamePreview,
 	type PlayerGameStatsPreview,
 	type StatKey,
@@ -14,10 +13,11 @@ import {
 } from '$lib/schemas/preview';
 import { Temporal } from 'temporal-polyfill';
 import { serverLogger } from '$lib/server/logger';
+import { rawStatKeys } from '$lib/schemas/player-game-stat';
 
 type Header = StatKey | 'jerseyNumber';
 
-const ALLOWED_HEADERS = new Set<Header>([...statKeys, 'jerseyNumber']);
+const ALLOWED_HEADERS = new Set<Header>([...rawStatKeys, 'jerseyNumber']);
 
 const HEADER_REPLACEMENTS: Record<string, Header> = {
 	'3ptm': 'fg3m',

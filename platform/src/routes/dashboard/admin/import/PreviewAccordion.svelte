@@ -4,12 +4,12 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 
 	import {
-		statKeys,
 		type PlayerGameStatsPreview,
 		type ImportStatus,
 		type SpreadsheetPreview,
 		type TeamPreview,
 	} from '$lib/schemas/preview';
+	import { rawStatKeys } from '$lib/schemas/player-game-stat';
 	interface Props {
 		preview: SpreadsheetPreview;
 	}
@@ -33,7 +33,7 @@
 		<Table.Header>
 			<Table.Row>
 				<Table.Head>Jersey #</Table.Head>
-				{#each statKeys as key (key)}
+				{#each rawStatKeys as key (key)}
 					<Table.Head class="uppercase">{key}</Table.Head>
 				{/each}
 			</Table.Row>
@@ -47,7 +47,7 @@
 							{stat._status}
 						</Badge>
 					</Table.Cell>
-					{#each statKeys as key (key)}
+					{#each rawStatKeys as key (key)}
 						<Table.Cell>{stat.stats[key]}</Table.Cell>
 					{/each}
 				</Table.Row>

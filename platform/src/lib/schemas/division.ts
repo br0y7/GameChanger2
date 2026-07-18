@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 export const divisionTypes = ['competitive', 'community', 'recreational'] as const;
 
-const divisionSchema = {
+export const divisionSchema = {
 	...createNameSlugSchema({ labels: divisionFormLabels }),
 	type: z.enum(divisionTypes, 'Division Type is required').default('community'),
 	seasonId: z.uuid().nonoptional(),
