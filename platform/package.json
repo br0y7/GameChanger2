@@ -2,6 +2,8 @@
 	"name": "platform",
 	"version": "0.0.1",
 	"devDependencies": {
+		"@better-svelte-email/components": "^2.1.1",
+		"@better-svelte-email/server": "^2.1.1",
 		"@eslint/js": "^10.0.1",
 		"@fontsource-variable/inter": "^5.2.8",
 		"@internationalized/date": "^3.12.0",
@@ -22,6 +24,7 @@
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.20.0",
 		"globals": "^17.7.0",
+		"nodemailer": "^9.0.3",
 		"prettier": "^3.9.4",
 		"prettier-plugin-svelte": "^4.1.1",
 		"prettier-plugin-tailwindcss": "^0.8.0",
