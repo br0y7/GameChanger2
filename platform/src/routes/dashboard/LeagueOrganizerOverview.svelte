@@ -14,7 +14,7 @@
 	<section class="flex gap-4">
 		{#if currentSeason}
 			<h2 class="text-xl">Current Season: {currentSeason.name}</h2>
-			<Button href={resolve('/dashboard/seasons/[slug].svelte', { slug: currentSeason.slug })}>
+			<Button href={resolve('/dashboard/seasons/[seasonSlug]', { seasonSlug: currentSeason.slug })}>
 				Manage
 			</Button>
 		{:else}

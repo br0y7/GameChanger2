@@ -103,7 +103,7 @@
 			{:else}
 				<div in:fade={fadeOptions} class="truncate">
 					<a
-						href={resolve('/dashboard/seasons/[slug].svelte', { slug: season.slug })}
+						href={resolve('/dashboard/seasons/[seasonSlug]', { seasonSlug: season.slug })}
 						class="underline"
 					>
 						{season.name}

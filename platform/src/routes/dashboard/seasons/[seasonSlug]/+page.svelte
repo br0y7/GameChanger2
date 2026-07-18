@@ -11,7 +11,7 @@
 
 	const org = await getOrganization();
 
-	const season = $derived(await getSeason({ slug: params.slug, organizationId: org.id }));
+	const season = $derived(await getSeason({ slug: params.seasonSlug, organizationId: org.id }));
 	const divisions = $derived(await getDivisions({ seasonId: season.id }));
 </script>
 
