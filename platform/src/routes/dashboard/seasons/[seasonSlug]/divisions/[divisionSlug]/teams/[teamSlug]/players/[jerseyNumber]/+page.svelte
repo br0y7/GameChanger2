@@ -14,6 +14,7 @@
 	import AnimatedNumber from '$lib/components/AnimatedNumber.svelte';
 	import PlayerStatDataTable from './PlayerStatDataTable.svelte';
 	import { columns } from './columns';
+	import { Spinner } from '$lib/components/ui/spinner';
 
 	let { params }: PageProps = $props();
 
@@ -22,7 +23,7 @@
 	const team = $derived(await getTeam({ slug: params.teamSlug, divisionId: division.id }));
 	const player = $derived(await getPlayer({ teamId: team.id, jerseyNumber: params.jerseyNumber }));
 
-	const seasonAverages = $derived(await getPlayerSeasonAverages({ playerId: player.id }));
+	const seasonAveragesPromise = $derived(getPlayerSeasonAverages({ playerId: player.id }));
 	const gameCount = $derived(await getPlayerGameCount({ playerId: player.id }));
 
 	const numberFormatter = new Intl.NumberFormat('en', {
@@ -55,41 +56,54 @@
 			{/if}
 		</p>
 		<div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Points</Card.Title>
-				</Card.Header>
-				<Card.Content class="text-2xl">
-					<AnimatedNumber end={seasonAverages.points} {format} />
-				</Card.Content>
-			</Card.Root>
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Assists</Card.Title>
-				</Card.Header>
-				<Card.Content class="text-2xl">
-					<AnimatedNumber end={seasonAverages.assists} {format} />
-				</Card.Content>
-			</Card.Root>
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Turnovers</Card.Title>
-				</Card.Header>
-				<Card.Content class="text-2xl">
-					<AnimatedNumber end={seasonAverages.turnovers} {format} />
-				</Card.Content>
-			</Card.Root>
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Shooting %</Card.Title>
-				</Card.Header>
-				<Card.Content class="text-2xl">
-					<AnimatedNumber
-						end={seasonAverages.shootingPercentage * 100}
-						format={(p) => `${format(p)}%`}
-					/>
-				</Card.Content>
-			</Card.Root>
+			{#await seasonAveragesPromise}
+				{#each ['Points', 'Assists', 'Turnovers', 'Shooting %'] as title (title)}
+					<Card.Root>
+						<Card.Header>
+							<Card.Title>{title}</Card.Title>
+						</Card.Header>
+						<Card.Content>
+							<Spinner />
+						</Card.Content>
+					</Card.Root>
+				{/each}
+			{:then seasonAverages}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>Points</Card.Title>
+					</Card.Header>
+					<Card.Content class="text-2xl">
+						<AnimatedNumber end={seasonAverages.points} {format} />
+					</Card.Content>
+				</Card.Root>
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>Assists</Card.Title>
+					</Card.Header>
+					<Card.Content class="text-2xl">
+						<AnimatedNumber end={seasonAverages.assists} {format} />
+					</Card.Content>
+				</Card.Root>
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>Turnovers</Card.Title>
+					</Card.Header>
+					<Card.Content class="text-2xl">
+						<AnimatedNumber end={seasonAverages.turnovers} {format} />
+					</Card.Content>
+				</Card.Root>
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>Shooting %</Card.Title>
+					</Card.Header>
+					<Card.Content class="text-2xl">
+						<AnimatedNumber
+							end={seasonAverages.shootingPercentage * 100}
+							format={(p) => `${format(p)}%`}
+						/>
+					</Card.Content>
+				</Card.Root>
+			{/await}
 		</div>
 	</section>
 
