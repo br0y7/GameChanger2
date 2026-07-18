@@ -69,7 +69,7 @@ export const organization = snakeCase.table(
 		slug: text().notNull().unique(),
 		logo: text(),
 		metadata: text(),
-		type: text({ enum: ['team', 'league'] })
+		type: text({ enum: ['team', 'league', 'system'] })
 			.notNull()
 			.default('league'),
 	},

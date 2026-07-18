@@ -6,6 +6,7 @@
 	import NavModeToggle from './NavModeToggle.svelte';
 	import { getOrganization } from '$lib/api/organization.remote';
 	import TrophyIcon from '@lucide/svelte/icons/trophy';
+	import UsersIcon from '@lucide/svelte/icons/users';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
 	import { resolve } from '$app/paths';
 
@@ -19,7 +20,8 @@
 
 	const iconMap: Record<(typeof org)['type'], typeof TrophyIcon> = {
 		league: TrophyIcon,
-		team: ShieldIcon,
+		team: UsersIcon,
+		system: ShieldIcon,
 	};
 
 	const HeaderIcon = $derived(iconMap[org.type]);

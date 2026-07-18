@@ -57,7 +57,9 @@
 	}
 </script>
 
-<main class="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
+<section
+	class="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10"
+>
 	<h1 class="text-2xl font-bold">Import Stat Spreadsheet</h1>
 	<p>Upload stats spreadsheet for a division, see a preview, then save to the database.</p>
 	<Accordion.Root type="single" bind:value={activeItem} class="max-w-xl">
@@ -202,4 +204,4 @@
 			</Accordion.Content>
 		</Accordion.Item>
 	</Accordion.Root>
-</main>
+</section>
