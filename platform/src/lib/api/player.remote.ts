@@ -1,7 +1,7 @@
 import { form, query } from '$app/server';
 import type { CrudAction, ResourceTarget } from '$lib/forms/types';
-import { idOnlySchema } from '$lib/schemas/common';
-import { createPlayerSchema, updatePlayerSchema } from '$lib/schemas/player';
+import { idField, idOnlySchema } from '$lib/schemas/common';
+import { createPlayerSchema, playerSchema, updatePlayerSchema } from '$lib/schemas/player';
 import { db } from '$lib/server/db';
 import { PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT } from '$lib/server/db/schema';
 import { forbidden, internal, internalNoId, notFound } from '$lib/server/fail';
@@ -12,10 +12,23 @@ import { isConstraintError } from './errors.server';
 import { eq } from 'drizzle-orm';
 import { requireUser } from './auth.remote';
 import { getCoach } from './coach.remote';
+import { z } from 'zod';
 
 export const getPlayer = query(
-	idOnlySchema,
-	async ({ id }) => await db.query.player.findFirst({ where: { id } })
+	z.object({
+		id: idField.optional(),
+		teamId: idField.optional(),
+		jerseyNumber: playerSchema.jerseyNumber,
+	}),
+	async (values) => {
+		const player = await db.query.player.findFirst({ where: values });
+
+		if (!player) {
+			notFound({ resource: 'player' }, { message: `player not found ${JSON.stringify(values)}` });
+		}
+
+		return player;
+	}
 );
 
 async function assertCoachPermissions(action: CrudAction, target: ResourceTarget): Promise<void> {

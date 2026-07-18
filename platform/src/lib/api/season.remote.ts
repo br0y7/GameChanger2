@@ -40,13 +40,14 @@ export const getSeason = query(
 		id: idField.optional(),
 		organizationId: idField.optional(),
 		slug: seasonSchema.slug.optional(),
+		include: z.object(includes).default({}),
 	}),
-	async ({ slug, organizationId, id }) => {
-		const season = await db.query.season.findFirst({ where: { slug, id, organizationId } });
+	async ({ include, ...values }) => {
+		const season = await db.query.season.findFirst({ where: values, with: include });
 		if (!season) {
 			notFound(
 				{ resource: 'season' },
-				{ action: 'read', message: `Season not found. slug: ${slug} org: ${organizationId}` }
+				{ action: 'read', message: `season not found. ${JSON.stringify(values)}` }
 			);
 		}
 		return season;

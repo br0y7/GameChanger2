@@ -1,5 +1,5 @@
 import { form, query } from '$app/server';
-import { createDivisionSchema, updateDivisionSchema } from '$lib/schemas/division';
+import { createDivisionSchema, divisionSchema, updateDivisionSchema } from '$lib/schemas/division';
 import * as table from '$lib/server/db/schema';
 import { db } from '$lib/server/db';
 import { forbidden, internal, internalNoId, notFound } from '$lib/server/fail';
@@ -22,6 +22,32 @@ export const getDivisions = query(
 			where: { seasonId },
 			orderBy: { name: 'asc' },
 		})
+);
+
+const includes = {
+	season: z.boolean().optional(),
+	teams: z.boolean().optional(),
+};
+
+export const getDivision = query(
+	z.object({
+		id: idField.optional(),
+		seasonId: idField.optional(),
+		slug: divisionSchema.slug.optional(),
+		include: z.object(includes).default({}),
+	}),
+	async ({ include, ...values }) => {
+		const division = await db.query.division.findFirst({ where: { ...values }, with: include });
+
+		if (!division) {
+			notFound(
+				{ resource: 'division' },
+				{ action: 'read', message: `division not found. ${JSON.stringify(values)}` }
+			);
+		}
+
+		return division;
+	}
 );
 
 async function assertPermissions(action: CrudAction, target: ResourceTarget, seasonId?: string) {

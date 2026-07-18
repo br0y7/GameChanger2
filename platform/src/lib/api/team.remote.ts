@@ -1,5 +1,5 @@
 import { form, getRequestEvent, query } from '$app/server';
-import { createTeamSchema, updateTeamSchema } from '$lib/schemas/team';
+import { createTeamSchema, teamSchema, updateTeamSchema } from '$lib/schemas/team';
 import { auth, type User } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
@@ -11,7 +11,7 @@ import { getOnboarding } from './onboarding.remote';
 import { NEXT_COACH_ONBOARDING_STEP } from '$lib/onboarding/steps';
 import { isAPIError } from 'better-auth/api';
 import { advanceOnboardingStep } from './onboarding.server';
-import { idField, idOnlySchema, requiredId } from '$lib/schemas/common';
+import { idField, idOnlySchema } from '$lib/schemas/common';
 import { getCoach } from './coach.remote';
 import { z } from 'zod';
 import * as table from '$lib/server/db/schema';
@@ -229,10 +229,23 @@ const includes = {
 
 export const getTeam = query(
 	z.object({
-		...requiredId,
+		id: idField.optional(),
+		slug: teamSchema.slug.optional(),
+		divisionId: idField.optional(),
 		include: z.object(includes).default({}),
 	}),
-	async ({ id, include }) => await db.query.team.findFirst({ where: { id }, with: include })
+	async ({ include, ...values }) => {
+		const team = await db.query.team.findFirst({ where: { ...values }, with: include });
+
+		if (!team) {
+			notFound(
+				{ resource: 'team' },
+				{ action: 'read', message: `team not found. ${JSON.stringify(values)}` }
+			);
+		}
+
+		return team;
+	}
 );
 
 export const getTeams = query(
