@@ -15,6 +15,10 @@
 	import PlayerStatDataTable from './PlayerStatDataTable.svelte';
 	import { columns } from './columns';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { analyzePlayer } from '$lib/api/player-analysis.remote';
+	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { DRILLS_BY_WEAKNESS } from '$lib/player-analysis/drills-by-weakness';
+	import DrillCard from './DrillCard.svelte';
 
 	let { params }: PageProps = $props();
 
@@ -42,7 +46,7 @@
 	};
 </script>
 
-<div class="grid grid-cols-1 xl:grid-cols-2 gap-6 p-8">
+<div class="grid grid-cols-1 gap-6 px-8 pb-8 xl:grid-cols-2 xl:grid-rows-2">
 	<section class="xl:col-span-2 text-center">
 		<h1 class="text-3xl font-extrabold">Player Performance Report</h1>
 		<h2 class="text-2xl font-bold">{player.name} of team {team.name}</h2>
@@ -61,7 +65,7 @@
 				<span class="font-medium">{gameCount} games played</span>
 			{/if}
 		</p>
-		<div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
 			{#await seasonAveragesPromise}
 				{#each ['Points', 'Assists', 'Turnovers', 'Shooting %'] as title (title)}
 					<Card.Root>
@@ -102,7 +106,7 @@
 							<Card.Title>{data.title}</Card.Title>
 						</Card.Header>
 						<Card.Content class="text-2xl">
-							<AnimatedNumber end={seasonAverages[data.key]} format={data.format} />
+							<AnimatedNumber end={seasonAverages[data.key] ?? 0} format={data.format} />
 						</Card.Content>
 					</Card.Root>
 				{/each}
@@ -117,7 +121,34 @@
 		<Separator />
 	</section>
 
-	<section>
-		<h3 class="text-xl font-bold">Analysis</h3>
+	<section class="xl:row-span-2 xl:col-start-2 xl:row-start-3 min-h-[25svh] flex flex-col gap-4">
+		<h2 class="text-2xl font-bold xl:col-span-2">Analysis</h2>
+		{#await analyzePlayer({ id: player.id })}
+			<Skeleton class="w-full h-full" />
+		{:then playerAnalysis}
+			<p class="text-xl">
+				Strength:
+				<span class="font-bold">
+					{playerAnalysis.strengths[0]?.description ?? 'Versatile player'}
+				</span>
+			</p>
+			<section class="flex flex-col gap-4">
+				{let [firstWeakness] = playerAnalysis.weaknesses}
+				<h3 class="text-xl">
+					Area to improve:
+					<span class="font-bold">
+						{firstWeakness?.description ?? 'Consistency'}
+					</span>
+				</h3>
+				{#if firstWeakness}
+					<p class="text-xl font-medium">Suggested drills:</p>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						{#each DRILLS_BY_WEAKNESS[firstWeakness.category] as drill (drill.name)}
+							<DrillCard {drill} />
+						{/each}
+					</div>
+				{/if}
+			</section>
+		{/await}
 	</section>
 </div>
