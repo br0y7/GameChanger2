@@ -6,6 +6,7 @@
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Separator } from '$lib/components/ui/separator';
 	import { resolve } from '$app/paths';
+	import { getPlayerGameCount } from '$lib/api/player-game-stat.remote';
 
 	let { params }: PageProps = $props();
 
@@ -18,7 +19,11 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-8">
 	<section class="lg:col-span-2 text-center">
-		<h1 class="text-3xl font-extrabold">{team.name}</h1>
+		<h1 class="text-3xl font-extrabold">
+			{!team.name.toLowerCase().includes('team') ? 'Team' : ''}
+			{team.name}
+		</h1>
+		<h2 class="text-xl text-muted-foreground">{division.name}</h2>
 	</section>
 
 	<Separator class="lg:col-span-2" />
@@ -28,7 +33,8 @@
 			<Table.Header>
 				<Table.Row>
 					<Table.Head>Player Name</Table.Head>
-					<Table.Head>Jersey Number</Table.Head>
+					<Table.Head class="max-w-4 text-center">Jersey Number</Table.Head>
+					<Table.Head class="max-w-4 text-center"># of Games</Table.Head>
 					<!-- Optionally add options here if user is a Coach -->
 				</Table.Row>
 			</Table.Header>
@@ -50,7 +56,12 @@
 								{player.name}
 							</a>
 						</Table.Cell>
-						<Table.Cell>{player.jerseyNumber}</Table.Cell>
+						<Table.Cell class="text-center">{player.jerseyNumber}</Table.Cell>
+						<Table.Cell class="text-center">
+							{#await getPlayerGameCount({ playerId: player.id }) then count}
+								{count}
+							{/await}
+						</Table.Cell>
 					</Table.Row>
 				{/each}
 			</Table.Body>
