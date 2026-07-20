@@ -137,7 +137,7 @@
 			{#if editing}
 				<div in:fade={fadeOptions}>
 					<FieldErrorTooltip remoteField={updateForm.fields.status} anchor={fieldRefs.status}>
-						<SelectField field={updateForm.fields.status} form={updateFormId()}>
+						<SelectField field={updateForm.fields.status} form={updateFormId()} required>
 							{#each seasonStatuses as status (status)}
 								<Select.Item value={status}>{status}</Select.Item>
 							{/each}
