@@ -34,15 +34,21 @@
 	const format = (n: number) => numberFormatter.format(n);
 
 	const gameStats = $derived(await getPlayerGameStats({ playerId: player.id }));
+
+	type AverageData = {
+		title: string;
+		key: keyof Awaited<typeof seasonAveragesPromise>;
+		format: (n: number) => string;
+	};
 </script>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-8">
-	<section class="lg:col-span-2 text-center">
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6 p-8">
+	<section class="xl:col-span-2 text-center">
 		<h1 class="text-3xl font-extrabold">Player Performance Report</h1>
 		<h2 class="text-2xl font-bold">{player.name} of team {team.name}</h2>
 	</section>
 
-	<Separator class="lg:col-span-2" />
+	<Separator class="xl:col-span-2" />
 
 	<section class="flex flex-col justify-center gap-4">
 		<h3 class="text-xl font-bold">Season Averages</h3>
@@ -68,53 +74,48 @@
 					</Card.Root>
 				{/each}
 			{:then seasonAverages}
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Points</Card.Title>
-					</Card.Header>
-					<Card.Content class="text-2xl">
-						<AnimatedNumber end={seasonAverages.points} {format} />
-					</Card.Content>
-				</Card.Root>
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Assists</Card.Title>
-					</Card.Header>
-					<Card.Content class="text-2xl">
-						<AnimatedNumber end={seasonAverages.assists} {format} />
-					</Card.Content>
-				</Card.Root>
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Turnovers</Card.Title>
-					</Card.Header>
-					<Card.Content class="text-2xl">
-						<AnimatedNumber end={seasonAverages.turnovers} {format} />
-					</Card.Content>
-				</Card.Root>
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Shooting %</Card.Title>
-					</Card.Header>
-					<Card.Content class="text-2xl">
-						<AnimatedNumber
-							end={seasonAverages.shootingPercentage * 100}
-							format={(p) => `${format(p)}%`}
-						/>
-					</Card.Content>
-				</Card.Root>
+				{let averagesData: AverageData[] = [
+					{
+						title: 'Points',
+						key: 'points',
+						format,
+					},
+					{
+						title: 'Assists',
+						key: 'assists',
+						format,
+					},
+					{
+						title: 'Turnovers',
+						key: 'turnovers',
+						format,
+					},
+					{
+						title: 'Shooting %',
+						key: 'shootingPercentage',
+						format: (p: number) => `${format(p * 100)}%`,
+					},
+				]}
+				{#each averagesData as data (data.key)}
+					<Card.Root>
+						<Card.Header>
+							<Card.Title>{data.title}</Card.Title>
+						</Card.Header>
+						<Card.Content class="text-2xl">
+							<AnimatedNumber end={seasonAverages[data.key]} format={data.format} />
+						</Card.Content>
+					</Card.Root>
+				{/each}
 			{/await}
 		</div>
+		<Separator />
 	</section>
 
-	<Separator class="lg:col-span-2" />
-
-	<section>
+	<section class="flex flex-col gap-4">
 		<h3 class="text-xl font-bold">Box Scores</h3>
 		<PlayerStatDataTable data={gameStats} {columns} />
+		<Separator />
 	</section>
-
-	<Separator class="lg:col-span-2" />
 
 	<section>
 		<h3 class="text-xl font-bold">Analysis</h3>

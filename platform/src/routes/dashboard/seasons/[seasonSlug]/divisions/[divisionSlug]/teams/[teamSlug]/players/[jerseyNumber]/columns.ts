@@ -7,6 +7,12 @@ const someStatKeys: RawStatKey[] = ['ast', 'stl', 'blk', 'tov', 'pf'] as const;
 
 export const columns: ColumnDef<WithGame<PlayerGameStat>>[] = [
 	{
+		accessorFn: (stats) => {
+			return stats.game?.name ?? 'Unknown Game';
+		},
+		header: 'Game',
+	},
+	{
 		accessorKey: 'pts',
 		header: ({ column }) =>
 			renderComponent(SortableStatHeader, {
