@@ -10,7 +10,7 @@
 
 	let { children } = $props();
 
-	const showBackButton = page.url.pathname.split('/').filter(Boolean).length > 2;
+	const showBackButton = $derived(page.url.pathname.split('/').filter(Boolean).length > 2);
 </script>
 
 <Sidebar.Provider>
