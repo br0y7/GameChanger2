@@ -230,7 +230,7 @@ export const playerGameStat = snakeCase.table(
 	]
 );
 
-export type RawPlayerGameStat = typeof playerGameStat.$inferSelect;
+export type RawPlayerGameStats = typeof playerGameStat.$inferSelect;
 
 export const onboardingRole = pgEnum('onboarding_role', [
 	'organizer',

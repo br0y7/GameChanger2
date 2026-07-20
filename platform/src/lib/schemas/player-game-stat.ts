@@ -1,4 +1,4 @@
-import type { Game, RawPlayerGameStat } from '$lib/server/db/schema';
+import type { Game, RawPlayerGameStats } from '$lib/server/db/schema';
 
 export const rawStatKeys = [
 	'fgm',
@@ -14,7 +14,7 @@ export const rawStatKeys = [
 	'blk',
 	'tov',
 	'pf',
-];
+] as const;
 
 export type RawStatKey = (typeof rawStatKeys)[number];
 
@@ -22,7 +22,7 @@ export const derivedStatKeys = ['pts', 'fgPct', 'fg3Pct', 'ftPct', 'reb', 'eff']
 
 export type DerivedStatKey = (typeof derivedStatKeys)[number];
 
-export type PlayerGameStat = RawPlayerGameStat & {
+export type PlayerGameStats = RawPlayerGameStats & {
 	[K in DerivedStatKey]: number;
 };
 

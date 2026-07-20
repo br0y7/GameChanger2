@@ -1,11 +1,15 @@
 import { renderComponent } from '$lib/components/ui/data-table';
-import { type PlayerGameStat, type RawStatKey, type WithGame } from '$lib/schemas/player-game-stat';
+import {
+	type PlayerGameStats,
+	type RawStatKey,
+	type WithGame,
+} from '$lib/schemas/player-game-stat';
 import type { ColumnDef, Column } from '@tanstack/table-core';
 import SortableStatHeader from './SortableStatHeader.svelte';
 
 const someStatKeys: RawStatKey[] = ['ast', 'stl', 'blk', 'tov', 'pf'] as const;
 
-export const columns: ColumnDef<WithGame<PlayerGameStat>>[] = [
+export const columns: ColumnDef<WithGame<PlayerGameStats>>[] = [
 	{
 		accessorFn: (stats) => {
 			return stats.game?.name ?? 'Unknown Game';
@@ -118,7 +122,7 @@ export const columns: ColumnDef<WithGame<PlayerGameStat>>[] = [
 	},
 	...someStatKeys.map((key) => ({
 		accessorKey: key,
-		header: ({ column }: { column: Column<WithGame<PlayerGameStat>, unknown> }) =>
+		header: ({ column }: { column: Column<WithGame<PlayerGameStats>, unknown> }) =>
 			renderComponent(SortableStatHeader, {
 				header: key.toUpperCase(),
 				onclick: column.getToggleSortingHandler(),

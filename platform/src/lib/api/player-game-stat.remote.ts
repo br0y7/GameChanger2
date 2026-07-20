@@ -1,7 +1,7 @@
 import { query } from '$app/server';
 import { idField } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
-import { derivePlayerStats } from '$lib/stats/player-game-stats';
+import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
 import { count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import * as table from '$lib/server/db/schema';
@@ -21,7 +21,7 @@ export const getPlayerGameStats = query(
 			},
 		});
 
-		return rawStats.map(derivePlayerStats);
+		return rawStats.map(derivePlayerGameStats);
 	}
 );
 

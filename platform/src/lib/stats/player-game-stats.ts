@@ -1,7 +1,9 @@
-import type { PlayerGameStat, WithGame } from '$lib/schemas/player-game-stat';
-import type { RawPlayerGameStat } from '$lib/server/db/schema';
+import type { PlayerGameStats, WithGame } from '$lib/schemas/player-game-stat';
+import type { RawPlayerGameStats } from '$lib/server/db/schema';
 
-export function derivePlayerStats(rawStats: WithGame<RawPlayerGameStat>): WithGame<PlayerGameStat> {
+export function derivePlayerGameStats(
+	rawStats: WithGame<RawPlayerGameStats>
+): WithGame<PlayerGameStats> {
 	const { fgm, fga, fg3m, fg3a, ftm, fta, oreb, dreb, ast, stl, blk, tov, pf } = rawStats;
 
 	const pts = (fgm - fg3m) * 2 + fg3m * 3 + ftm;
