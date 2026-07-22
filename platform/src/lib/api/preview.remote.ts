@@ -186,7 +186,7 @@ async function saveStats(tx: Transaction, data: TeamPreview, team: Team, gameId:
 		});
 
 		if (gameStats) {
-			await tx.update(table.playerGameStat).set({ ...stats });
+			await tx.update(table.playerGameStat).set(stats);
 		} else {
 			await tx.insert(table.playerGameStat).values({ ...stats, gameId, playerId });
 		}
@@ -198,9 +198,7 @@ export const savePreview = command(savePreviewSchema, async ({ games, divisionId
 
 	const division = await db.query.division.findFirst({
 		where: { id: divisionId },
-		with: {
-			season: true,
-		},
+		with: { season: true },
 	});
 
 	if (!division) {

@@ -20,11 +20,11 @@ export const getPlayer = query(
 		teamId: idField.optional(),
 		jerseyNumber: playerSchema.jerseyNumber,
 	}),
-	async (values) => {
-		const player = await db.query.player.findFirst({ where: values });
+	async (filters) => {
+		const player = await db.query.player.findFirst({ where: filters });
 
 		if (!player) {
-			notFound({ resource: 'player' }, { message: `player not found ${JSON.stringify(values)}` });
+			notFound({ resource: 'player' }, { message: `player not found ${JSON.stringify(filters)}` });
 		}
 
 		return player;
@@ -68,12 +68,7 @@ export const createPlayer = form(createPlayerSchema, async (data, issue) => {
 	await assertCoachPermissions('create', { resource: 'player' });
 
 	try {
-		const [created] = await db
-			.insert(table.player)
-			.values({
-				...data,
-			})
-			.returning({ id: table.player.id });
+		const [created] = await db.insert(table.player).values(data).returning({ id: table.player.id });
 
 		return {
 			data: {
@@ -97,10 +92,7 @@ export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 	await assertCoachPermissions('update', { resource: 'player', id });
 
 	try {
-		await db
-			.update(table.player)
-			.set({ ...data })
-			.where(eq(table.player.id, id));
+		await db.update(table.player).set(data).where(eq(table.player.id, id));
 	} catch (err) {
 		if (isConstraintError(err, PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT)) {
 			return invalid(issue.jerseyNumber('Jersey number already taken.'));

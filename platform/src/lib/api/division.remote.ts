@@ -36,13 +36,13 @@ export const getDivision = query(
 		slug: divisionSchema.slug.optional(),
 		include: z.object(includes).default({}),
 	}),
-	async ({ include, ...values }) => {
-		const division = await db.query.division.findFirst({ where: { ...values }, with: include });
+	async ({ include, ...filters }) => {
+		const division = await db.query.division.findFirst({ where: filters, with: include });
 
 		if (!division) {
 			notFound(
 				{ resource: 'division' },
-				{ action: 'read', message: `division not found. ${JSON.stringify(values)}` }
+				{ action: 'read', message: `division not found. ${JSON.stringify(filters)}` }
 			);
 		}
 
@@ -101,7 +101,7 @@ export const createDivision = form(createDivisionSchema, async (data, issue) => 
 	try {
 		const [created] = await db
 			.insert(table.division)
-			.values({ ...data })
+			.values(data)
 			.returning({ id: table.division.id });
 
 		serverLogger.info('division created:', created.id);
@@ -115,16 +115,11 @@ export const createDivision = form(createDivisionSchema, async (data, issue) => 
 	}
 });
 
-export const updateDivision = form(updateDivisionSchema, async (data, issue) => {
-	const { id, ...values } = data;
-
+export const updateDivision = form(updateDivisionSchema, async ({ id, ...data }, issue) => {
 	await assertPermissions('update', { resource: 'division', id }, data.seasonId);
 
 	try {
-		await db
-			.update(table.division)
-			.set({ ...values })
-			.where(eq(table.division.id, id));
+		await db.update(table.division).set(data).where(eq(table.division.id, id));
 
 		serverLogger.info('division updated:', id);
 	} catch (err) {

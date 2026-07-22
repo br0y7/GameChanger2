@@ -29,7 +29,7 @@ export const getSeasons = query(
 	async ({ organizationId, include }) => {
 		return await db.query.season.findMany({
 			where: { organizationId },
-			with: { ...include },
+			with: include,
 			orderBy: { updatedAt: 'desc' },
 		});
 	}
@@ -42,12 +42,12 @@ export const getSeason = query(
 		slug: seasonSchema.slug.optional(),
 		include: z.object(includes).default({}),
 	}),
-	async ({ include, ...values }) => {
-		const season = await db.query.season.findFirst({ where: values, with: include });
+	async ({ include, ...filters }) => {
+		const season = await db.query.season.findFirst({ where: filters, with: include });
 		if (!season) {
 			notFound(
 				{ resource: 'season' },
-				{ action: 'read', message: `season not found. ${JSON.stringify(values)}` }
+				{ action: 'read', message: `season not found. ${JSON.stringify(filters)}` }
 			);
 		}
 		return season;
@@ -119,13 +119,13 @@ export const createSeason = form(createSeasonSchema, async (data, issue) => {
 	}
 });
 
-export const updateSeason = form(updateSeasonSchema, async ({ id, ...values }, issue) => {
+export const updateSeason = form(updateSeasonSchema, async ({ id, ...data }, issue) => {
 	await assertPermissions('update', { resource: 'season', id });
 
 	try {
 		const [updated] = await db
 			.update(table.season)
-			.set(values)
+			.set(data)
 			.where(eq(table.season.id, id))
 			.returning({ id: table.season.id });
 

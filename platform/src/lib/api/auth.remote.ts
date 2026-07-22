@@ -11,7 +11,7 @@ import { isAPIError } from 'better-auth/api';
 export const loginWithEmail = form(loginFormSchema, async (data) => {
 	try {
 		const { user } = await auth.api.signInEmail({
-			body: { ...data },
+			body: data,
 		});
 
 		serverLogger.info('user logged in', user.id);
@@ -40,7 +40,7 @@ export const loginWithEmail = form(loginFormSchema, async (data) => {
 export const signUpWithEmail = form(signupFormSchema, async (data) => {
 	try {
 		const { user } = await auth.api.signUpEmail({
-			body: { ...data },
+			body: data,
 		});
 
 		serverLogger.info('new user sign up', user.id);

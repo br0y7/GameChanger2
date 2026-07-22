@@ -187,18 +187,13 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 	}
 });
 
-export const updateTeam = form(updateTeamSchema, async (data, issue) => {
+export const updateTeam = form(updateTeamSchema, async ({ id, ...data }, issue) => {
 	const user = await requireUser();
-
-	const { id, ...values } = data;
 
 	await assertPermissions('update', { resource: 'team', id }, user);
 
 	try {
-		await db
-			.update(table.team)
-			.set({ ...values })
-			.where(eq(table.team.id, id));
+		await db.update(table.team).set(data).where(eq(table.team.id, id));
 
 		serverLogger.info('team updated', id);
 	} catch (err) {
@@ -234,13 +229,13 @@ export const getTeam = query(
 		divisionId: idField.optional(),
 		include: z.object(includes).default({}),
 	}),
-	async ({ include, ...values }) => {
-		const team = await db.query.team.findFirst({ where: { ...values }, with: include });
+	async ({ include, ...filters }) => {
+		const team = await db.query.team.findFirst({ where: filters, with: include });
 
 		if (!team) {
 			notFound(
 				{ resource: 'team' },
-				{ action: 'read', message: `team not found. ${JSON.stringify(values)}` }
+				{ action: 'read', message: `team not found. ${JSON.stringify(filters)}` }
 			);
 		}
 

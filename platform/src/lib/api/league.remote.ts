@@ -25,7 +25,7 @@ export const createLeague = form(createLeagueSchema, async (data, issue) => {
 	try {
 		const league = await auth.api.createOrganization({
 			headers,
-			body: { ...data },
+			body: data,
 		});
 
 		await db
@@ -84,7 +84,7 @@ export const requireLeagueOrganizer = query(async () => {
 	}
 });
 
-export const updateLeague = form(updateLeagueSchema, async ({ id, ...values }, issue) => {
+export const updateLeague = form(updateLeagueSchema, async ({ id, ...data }, issue) => {
 	await requireLeagueOrganizer();
 
 	const {
@@ -93,9 +93,7 @@ export const updateLeague = form(updateLeagueSchema, async ({ id, ...values }, i
 	try {
 		await auth.api.updateOrganization({
 			body: {
-				data: {
-					...values,
-				},
+				data,
 				organizationId: id,
 			},
 			headers,
