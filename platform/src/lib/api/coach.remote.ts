@@ -8,5 +8,5 @@ export const getCoach = query(
 		userId: idField,
 		teamId: idField.optional(),
 	}),
-	async ({ userId }) => await db.query.coach.findFirst({ where: { userId } })
+	async (filters) => await db.query.coach.findFirst({ where: filters })
 );
