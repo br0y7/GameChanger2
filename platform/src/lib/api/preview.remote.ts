@@ -23,6 +23,7 @@ import { notFound } from '$lib/server/fail';
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { slugify } from '$lib/utils/string';
+import { and, eq } from 'drizzle-orm';
 
 async function annotatePlayers(playerPreviews: PlayerGameStatsPreview[], players: Player[]) {
 	const playerMap = new Map<string, Player>();
@@ -186,7 +187,12 @@ async function saveStats(tx: Transaction, data: TeamPreview, team: Team, gameId:
 		});
 
 		if (gameStats) {
-			await tx.update(table.playerGameStat).set(stats);
+			await tx
+				.update(table.playerGameStat)
+				.set(stats)
+				.where(
+					and(eq(table.playerGameStat.gameId, gameId), eq(table.playerGameStat.playerId, playerId))
+				);
 		} else {
 			await tx.insert(table.playerGameStat).values({ ...stats, gameId, playerId });
 		}
