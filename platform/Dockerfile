@@ -18,6 +18,9 @@ WORKDIR /app
 COPY --from=build /app/build ./build
 COPY package.json bun.lock ./
 
+COPY drizzle.config.json ./
+COPY drizzle ./drizzle
+
 # Install runtime dependencies (needed for db:migrate and start scripts)
 RUN bun install --frozen-lockfile --production
 
