@@ -18,6 +18,13 @@ WORKDIR /app
 COPY --from=build /app/build ./build
 COPY package.json bun.lock ./
 
+# Install runtime dependencies (needed for db:migrate and start scripts)
+RUN bun install --frozen-lockfile --production
+
+# SvelteKit server binding
+ENV HOST=0.0.0.0
+ENV PORT=3000
+
 EXPOSE 3000
 
 CMD ["bun", "run", "start"]
