@@ -1,0 +1,4 @@
+.venv
+site_logs.txt
+.streamlit/secrets.toml
+__pycache__

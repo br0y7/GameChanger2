@@ -1,0 +1,52 @@
+import { defineRelations } from 'drizzle-orm';
+import * as authSchema from './auth-schema';
+import { season } from './schema';
+
+export const authRelations = defineRelations({ ...authSchema, season }, (r) => ({
+	user: {
+		sessions: r.many.session(),
+		accounts: r.many.account(),
+		members: r.many.member(),
+		invitations: r.many.invitation(),
+	},
+	session: {
+		user: r.one.user({
+			from: [r.session.userId],
+			to: [r.user.id],
+		}),
+	},
+	account: {
+		user: r.one.user({
+			from: [r.account.userId],
+			to: [r.user.id],
+		}),
+	},
+	organization: {
+		members: r.many.member(),
+		invitations: r.many.invitation(),
+		seasons: r.many.season({
+			from: r.organization.id,
+			to: r.season.organizationId,
+		}),
+	},
+	member: {
+		organization: r.one.organization({
+			from: [r.member.organizationId],
+			to: [r.organization.id],
+		}),
+		user: r.one.user({
+			from: [r.member.userId],
+			to: [r.user.id],
+		}),
+	},
+	invitation: {
+		organization: r.one.organization({
+			from: [r.invitation.organizationId],
+			to: [r.organization.id],
+		}),
+		user: r.one.user({
+			from: [r.invitation.inviterId],
+			to: [r.user.id],
+		}),
+	},
+}));

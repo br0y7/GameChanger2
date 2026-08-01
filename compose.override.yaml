@@ -1,0 +1,16 @@
+# for local development
+services:
+  db:
+    env_file:
+      - .env
+    volumes:
+      - postgres_dev_volume:/var/lib/postgresql
+
+  mailcrab:
+    image: marlonb/mailcrab:latest
+    ports:
+      - "8025:1080"
+      - "1025:1025"
+
+volumes:
+  postgres_dev_volume:
