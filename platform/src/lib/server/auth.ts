@@ -6,7 +6,6 @@ import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
 import { organization, admin, openAPI } from 'better-auth/plugins';
 import * as table from '$lib/server/db/schema';
-import { PUBLIC_APP_URL } from '$env/static/public';
 import { dev } from '$app/environment';
 import { type BetterAuthPlugin } from 'better-auth';
 import { type Organization } from '$lib/server/db/schema';
@@ -28,14 +27,13 @@ if (dev) {
 }
 
 export const auth = betterAuth({
-	baseURL: env.ORIGIN,
+	baseURL: env.BASE_URL,
 	secret: env.BETTER_AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: 'pg', schema: table }),
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: false, // TODO: Eventually set to true and test with a local email server
 	},
-	trustedOrigins: [PUBLIC_APP_URL],
 	socialProviders: {
 		google: {
 			clientId: env.GOOGLE_CLIENT_ID,

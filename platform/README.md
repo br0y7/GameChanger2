@@ -19,7 +19,7 @@ This server will be for providing the sign-up, login pages, and  API endpoints f
     cp .env.example .env
     ```
 4. Open `.env` for we can fill in the values
-    1. set `ORIGIN=http://localhost:5173`
+    1. set `BASE_URL=http://localhost:5173`
     2. for `BETTER_AUTH_SECRET=` value you can either:
         - `openssl rand -base64 32`
         - [Go here](https://better-auth.com/docs/installation#set-environment-variables) and click `Generate Secret`
