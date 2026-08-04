@@ -28,6 +28,7 @@ if (dev) {
 
 export const auth = betterAuth({
 	baseURL: env.BASE_URL,
+	trustedOrigins: [env.BASE_URL],
 	secret: env.BETTER_AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: 'pg', schema: table }),
 	emailAndPassword: {
