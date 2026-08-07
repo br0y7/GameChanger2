@@ -27,8 +27,7 @@ if (dev) {
 }
 
 export const auth = betterAuth({
-	baseURL: env.BASE_URL,
-	trustedOrigins: [env.BASE_URL],
+	baseURL: env.ORIGIN,
 	secret: env.BETTER_AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: 'pg', schema: table }),
 	emailAndPassword: {
@@ -161,5 +160,6 @@ export const auth = betterAuth({
 
 // Prefer to import these types to have all
 // the necessary keys/properties.
-export type Session = typeof auth.$Infer.Session;
-export type User = Session['user'];
+export type AuthSession = typeof auth.$Infer.Session;
+export type Session = AuthSession['session'];
+export type User = AuthSession['user'];
