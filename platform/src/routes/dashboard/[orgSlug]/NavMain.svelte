@@ -5,41 +5,56 @@
 	import HouseIcon from '@lucide/svelte/icons/house';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
 	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
-	import { isUserAdmin } from '$lib/api/auth.remote';
+	import { isAuthenticated, isUserAdmin } from '$lib/api/auth.remote';
+	import type { ResolvedPathname } from '$app/types';
+	import { page } from '$app/state';
 
 	interface NavItem {
 		label: string;
-		href: Pathname;
+		getURL: () => ResolvedPathname;
 		icon: typeof HouseIcon;
 	}
 
 	export const navigationItems: NavItem[] = [
-		{ label: 'Overview', href: '/dashboard', icon: HouseIcon },
+		{
+			label: 'Overview',
+			getURL: () => resolve('/dashboard/[orgSlug]', { orgSlug: page.params.orgSlug! }),
+			icon: HouseIcon,
+		},
 	];
 
 	if (await isUserLeagueOrganizer()) {
-		navigationItems.push({ label: 'Seasons', href: '/dashboard/seasons', icon: CalendarDaysIcon });
+		navigationItems.push({
+			label: 'Seasons',
+			getURL: () => resolve('/dashboard/[orgSlug]/seasons', { orgSlug: page.params.orgSlug! }),
+			icon: CalendarDaysIcon,
+		});
 	}
 
 	if (await isUserAdmin()) {
 		navigationItems.push({
 			label: 'Import Spreadsheet',
-			href: '/dashboard/admin/import',
+			getURL: () => resolve('/dashboard/[orgSlug]/import', { orgSlug: page.params.orgSlug! }),
 			icon: UploadIcon,
 		});
 	}
 
-	navigationItems.push({ label: 'Settings', href: '/dashboard/settings', icon: SettingsIcon });
+	if (await isAuthenticated()) {
+		navigationItems.push({
+			label: 'Settings',
+			getURL: () => resolve('/dashboard/[orgSlug]/settings', { orgSlug: page.params.orgSlug! }),
+			icon: SettingsIcon,
+		});
+	}
 </script>
 
 <Sidebar.Group>
 	<Sidebar.Menu>
-		{#each navigationItems as item (item.href)}
+		{#each navigationItems as item (item.getURL())}
 			<Sidebar.MenuButton tooltipContent={item.label}>
 				{#snippet child({ props })}
-					<a href={resolve(item.href)} {...props}>
+					<a href={item.getURL()} {...props}>
 						<item.icon />
 						<span>{item.label}</span>
 					</a>
