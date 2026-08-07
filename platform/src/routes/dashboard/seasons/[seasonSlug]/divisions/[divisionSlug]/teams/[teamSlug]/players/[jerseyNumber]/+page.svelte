@@ -19,10 +19,12 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { DRILLS_BY_WEAKNESS } from '$lib/player-analysis/drills-by-weakness';
 	import DrillCard from './DrillCard.svelte';
+	import { getOrganization } from '$lib/api/organization.remote';
 
 	let { params }: PageProps = $props();
 
-	const season = $derived(await getSeason({ slug: params.seasonSlug }));
+	const org = $derived(await getOrganization());
+	const season = $derived(await getSeason({ slug: params.seasonSlug, organizationId: org.id }));
 	const division = $derived(await getDivision({ slug: params.divisionSlug, seasonId: season.id }));
 	const team = $derived(await getTeam({ slug: params.teamSlug, divisionId: division.id }));
 	const player = $derived(await getPlayer({ teamId: team.id, jerseyNumber: params.jerseyNumber }));
@@ -47,7 +49,7 @@
 </script>
 
 <div class="grid grid-cols-1 gap-6 px-8 pb-8 xl:grid-cols-2 xl:grid-rows-2">
-	<section class="xl:col-span-2 text-center">
+	<section class="text-center xl:col-span-2">
 		<h1 class="text-3xl font-extrabold">Player Performance Report</h1>
 		<h2 class="text-2xl font-bold">{player.name} of team {team.name}</h2>
 	</section>
@@ -65,7 +67,7 @@
 				<span class="font-medium">{gameCount} games played</span>
 			{/if}
 		</p>
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+		<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
 			{#await seasonAveragesPromise}
 				{#each ['Points', 'Assists', 'Turnovers', 'Shooting %'] as title (title)}
 					<Card.Root>
@@ -121,10 +123,10 @@
 		<Separator />
 	</section>
 
-	<section class="xl:row-span-2 xl:col-start-2 xl:row-start-3 min-h-[25svh] flex flex-col gap-4">
+	<section class="flex min-h-[25svh] flex-col gap-4 xl:col-start-2 xl:row-span-2 xl:row-start-3">
 		<h2 class="text-2xl font-bold xl:col-span-2">Analysis</h2>
 		{#await analyzePlayer({ id: player.id })}
-			<Skeleton class="w-full h-full" />
+			<Skeleton class="h-full w-full" />
 		{:then playerAnalysis}
 			<p class="text-xl">
 				Strength:
@@ -142,7 +144,7 @@
 				</h3>
 				{#if firstWeakness}
 					<p class="text-xl font-medium">Suggested drills:</p>
-					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						{#each DRILLS_BY_WEAKNESS[firstWeakness.category] as drill (drill.name)}
 							<DrillCard {drill} />
 						{/each}

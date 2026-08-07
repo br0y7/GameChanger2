@@ -15,7 +15,7 @@ import { idField, idOnlySchema } from '$lib/schemas/common';
 import z from 'zod';
 import { isUserLeagueOrganizer } from './league.remote';
 import { getOrganization } from './organization.remote';
-import { eq } from 'drizzle-orm';
+import { EmptyFilter, eq } from 'drizzle-orm';
 import type { CrudAction, ResourceTarget } from '$lib/forms/types';
 
 const includes = {
@@ -28,7 +28,7 @@ export const getSeasons = query(
 	z.object({ organizationId: idField.optional(), include: z.object(includes).default({}) }),
 	async ({ organizationId, include }) => {
 		return await db.query.season.findMany({
-			where: { organizationId },
+			where: organizationId ? { organizationId } : EmptyFilter,
 			with: include,
 			orderBy: { updatedAt: 'desc' },
 		});
@@ -36,12 +36,12 @@ export const getSeasons = query(
 );
 
 export const getSeason = query(
-	z.object({
-		id: idField.optional(),
-		organizationId: idField.optional(),
-		slug: seasonSchema.slug.optional(),
-		include: z.object(includes).default({}),
-	}),
+	z
+		.union([
+			z.object({ id: idField }),
+			z.object({ organizationId: idField, slug: seasonSchema.slug }),
+		])
+		.and(z.object({ include: z.object(includes).default({}) })),
 	async ({ include, ...filters }) => {
 		const season = await db.query.season.findFirst({ where: filters, with: include });
 		if (!season) {

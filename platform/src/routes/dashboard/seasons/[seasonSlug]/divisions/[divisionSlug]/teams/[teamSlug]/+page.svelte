@@ -7,18 +7,20 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import { resolve } from '$app/paths';
 	import { getPlayerGameCount } from '$lib/api/player-game-stat.remote';
+	import { getOrganization } from '$lib/api/organization.remote';
 
 	let { params }: PageProps = $props();
 
-	const season = $derived(await getSeason({ slug: params.seasonSlug }));
+	const org = $derived(await getOrganization());
+	const season = $derived(await getSeason({ slug: params.seasonSlug, organizationId: org.id }));
 	const division = $derived(await getDivision({ slug: params.divisionSlug, seasonId: season.id }));
 	const team = $derived(
 		await getTeam({ slug: params.teamSlug, divisionId: division.id, include: { players: true } })
 	);
 </script>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-8">
-	<section class="lg:col-span-2 text-center">
+<div class="grid grid-cols-1 gap-6 p-8 lg:grid-cols-2">
+	<section class="text-center lg:col-span-2">
 		<h1 class="text-3xl font-extrabold">
 			{!team.name.toLowerCase().includes('team') ? 'Team' : ''}
 			{team.name}
