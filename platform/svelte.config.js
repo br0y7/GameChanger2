@@ -1,4 +1,7 @@
-import adapter from 'svelte-adapter-bun';
+// Prevents 'no request state' error in prod build after login (was using adapter-bun before)
+// The error sometimes happen after login -> dashboard. Refreshing the page resolved it.
+// Using adapter-node prevents the error entirely.
+import adapter from '@sveltejs/adapter-node';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {

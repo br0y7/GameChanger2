@@ -9,6 +9,7 @@
 		"@internationalized/date": "^3.12.0",
 		"@lucide/svelte": "^1.24.0",
 		"@sveltejs/adapter-auto": "^7.0.1",
+		"@sveltejs/adapter-node": "^5.5.7",
 		"@sveltejs/kit": "^2.70.2",
 		"@sveltejs/vite-plugin-svelte": "^7.2.0",
 		"@tailwindcss/vite": "^4.3.3",
@@ -66,7 +67,7 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"better-auth": "^1.6.25",
+		"better-auth": "^1.6.26",
 		"mode-watcher": "^1.1.0"
 	}
 }
