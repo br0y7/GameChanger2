@@ -71,6 +71,8 @@ const getAuthSession = async () =>
 		headers: getRequestEvent().request.headers,
 	});
 
+export const getUser = query(async () => (await getAuthSession())?.user);
+
 const requireAuth = async () => {
 	const authSession = await getAuthSession();
 
