@@ -12,7 +12,7 @@ import { invalid } from '@sveltejs/kit';
 import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps';
 import * as table from '$lib/server/db/schema';
 import { leagueFormLabels } from '$lib/forms/labels';
-import { getOrganization, isUserOrgAdmin } from './organization.remote';
+import { isUserOrgAdmin } from './organization.remote';
 import { forbidden } from '$lib/server/fail';
 
 export const createLeague = form(createLeagueSchema, async (data, issue) => {
@@ -64,6 +64,10 @@ export const createLeague = form(createLeagueSchema, async (data, issue) => {
 });
 
 export const isUserLeagueOrganizer = query(async () => {
+	if (!(await isUserOrgAdmin())) {
+		return false;
+	}
+
 	const { activeOrganizationId } = await requireSession();
 
 	if (!activeOrganizationId) {
@@ -75,7 +79,7 @@ export const isUserLeagueOrganizer = query(async () => {
 		columns: { type: true },
 	});
 
-	return organization?.type === 'league' && (await isUserOrgAdmin());
+	return organization?.type === 'league';
 });
 
 export const requireLeagueOrganizer = query(async () => {
@@ -91,7 +95,7 @@ export const updateLeague = form(updateLeagueSchema, async ({ id, ...data }, iss
 		request: { headers },
 	} = getRequestEvent();
 	try {
-		await auth.api.updateOrganization({
+		const updated = await auth.api.updateOrganization({
 			body: {
 				data,
 				organizationId: id,
@@ -101,7 +105,7 @@ export const updateLeague = form(updateLeagueSchema, async ({ id, ...data }, iss
 
 		serverLogger.info('league updated', id);
 
-		void getOrganization().refresh();
+		return updated;
 	} catch (err) {
 		if (isAPIError(err) && err.body) {
 			serverLogger.error(err, err.body);

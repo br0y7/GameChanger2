@@ -6,18 +6,24 @@ import { db } from '$lib/server/db';
 import { notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { slugify } from '$lib/utils/string';
-import { requireAdmin, requireSession, requireUser } from './auth.remote';
+import { getUser, requireAdmin, requireSession } from './auth.remote';
 import * as table from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import { idField } from '$lib/schemas/common';
 
 export const isUserOrgAdmin = query(async () => {
+	const user = await getUser();
+
+	if (!user) {
+		return false;
+	}
+
 	const { activeOrganizationId } = await requireSession();
 
 	if (!activeOrganizationId) {
 		return false;
 	}
-
-	const user = await requireUser();
 
 	const member = await db.query.member.findFirst({
 		where: {
@@ -34,21 +40,18 @@ export const isUserOrgAdmin = query(async () => {
 	return ADMIN_ROLES.includes((member?.role as MemberRole) ?? '');
 });
 
-export const getOrganization = query(async () => {
-	const { activeOrganizationId: id } = await requireSession();
+export const getOrganization = query(
+	z.union([z.object({ id: idField }), z.object({ slug: z.string() })]),
+	async (filters) => {
+		const org = await db.query.organization.findFirst({ where: filters });
 
-	if (!id) {
-		notFound({ resource: 'organization', id: id ?? '' });
+		if (!org) {
+			notFound({ resource: 'organization' }, { message: JSON.stringify(filters) });
+		}
+
+		return org;
 	}
-
-	const org = await db.query.organization.findFirst({ where: { id } });
-
-	if (!org) {
-		notFound({ resource: 'organization', id: id ?? '' });
-	}
-
-	return org;
-});
+);
 
 export const ensureAdminSystemOrganization = query(async () => {
 	await requireAdmin();
@@ -97,8 +100,6 @@ export const ensureAdminSystemOrganization = query(async () => {
 		headers,
 		body: { organizationId: adminOrg.id },
 	});
-
-	void getOrganization().refresh();
 
 	return adminOrg;
 });
