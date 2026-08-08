@@ -5,61 +5,52 @@
 	import HouseIcon from '@lucide/svelte/icons/house';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import { resolve } from '$app/paths';
-	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
 	import { isAuthenticated, isUserAdmin } from '$lib/api/auth.remote';
-	import type { ResolvedPathname } from '$app/types';
-	import { page } from '$app/state';
+	import type { Organization } from '$lib/server/db/auth-schema';
+	import NavItem from './NavItem.svelte';
 
-	interface NavItem {
-		label: string;
-		getURL: () => ResolvedPathname;
-		icon: typeof HouseIcon;
-	}
-
-	export const navigationItems: NavItem[] = [
-		{
-			label: 'Overview',
-			getURL: () => resolve('/dashboard/[orgSlug]', { orgSlug: page.params.orgSlug! }),
-			icon: HouseIcon,
-		},
-	];
-
-	if (await isUserLeagueOrganizer()) {
-		navigationItems.push({
-			label: 'Seasons',
-			getURL: () => resolve('/dashboard/[orgSlug]/seasons', { orgSlug: page.params.orgSlug! }),
-			icon: CalendarDaysIcon,
-		});
-	}
-
-	if (await isUserAdmin()) {
-		navigationItems.push({
-			label: 'Import Spreadsheet',
-			getURL: () => resolve('/dashboard/[orgSlug]/import', { orgSlug: page.params.orgSlug! }),
-			icon: UploadIcon,
-		});
-	}
-
-	if (await isAuthenticated()) {
-		navigationItems.push({
-			label: 'Settings',
-			getURL: () => resolve('/dashboard/[orgSlug]/settings', { orgSlug: page.params.orgSlug! }),
-			icon: SettingsIcon,
-		});
-	}
+	let { org }: { org: Organization } = $props();
 </script>
 
 <Sidebar.Group>
 	<Sidebar.Menu>
-		{#each navigationItems as item (item.getURL())}
-			<Sidebar.MenuButton tooltipContent={item.label}>
-				{#snippet child({ props })}
-					<a href={item.getURL()} {...props}>
-						<item.icon />
-						<span>{item.label}</span>
-					</a>
+		<NavItem label="Overview" href={resolve('/dashboard/[orgSlug]', { orgSlug: org.slug })}>
+			{#snippet icon()}
+				<HouseIcon />
+			{/snippet}
+		</NavItem>
+
+		{#if org.type === 'league'}
+			<NavItem
+				label="Seasons"
+				href={resolve('/dashboard/[orgSlug]/seasons', { orgSlug: org.slug })}
+			>
+				{#snippet icon()}
+					<CalendarDaysIcon />
 				{/snippet}
-			</Sidebar.MenuButton>
-		{/each}
+			</NavItem>
+		{/if}
+
+		{#if await isUserAdmin()}
+			<NavItem
+				label="Import Spreadsheet"
+				href={resolve('/dashboard/[orgSlug]/import', { orgSlug: org.slug })}
+			>
+				{#snippet icon()}
+					<UploadIcon />
+				{/snippet}
+			</NavItem>
+		{/if}
+
+		{#if await isAuthenticated()}
+			<NavItem
+				label="Settings"
+				href={resolve('/dashboard/[orgSlug]/settings', { orgSlug: org.slug })}
+			>
+				{#snippet icon()}
+					<SettingsIcon />
+				{/snippet}
+			</NavItem>
+		{/if}
 	</Sidebar.Menu>
 </Sidebar.Group>
