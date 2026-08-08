@@ -3,18 +3,19 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import type { LayoutProps } from './$types';
 	import DashboardSidebar from './DashboardSidebar.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 
 	// import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 
-	let { children } = $props();
+	let { children, params }: LayoutProps = $props();
 
 	const showBackButton = $derived(page.url.pathname.split('/').filter(Boolean).length > 2);
 </script>
 
 <Sidebar.Provider>
-	<DashboardSidebar />
+	<DashboardSidebar orgSlug={params.orgSlug} />
 	<Sidebar.Inset>
 		<header
 			class="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"

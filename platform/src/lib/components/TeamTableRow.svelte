@@ -22,12 +22,13 @@
 	import { getDivision } from '$lib/api/division.remote';
 
 	interface Props {
+		orgSlug?: string;
 		team: Team;
 		confirmDelete?: boolean;
 		onRequestDelete?: (team: Team) => void;
 	}
 
-	let { team, confirmDelete, onRequestDelete }: Props = $props();
+	let { team, orgSlug, confirmDelete, onRequestDelete }: Props = $props();
 
 	const fadeOptions = { duration: 200, easing: cubicOut };
 
@@ -103,19 +104,24 @@
 				</div>
 			{:else}
 				<div in:fade={fadeOptions}>
-					<a
-						href={resolve(
-							'/dashboard/seasons/[seasonSlug]/divisions/[divisionSlug]/teams/[teamSlug]',
-							{
-								seasonSlug: division.season?.slug ?? '',
-								divisionSlug: division.slug,
-								teamSlug: team.slug,
-							}
-						)}
-						class="underline"
-					>
+					{#if orgSlug}
+						<a
+							href={resolve(
+								'/dashboard/[orgSlug]/seasons/[seasonSlug]/divisions/[divisionSlug]/teams/[teamSlug]',
+								{
+									orgSlug,
+									seasonSlug: division.season?.slug ?? '',
+									divisionSlug: division.slug,
+									teamSlug: team.slug,
+								}
+							)}
+							class="underline"
+						>
+							{team.name}
+						</a>
+					{:else}
 						{team.name}
-					</a>
+					{/if}
 				</div>
 			{/if}
 		</ExpandTransition>
@@ -154,7 +160,7 @@
 						aria-label="Cancel edit"
 					>
 						<CloseIcon
-							class="stroke-muted-foreground group-hover:stroke-foreground transition-colors duration-200"
+							class="stroke-muted-foreground transition-colors duration-200 group-hover:stroke-foreground"
 						/>
 					</Button>
 					<form {...enhancedUpdateForm} id={updateFormId()} bind:this={updateFormElement}>
@@ -171,7 +177,7 @@
 						>
 							{#snippet icon()}
 								<CheckIcon
-									class="stroke-success-foreground group-hover:stroke-success group-hover:scale-120 transition-all duration-200"
+									class="stroke-success-foreground transition-all duration-200 group-hover:scale-120 group-hover:stroke-success"
 								/>
 							{/snippet}
 						</SubmitButton>
@@ -192,7 +198,7 @@
 						size="icon"
 						aria-label={`Edit ${team.name}`}
 					>
-						<PencilIcon class="group-hover:stroke-info transition-colors duration-200" />
+						<PencilIcon class="transition-colors duration-200 group-hover:stroke-info" />
 					</Button>
 					{#snippet deleteButton()}
 						<SubmitButton
@@ -208,7 +214,7 @@
 							}}
 						>
 							{#snippet icon()}
-								<TrashIcon class="group-hover:stroke-destructive transition-colors duration-200" />
+								<TrashIcon class="transition-colors duration-200 group-hover:stroke-destructive" />
 							{/snippet}
 						</SubmitButton>
 					{/snippet}

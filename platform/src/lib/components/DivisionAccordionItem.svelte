@@ -8,12 +8,13 @@
 	import type { Resource } from '$lib/forms/types';
 
 	interface Props {
+		orgSlug?: string;
 		division: Division;
 		confirmDelete?: boolean;
 		onRequestDelete?: (target: Division | Team, resource: Resource) => void;
 	}
 
-	let { division, confirmDelete, onRequestDelete }: Props = $props();
+	let { division, confirmDelete, onRequestDelete, orgSlug }: Props = $props();
 </script>
 
 <ExpandTransition class="not-last:border-b">
@@ -32,9 +33,10 @@
 				{confirmDelete}
 				onRequestDelete={(div) => onRequestDelete?.(div, 'division')}
 			/>
-			<h3 class="text-lg text-center">Teams for {division.name}</h3>
+			<h3 class="text-center text-lg">Teams for {division.name}</h3>
 			<AddTeamForm divisionId={division.id} />
 			<TeamTable
+				{orgSlug}
 				divisionId={division.id}
 				{confirmDelete}
 				onRequestDelete={(team) => onRequestDelete?.(team, 'team')}

@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { deleteSeason, getSeasons } from '$lib/api/season.remote';
 	import * as Table from '$lib/components/ui/table/index.js';
-	import type { Season } from '$lib/server/db/schema';
+	import type { Organization, Season } from '$lib/server/db/schema';
 	import SeasonTableRow from './SeasonTableRow.svelte';
 	import ExpandTransition from './transitions/ExpandTransition.svelte';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 
 	interface Props {
-		organizationId: string;
+		org: Organization;
 	}
 
-	let { organizationId }: Props = $props();
+	let { org }: Props = $props();
 
-	const seasons = $derived(await getSeasons({ organizationId }));
+	const seasons = $derived(await getSeasons({ organizationId: org.id }));
 
 	let selected: Season | undefined = $state();
 	function onDelete(season: Season) {
@@ -28,7 +28,7 @@
 		<form {...deleteSeason}>
 			<input {...deleteSeason.fields.id.as('hidden', '')} />
 		</form>
-		<Table.Root class="table-fixed w-full">
+		<Table.Root class="w-full table-fixed">
 			<Table.Header>
 				<Table.Row>
 					<Table.Head>Name</Table.Head>
@@ -39,7 +39,7 @@
 			</Table.Header>
 			<Table.Body>
 				{#each seasons as season (season.id)}
-					<SeasonTableRow {season} {onDelete} />
+					<SeasonTableRow orgSlug={org.slug} {season} {onDelete} />
 				{/each}
 			</Table.Body>
 		</Table.Root>

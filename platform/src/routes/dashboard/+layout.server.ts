@@ -1,4 +1,4 @@
-import { getUser } from '$lib/api/auth.remote.js';
+import { getUser, requireSession } from '$lib/api/auth.remote.js';
 import type { RouteId } from '$app/types';
 import { getOrganization } from '$lib/api/organization.remote.js';
 import { redirect } from '@sveltejs/kit';
@@ -18,7 +18,13 @@ export const load = async (request) => {
 		return;
 	}
 
-	const org = await getOrganization();
+	const session = await requireSession();
+
+	if (!session.activeOrganizationId) {
+		return;
+	}
+
+	const org = await getOrganization({ id: session.activeOrganizationId });
 	const dashboardURL = resolve('/dashboard/[orgSlug]', { orgSlug: org.slug });
 
 	serverLogger.info(`redirect /dashboard -> ${dashboardURL}`);

@@ -1,7 +1,7 @@
 import { form, query } from '$app/server';
 import { createSeasonSchema, seasonSchema, updateSeasonSchema } from '$lib/schemas/season';
 import { db } from '$lib/server/db';
-import { requireUser } from './auth.remote';
+import { requireSession, requireUser } from './auth.remote';
 import { serverLogger } from '$lib/server/logger';
 import { advanceOnboardingStep } from './onboarding.server';
 import { forbidden, internalNoId, notFound } from '$lib/server/fail';
@@ -87,7 +87,14 @@ async function assertPermissions(action: CrudAction, target: ResourceTarget) {
 
 export const createSeason = form(createSeasonSchema, async (data, issue) => {
 	const user = await requireUser();
-	const org = await getOrganization();
+	const { activeOrganizationId } = await requireSession();
+
+	if (!activeOrganizationId) {
+		serverLogger.error(`createSeason: no active organization`);
+		return invalid('Something went wrong.');
+	}
+
+	const org = await getOrganization({ id: activeOrganizationId });
 
 	await assertPermissions('create', { resource: 'season' });
 

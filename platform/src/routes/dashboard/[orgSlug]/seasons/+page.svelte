@@ -1,28 +1,27 @@
 <script lang="ts">
-	import { requireLeagueOrganizer } from '$lib/api/league.remote';
 	import { getOrganization } from '$lib/api/organization.remote';
 	import SeasonTable from '$lib/components/SeasonTable.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import { Separator } from '$lib/components/ui/separator';
 	import SeasonForm from '$lib/forms/SeasonForm.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import type { PageProps } from './$types';
 
-	const org = $derived(await getOrganization());
-
-	await requireLeagueOrganizer();
+	let { params }: PageProps = $props();
+	const org = $derived(await getOrganization({ slug: params.orgSlug }));
 </script>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-8">
-	<section class="lg:col-span-2 text-center">
-		<h1 class="text-2xl text-center font-bold">Seasons for {org.name}</h1>
+<div class="grid grid-cols-1 gap-6 p-8 lg:grid-cols-2">
+	<section class="text-center lg:col-span-2">
+		<h1 class="text-center text-2xl font-bold">Seasons for {org.name}</h1>
 		<p class="text-sm">You can manage divisions by clicking a season's name below.</p>
 	</section>
 
 	<Separator class="lg:col-span-2" />
 
 	<section class="flex justify-center">
-		<div class="min-w-xs w-full max-w-lg">
-			<h2 class="text-xl text-center font-medium">Add a Season</h2>
+		<div class="w-full max-w-lg min-w-xs">
+			<h2 class="text-center text-xl font-medium">Add a Season</h2>
 			<SeasonForm>
 				{#snippet submitButton({ submitting })}
 					<SubmitButton {submitting} class="hover:scale-102">
@@ -37,6 +36,6 @@
 	</section>
 
 	<section>
-		<SeasonTable organizationId={org.id} />
+		<SeasonTable {org} />
 	</section>
 </div>

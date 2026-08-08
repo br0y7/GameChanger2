@@ -10,13 +10,12 @@
 	import ShieldIcon from '@lucide/svelte/icons/shield';
 	import { resolve } from '$app/paths';
 
-	let {
-		ref = $bindable(null),
-		collapsible = 'icon',
-		...restProps
-	}: ComponentProps<typeof Sidebar.Root> = $props();
+	interface Props extends ComponentProps<typeof Sidebar.Root> {
+		orgSlug: string;
+	}
+	let { ref = $bindable(null), collapsible = 'icon', orgSlug, ...restProps }: Props = $props();
 
-	const org = $derived(await getOrganization());
+	const org = $derived(await getOrganization({ slug: orgSlug }));
 
 	const iconMap: Record<(typeof org)['type'], typeof TrophyIcon> = {
 		league: TrophyIcon,
@@ -33,11 +32,11 @@
 			{#snippet child({ props })}
 				<a href={resolve('/dashboard')} {...props}>
 					<HeaderIcon class="shrink-0" />
-					<div class="flex flex-col">
+					<div class="flex flex-col truncate">
 						<span class="truncate leading-tight font-medium">
 							{org.name}
 						</span>
-						<span class="capitalize text-xs text-muted-foreground">
+						<span class="text-xs text-muted-foreground capitalize">
 							{org.type}
 						</span>
 					</div>
@@ -46,7 +45,7 @@
 		</Sidebar.MenuButton>
 	</Sidebar.Header>
 	<Sidebar.Content>
-		<NavMain />
+		<NavMain {org} />
 	</Sidebar.Content>
 	<Sidebar.Footer>
 		<NavModeToggle />

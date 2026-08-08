@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { getOrganization } from '$lib/api/organization.remote';
 	import { getUserCount } from '$lib/api/user.remote';
+	import type { Organization } from '$lib/server/db/auth-schema';
 
-	const org = await getOrganization();
+	let { org }: { org: Organization } = $props();
 </script>
 
-<div class="flex flex-col m-6 gap-6">
+<div class="m-6 flex flex-col gap-6">
 	<h1 class="text-2xl font-bold">{org.name} Overview</h1>
 
 	<section>

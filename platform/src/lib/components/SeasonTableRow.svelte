@@ -26,9 +26,10 @@
 	interface Props {
 		season: Season;
 		onDelete: (season: Season) => void;
+		orgSlug: string;
 	}
 
-	let { season, onDelete }: Props = $props();
+	let { season, onDelete, orgSlug }: Props = $props();
 
 	const badgeVariant = $derived(season.status === 'active' ? 'info' : 'success');
 	const fadeOptions = { duration: 200, easing: cubicOut };
@@ -103,7 +104,10 @@
 			{:else}
 				<div in:fade={fadeOptions} class="truncate">
 					<a
-						href={resolve('/dashboard/seasons/[seasonSlug]', { seasonSlug: season.slug })}
+						href={resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]', {
+							orgSlug,
+							seasonSlug: season.slug,
+						})}
 						class="underline"
 					>
 						{season.name}
@@ -166,7 +170,7 @@
 						aria-label="Cancel edit"
 					>
 						<CloseIcon
-							class="stroke-muted-foreground group-hover:stroke-foreground transition-colors duration-200"
+							class="stroke-muted-foreground transition-colors duration-200 group-hover:stroke-foreground"
 						/>
 					</Button>
 					<form {...enhancedUpdateForm} id={updateFormId()} bind:this={updateFormElement}>
@@ -181,7 +185,7 @@
 						>
 							{#snippet icon()}
 								<CheckIcon
-									class="stroke-success-foreground group-hover:stroke-success group-hover:scale-120 transition-all duration-200"
+									class="stroke-success-foreground transition-all duration-200 group-hover:scale-120 group-hover:stroke-success"
 								/>
 							{/snippet}
 						</SubmitButton>
@@ -191,10 +195,10 @@
 			{:else}
 				<div in:fade={fadeOptions} class="flex justify-end">
 					<Button onclick={startEditing} class="group" variant="ghost" size="icon">
-						<PencilIcon class="group-hover:stroke-info transition-colors duration-200" />
+						<PencilIcon class="transition-colors duration-200 group-hover:stroke-info" />
 					</Button>
 					<Button onclick={() => onDelete(season)} class="group" variant="ghost" size="icon">
-						<TrashIcon class="group-hover:stroke-error transition-colors duration-200" />
+						<TrashIcon class="transition-colors duration-200 group-hover:stroke-error" />
 					</Button>
 				</div>
 			{/if}

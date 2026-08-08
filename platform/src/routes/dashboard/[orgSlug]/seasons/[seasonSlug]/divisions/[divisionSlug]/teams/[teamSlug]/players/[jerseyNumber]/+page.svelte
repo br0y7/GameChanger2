@@ -23,7 +23,7 @@
 
 	let { params }: PageProps = $props();
 
-	const org = $derived(await getOrganization());
+	const org = $derived(await getOrganization({ slug: params.orgSlug }));
 	const season = $derived(await getSeason({ slug: params.seasonSlug, organizationId: org.id }));
 	const division = $derived(await getDivision({ slug: params.divisionSlug, seasonId: season.id }));
 	const team = $derived(await getTeam({ slug: params.teamSlug, divisionId: division.id }));

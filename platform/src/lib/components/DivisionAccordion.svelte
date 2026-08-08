@@ -8,11 +8,12 @@
 	import { deleteDivision } from '$lib/api/division.remote';
 
 	interface Props {
+		orgSlug?: string;
 		divisions: Division[];
 		confirmDelete?: boolean;
 	}
 
-	let { divisions, confirmDelete }: Props = $props();
+	let { divisions, confirmDelete, orgSlug }: Props = $props();
 
 	interface SelectedDelete {
 		target: { id: string; name: string };
@@ -41,10 +42,10 @@
 	});
 </script>
 
-<h2 class="text-xl text-center font-bold">Divisions</h2>
+<h2 class="text-center text-xl font-bold">Divisions</h2>
 <Accordion.Root type="single">
 	{#each divisions as division (division.id)}
-		<DivisionAccordionItem {division} {confirmDelete} {onRequestDelete} />
+		<DivisionAccordionItem {orgSlug} {division} {confirmDelete} {onRequestDelete} />
 	{/each}
 </Accordion.Root>
 

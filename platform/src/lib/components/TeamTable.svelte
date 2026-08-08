@@ -7,18 +7,19 @@
 	import type { Team } from '$lib/server/db/schema';
 
 	interface Props {
+		orgSlug?: string;
 		divisionId: string;
 		confirmDelete?: boolean;
 		onRequestDelete?: (team: Team) => void;
 	}
 
-	let { divisionId, confirmDelete, onRequestDelete }: Props = $props();
+	let { orgSlug, divisionId, confirmDelete, onRequestDelete }: Props = $props();
 	const teams = $derived(await getTeams({ divisionId }));
 </script>
 
 {#if teams.length > 0}
 	<ExpandTransition>
-		<Table.Root class="table-fixed w-full">
+		<Table.Root class="w-full table-fixed">
 			<Table.Header>
 				<Table.Row>
 					<Table.Head class="w-3/7">{teamFormLabels.name}</Table.Head>
@@ -28,7 +29,7 @@
 			</Table.Header>
 			<Table.Body>
 				{#each teams as team (team.id)}
-					<TeamTableRow {team} {confirmDelete} {onRequestDelete} />
+					<TeamTableRow {orgSlug} {team} {confirmDelete} {onRequestDelete} />
 				{/each}
 			</Table.Body>
 		</Table.Root>

@@ -1,20 +1,26 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { getOrganization } from '$lib/api/organization.remote';
+	import { page } from '$app/state';
 	import { getCurrentSeason } from '$lib/api/season.remote';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import type { Organization } from '$lib/server/db/auth-schema';
 
-	const org = await getOrganization();
-	const currentSeason = await getCurrentSeason({ organizationId: org.id });
+	let { org }: { org: Organization } = $props();
+	const currentSeason = $derived(await getCurrentSeason({ organizationId: org.id }));
 </script>
 
-<div class="flex flex-col m-6 gap-6">
+<div class="m-6 flex flex-col gap-6">
 	<h1 class="text-2xl font-bold">{org.name} Overview</h1>
 
 	<section class="flex gap-4">
 		{#if currentSeason}
 			<h2 class="text-xl">Current Season: {currentSeason.name}</h2>
-			<Button href={resolve('/dashboard/seasons/[seasonSlug]', { seasonSlug: currentSeason.slug })}>
+			<Button
+				href={resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]', {
+					orgSlug: page.params.orgSlug!,
+					seasonSlug: currentSeason.slug,
+				})}
+			>
 				Manage
 			</Button>
 		{:else}

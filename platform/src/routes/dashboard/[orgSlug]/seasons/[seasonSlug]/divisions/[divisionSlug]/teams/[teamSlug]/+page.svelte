@@ -11,7 +11,7 @@
 
 	let { params }: PageProps = $props();
 
-	const org = $derived(await getOrganization());
+	const org = $derived(await getOrganization({ slug: params.orgSlug }));
 	const season = $derived(await getSeason({ slug: params.seasonSlug, organizationId: org.id }));
 	const division = $derived(await getDivision({ slug: params.divisionSlug, seasonId: season.id }));
 	const team = $derived(
@@ -46,7 +46,7 @@
 						<Table.Cell class="font-medium">
 							<a
 								href={resolve(
-									'/dashboard/seasons/[seasonSlug]/divisions/[divisionSlug]/teams/[teamSlug]/players/[jerseyNumber]',
+									'/dashboard/[orgSlug]/seasons/[seasonSlug]/divisions/[divisionSlug]/teams/[teamSlug]/players/[jerseyNumber]',
 									{
 										...params,
 										teamSlug: team.slug,
