@@ -31,19 +31,19 @@
 	<Separator class="lg:col-span-2" />
 
 	<section>
-		<Table.Root>
+		<Table.Root class="w-full table-fixed">
 			<Table.Header>
 				<Table.Row>
 					<Table.Head>Player Name</Table.Head>
-					<Table.Head class="max-w-4 text-center">Jersey Number</Table.Head>
-					<Table.Head class="max-w-4 text-center"># of Games</Table.Head>
+					<Table.Head class="w-24 text-center">Jersey #</Table.Head>
+					<Table.Head class="w-28 text-center">Games Played</Table.Head>
 					<!-- Optionally add options here if user is a Coach -->
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
 				{#each team.players as player (player.id)}
 					<Table.Row>
-						<Table.Cell class="font-medium">
+						<Table.Cell class="truncate font-medium">
 							<a
 								href={resolve(
 									'/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]/[jerseyNumber]',
