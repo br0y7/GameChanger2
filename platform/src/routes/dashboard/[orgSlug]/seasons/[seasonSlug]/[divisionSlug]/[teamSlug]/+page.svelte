@@ -46,7 +46,7 @@
 						<Table.Cell class="font-medium">
 							<a
 								href={resolve(
-									'/dashboard/[orgSlug]/seasons/[seasonSlug]/divisions/[divisionSlug]/teams/[teamSlug]/players/[jerseyNumber]',
+									'/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]/[jerseyNumber]',
 									{
 										...params,
 										teamSlug: team.slug,

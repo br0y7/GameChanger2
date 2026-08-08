@@ -106,15 +106,12 @@
 				<div in:fade={fadeOptions}>
 					{#if orgSlug}
 						<a
-							href={resolve(
-								'/dashboard/[orgSlug]/seasons/[seasonSlug]/divisions/[divisionSlug]/teams/[teamSlug]',
-								{
-									orgSlug,
-									seasonSlug: division.season?.slug ?? '',
-									divisionSlug: division.slug,
-									teamSlug: team.slug,
-								}
-							)}
+							href={resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]', {
+								orgSlug,
+								seasonSlug: division.season?.slug ?? '',
+								divisionSlug: division.slug,
+								teamSlug: team.slug,
+							})}
 							class="underline"
 						>
 							{team.name}
