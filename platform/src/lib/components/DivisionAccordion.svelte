@@ -21,6 +21,7 @@
 	import ErrorAlert from './ErrorAlert.svelte';
 	import { buttonVariants } from './ui/button';
 	import SubmitButton from './SubmitButton.svelte';
+	import ExpandTransition from './transitions/ExpandTransition.svelte';
 
 	interface Props extends ActionVisibility {
 		orgSlug?: string;
@@ -74,20 +75,24 @@
 	);
 </script>
 
-<h2 class="text-center text-xl font-bold">Divisions</h2>
-<Accordion.Root type="single">
-	{#each divisions as division (division.id)}
-		<DivisionAccordionItem
-			{orgSlug}
-			{division}
-			{confirmDelete}
-			{onRequestDelete}
-			{onRequestEdit}
-			{canEdit}
-			{canDelete}
-		/>
-	{/each}
-</Accordion.Root>
+{#if divisions.length > 0}
+	<ExpandTransition>
+		<h2 class="text-center text-xl font-bold">Divisions</h2>
+		<Accordion.Root type="single">
+			{#each divisions as division (division.id)}
+				<DivisionAccordionItem
+					{orgSlug}
+					{division}
+					{confirmDelete}
+					{onRequestDelete}
+					{onRequestEdit}
+					{canEdit}
+					{canDelete}
+				/>
+			{/each}
+		</Accordion.Root>
+	</ExpandTransition>
+{/if}
 
 {#if selectedDelete && deleteForm}
 	<AlertDialog.Root bind:open={deleteDialogOpen}>
