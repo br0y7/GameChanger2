@@ -1,7 +1,7 @@
-import { defineRelations } from 'drizzle-orm';
+import { defineRelationsPart } from 'drizzle-orm';
 import * as schema from './schema';
 
-export const relations = defineRelations(schema, (r) => ({
+export const relations = defineRelationsPart(schema, (r) => ({
 	season: {
 		organization: r.one.organization({
 			from: r.season.organizationId,
