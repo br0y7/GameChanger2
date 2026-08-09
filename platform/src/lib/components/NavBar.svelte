@@ -9,7 +9,7 @@
 	import { page } from '$app/state';
 </script>
 
-<nav class="border-b bg-background sticky top-0">
+<nav class="sticky top-0 border-b bg-background">
 	<div class="flex h-16 items-center justify-between px-4">
 		<div>
 			<a href={resolve('/')} class="text-xl font-bold">
@@ -44,10 +44,8 @@
 		<div class="md:hidden">
 			<ModeToggle />
 			<Sheet.Root>
-				<Sheet.Trigger>
-					<Button size="icon" variant="ghost">
-						<MenuIcon class="h-5 w-5" />
-					</Button>
+				<Sheet.Trigger class={buttonVariants({ size: 'icon', variant: 'ghost' })}>
+					<MenuIcon class="h-5 w-5" />
 				</Sheet.Trigger>
 
 				<Sheet.Content side="right">
