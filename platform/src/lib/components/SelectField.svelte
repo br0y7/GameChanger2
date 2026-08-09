@@ -50,6 +50,10 @@
 			value = field.value() ?? '';
 		}
 	});
+
+	$effect(() => {
+		field.set(value);
+	});
 </script>
 
 {#if label}
