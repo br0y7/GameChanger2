@@ -29,14 +29,14 @@
 >
 	<input {...createDivision.fields.seasonId.as('hidden', seasonId)} />
 	<Field.Set disabled={submitting} class="flex flex-col gap-4">
-		<Field.Group class="grid sm:grid-cols-3 gap-1 gap-y-4">
-			<Field.Field class="sm:col-span-2 w-full px-0.5">
+		<Field.Group class="grid gap-1 gap-y-4 sm:grid-cols-3">
+			<Field.Field class="w-full px-0.5 sm:col-span-2">
 				<Field.Label for="division-name">{divisionFormLabels.name}</Field.Label>
 				<Input id="division-name" {...createDivision.fields.name.as('text')} required autofocus />
 			</Field.Field>
 			<Field.Field class="w-full px-1">
 				<SelectField
-					label="Type"
+					label={divisionFormLabels.type}
 					placeholder="Select a type"
 					field={createDivision.fields.type}
 					required
@@ -49,7 +49,7 @@
 					{/each}
 				</SelectField>
 			</Field.Field>
-			<Field.Field class="sm:col-span-2 w-full px-0.5">
+			<Field.Field class="w-full px-0.5 sm:col-span-2">
 				<SlugField
 					id="division-slug"
 					source={createDivision.fields.name.value() ?? ''}
@@ -57,7 +57,7 @@
 					label={divisionFormLabels.slug}
 				/>
 			</Field.Field>
-			<Field.Field class="flex items-center w-full mt-4 sm:mt-auto px-2">
+			<Field.Field class="mt-4 flex w-full items-center px-2 sm:mt-auto">
 				<SubmitButton {submitting} aria-label="Add Division">
 					{#snippet icon()}
 						<PlusIcon />

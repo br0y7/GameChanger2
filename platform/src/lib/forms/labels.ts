@@ -20,7 +20,12 @@ export const seasonFormLabels = {
 	status: 'Season Status',
 } as const satisfies SeasonFormLabels;
 
+type DivisionFormLabels = NameSlugSchema & {
+	type: string;
+};
+
 export const divisionFormLabels = {
 	name: 'Division Name',
 	slug: 'Division Slug',
-} as const satisfies NameSlugSchema;
+	type: 'Type',
+} as const satisfies DivisionFormLabels;

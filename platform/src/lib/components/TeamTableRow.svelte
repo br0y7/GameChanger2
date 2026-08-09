@@ -20,15 +20,16 @@
 	import ErrorPopover from '$lib/components/ErrorPopover.svelte';
 	import { resolve } from '$app/paths';
 	import { getDivision } from '$lib/api/division.remote';
+	import type { ActionVisibility } from './types';
 
-	interface Props {
+	interface Props extends ActionVisibility {
 		orgSlug?: string;
 		team: Team;
 		confirmDelete?: boolean;
 		onRequestDelete?: (team: Team) => void;
 	}
 
-	let { team, orgSlug, confirmDelete, onRequestDelete }: Props = $props();
+	let { team, orgSlug, confirmDelete, onRequestDelete, canEdit, canDelete }: Props = $props();
 
 	const fadeOptions = { duration: 200, easing: cubicOut };
 
@@ -72,8 +73,6 @@
 			}
 		})
 	);
-
-	const division = $derived(await getDivision({ id: team.divisionId, include: { season: true } }));
 </script>
 
 <Table.Row
@@ -84,7 +83,7 @@
 >
 	<Table.Cell class="font-medium">
 		<ExpandTransition>
-			{#if editing}
+			{#if editing && canEdit}
 				<div in:fade={fadeOptions}>
 					<FieldErrorTooltip remoteField={updateForm.fields.name} anchor={inputs.name}>
 						<Input
@@ -105,6 +104,7 @@
 			{:else}
 				<div in:fade={fadeOptions}>
 					{#if orgSlug}
+						{const division = await getDivision({ id: team.divisionId, include: { season: true } })}
 						<a
 							href={resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]', {
 								orgSlug,
@@ -125,7 +125,7 @@
 	</Table.Cell>
 	<Table.Cell>
 		<ExpandTransition>
-			{#if editing}
+			{#if editing && canEdit}
 				<div in:fade={fadeOptions}>
 					<FieldErrorTooltip remoteField={updateForm.fields.slug} anchor={inputs.slug}>
 						<SlugField
@@ -146,7 +146,7 @@
 	</Table.Cell>
 	<Table.Cell>
 		<ExpandTransition>
-			{#if editing}
+			{#if editing && canEdit}
 				<div in:fade={fadeOptions} class="flex justify-end">
 					<Button
 						disabled={submitting}
@@ -188,15 +188,17 @@
 				</div>
 			{:else}
 				<div in:fade={fadeOptions} class="flex justify-end">
-					<Button
-						onclick={startEditing}
-						class="group"
-						variant="ghost"
-						size="icon"
-						aria-label={`Edit ${team.name}`}
-					>
-						<PencilIcon class="transition-colors duration-200 group-hover:stroke-info" />
-					</Button>
+					{#if canEdit}
+						<Button
+							onclick={startEditing}
+							class="group"
+							variant="ghost"
+							size="icon"
+							aria-label={`Edit ${team.name}`}
+						>
+							<PencilIcon class="transition-colors duration-200 group-hover:stroke-info" />
+						</Button>
+					{/if}
 					{#snippet deleteButton()}
 						<SubmitButton
 							class="group"
@@ -215,9 +217,9 @@
 							{/snippet}
 						</SubmitButton>
 					{/snippet}
-					{#if confirmDelete}
+					{#if confirmDelete && canDelete}
 						{@render deleteButton()}
-					{:else}
+					{:else if canDelete}
 						<form {...deleteTeam.for(team.id)}>
 							<input {...deleteTeam.for(team.id).fields.id.as('hidden', team.id)} />
 							{@render deleteButton()}
