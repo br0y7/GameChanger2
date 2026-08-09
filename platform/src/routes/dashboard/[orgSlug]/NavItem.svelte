@@ -10,9 +10,11 @@
 	}
 
 	let { label, href, icon }: Props = $props();
+
+	const sidebar = Sidebar.useSidebar();
 </script>
 
-<Sidebar.MenuButton tooltipContent={label}>
+<Sidebar.MenuButton tooltipContent={label} onclick={() => sidebar.setOpenMobile(false)}>
 	{#snippet child({ props })}
 		<a {href} {...props}>
 			{@render icon()}
