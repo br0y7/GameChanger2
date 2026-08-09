@@ -5,7 +5,6 @@ import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
-import { slugify } from '$lib/utils/string';
 import { getUser, requireAdmin, requireSession } from './auth.remote';
 import * as table from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -73,13 +72,11 @@ export const ensureAdminSystemOrganization = query(async () => {
 	} = getRequestEvent();
 
 	if (!adminOrg) {
-		const ADMIN_ORG_NAME = `${PUBLIC_APP_NAME} Admins`;
-
 		const org = await auth.api.createOrganization({
 			headers,
 			body: {
-				name: ADMIN_ORG_NAME,
-				slug: slugify(ADMIN_ORG_NAME),
+				name: `${PUBLIC_APP_NAME} Admins`,
+				slug: 'admin',
 			},
 		});
 
