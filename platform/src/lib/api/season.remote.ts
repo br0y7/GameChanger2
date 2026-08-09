@@ -30,7 +30,7 @@ export const getSeasons = query(
 		return await db.query.season.findMany({
 			where: organizationId ? { organizationId } : EmptyFilter,
 			with: include,
-			orderBy: { updatedAt: 'desc' },
+			orderBy: { createdAt: 'asc' },
 		});
 	}
 );

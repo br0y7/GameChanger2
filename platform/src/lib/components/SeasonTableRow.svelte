@@ -5,203 +5,73 @@
 	import ExpandTransition from './transitions/ExpandTransition.svelte';
 	import { Badge } from './ui/badge';
 	import { cubicOut } from 'svelte/easing';
-	import FieldErrorTooltip from './FieldErrorTooltip.svelte';
-	import { updateSeason } from '$lib/api/season.remote';
-	import { seasonStatuses, type UpdateSeasonInput } from '$lib/schemas/season';
-	import { tick } from 'svelte';
-	import { Input } from './ui/input';
-	import SlugField from './SlugField.svelte';
-	import SelectField from './SelectField.svelte';
-	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from './ui/button';
 	import PencilIcon from '@lucide/svelte/icons/pencil-line';
-	import CloseIcon from '@lucide/svelte/icons/x';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import SubmitButton from './SubmitButton.svelte';
-	import { focusFirstError } from '$lib/forms/enhance';
-	import ErrorPopover from './ErrorPopover.svelte';
 	import { resolve } from '$app/paths';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import type { ActionVisibility } from './types';
 
-	interface Props {
+	interface Props extends ActionVisibility {
 		season: Season;
 		onDelete: (season: Season) => void;
+		onRequestEdit: (season: Season) => void;
 		orgSlug: string;
 	}
 
-	let { season, onDelete, orgSlug }: Props = $props();
+	let { season, onDelete, onRequestEdit, orgSlug, canEdit, canDelete }: Props = $props();
 
 	const badgeVariant = $derived(season.status === 'active' ? 'info' : 'success');
 	const fadeOptions = { duration: 200, easing: cubicOut };
-
-	let updateForm = $derived(updateSeason.for(season.id));
-	const updateFormId = () => `season-form-${season.id}`;
-	let updateButton: HTMLButtonElement | null = $state(null);
-
-	let submitting = $derived(!!updateForm.pending);
-	let editing = $state(false);
-
-	let fieldRefs: Record<keyof Omit<UpdateSeasonInput, 'id'>, HTMLElement | null> = $state({
-		name: null,
-		slug: null,
-		status: null,
-	});
-
-	$effect(() => {
-		submitting = !!updateForm.pending;
-	});
-
-	async function startEditing() {
-		editing = true;
-
-		updateForm.fields.set(season);
-
-		await tick();
-
-		fieldRefs.name?.focus();
-	}
-
-	let updateFormElement: HTMLFormElement | null = $state(null);
-
-	function stopEditing() {
-		updateFormElement?.reset();
-		editing = false;
-	}
-
-	let enhancedUpdateForm = $derived(
-		updateForm.enhance(async (form) => {
-			if (await form.submit()) {
-				stopEditing();
-			}
-		})
-	);
 </script>
 
-<Table.Row
-	{@attach focusFirstError({
-		submitting,
-		issues: updateForm.fields.allIssues(),
-	})}
->
+<Table.Row>
 	<Table.Cell>
 		<ExpandTransition>
-			{#if editing}
-				<div in:fade={fadeOptions}>
-					<FieldErrorTooltip remoteField={updateForm.fields.name} anchor={fieldRefs.name}>
-						<Input
-							{...updateForm.fields.name.as('text')}
-							required
-							form={updateFormId()}
-							bind:ref={fieldRefs.name}
-							oninput={(e) => {
-								// remove this if the 'value' reactivity actually works in the future
-								updateForm.fields.name.set(e.currentTarget.value);
-							}}
-							autocomplete="off"
-						/>
-					</FieldErrorTooltip>
-				</div>
-			{:else}
-				<div in:fade={fadeOptions} class="truncate">
-					<a
-						href={resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]', {
-							orgSlug,
-							seasonSlug: season.slug,
-						})}
-						class="underline"
-					>
-						{season.name}
-					</a>
-				</div>
-			{/if}
+			<div in:fade={fadeOptions} class="truncate">
+				<a
+					href={resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]', {
+						orgSlug,
+						seasonSlug: season.slug,
+					})}
+					class="underline"
+				>
+					{season.name}
+				</a>
+			</div>
+		</ExpandTransition>
+	</Table.Cell>
+	<Table.Cell class="hidden sm:table-cell">
+		<ExpandTransition>
+			<div in:fade={fadeOptions} class="truncate">
+				{season.slug}
+			</div>
 		</ExpandTransition>
 	</Table.Cell>
 	<Table.Cell>
 		<ExpandTransition>
-			{#if editing}
-				<div in:fade={fadeOptions}>
-					<FieldErrorTooltip remoteField={updateForm.fields.slug} anchor={fieldRefs.slug}>
-						<SlugField
-							source={updateForm.fields.name.value() ?? ''}
-							remoteField={updateForm.fields.slug}
-							form={updateFormId()}
-							bind:ref={fieldRefs.slug}
-						/>
-					</FieldErrorTooltip>
-				</div>
-			{:else}
-				<div in:fade={fadeOptions} class="truncate">
-					{season.slug}
-				</div>
-			{/if}
+			<div in:fade={fadeOptions}>
+				<Badge variant={badgeVariant}>
+					{season.status}
+				</Badge>
+			</div>
 		</ExpandTransition>
 	</Table.Cell>
-	<Table.Cell>
-		<ExpandTransition>
-			{#if editing}
-				<div in:fade={fadeOptions}>
-					<FieldErrorTooltip remoteField={updateForm.fields.status} anchor={fieldRefs.status}>
-						<SelectField field={updateForm.fields.status} form={updateFormId()} required>
-							{#each seasonStatuses as status (status)}
-								<Select.Item value={status}>{status}</Select.Item>
-							{/each}
-						</SelectField>
-					</FieldErrorTooltip>
-				</div>
-			{:else}
-				<div in:fade={fadeOptions}>
-					<Badge variant={badgeVariant}>
-						{season.status}
-					</Badge>
-				</div>
-			{/if}
-		</ExpandTransition>
-	</Table.Cell>
-	<Table.Cell>
-		<ExpandTransition>
-			{#if editing}
+	{#if canEdit || canDelete}
+		<Table.Cell>
+			<ExpandTransition>
 				<div in:fade={fadeOptions} class="flex justify-end">
-					<Button
-						disabled={submitting}
-						onclick={stopEditing}
-						class="group"
-						variant="ghost"
-						size="icon"
-						aria-label="Cancel edit"
-					>
-						<CloseIcon
-							class="stroke-muted-foreground transition-colors duration-200 group-hover:stroke-foreground"
-						/>
-					</Button>
-					<form {...enhancedUpdateForm} id={updateFormId()} bind:this={updateFormElement}>
-						<input {...updateForm.fields.id.as('hidden', season.id)} />
-						<SubmitButton
-							bind:ref={updateButton}
-							class="group"
-							variant="ghost"
-							size="icon"
-							{submitting}
-							aria-label="Save changes"
-						>
-							{#snippet icon()}
-								<CheckIcon
-									class="stroke-success-foreground transition-all duration-200 group-hover:scale-120 group-hover:stroke-success"
-								/>
-							{/snippet}
-						</SubmitButton>
-						<ErrorPopover anchor={updateButton} errors={updateForm.fields.issues()} />
-					</form>
+					{#if canEdit}
+						<Button onclick={() => onRequestEdit(season)} class="group" variant="ghost" size="icon">
+							<PencilIcon class="transition-colors duration-200 group-hover:stroke-info" />
+						</Button>
+					{/if}
+					{#if canDelete}
+						<Button onclick={() => onDelete(season)} class="group" variant="ghost" size="icon">
+							<TrashIcon class="transition-colors duration-200 group-hover:stroke-error" />
+						</Button>
+					{/if}
 				</div>
-			{:else}
-				<div in:fade={fadeOptions} class="flex justify-end">
-					<Button onclick={startEditing} class="group" variant="ghost" size="icon">
-						<PencilIcon class="transition-colors duration-200 group-hover:stroke-info" />
-					</Button>
-					<Button onclick={() => onDelete(season)} class="group" variant="ghost" size="icon">
-						<TrashIcon class="transition-colors duration-200 group-hover:stroke-error" />
-					</Button>
-				</div>
-			{/if}
-		</ExpandTransition>
-	</Table.Cell>
+			</ExpandTransition>
+		</Table.Cell>
+	{/if}
 </Table.Row>
