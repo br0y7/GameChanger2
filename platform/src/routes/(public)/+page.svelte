@@ -40,11 +40,11 @@
 	<title>{PUBLIC_APP_NAME} | Track stats, manage teams</title>
 </svelte:head>
 
-<main class="container mx-auto px-6 flex flex-col gap-12">
-	<section class="w-full h-[50vh] flex flex-col justify-center items-center">
+<main class="container mx-auto flex flex-col gap-12 px-6">
+	<section class="flex h-[50vh] w-full flex-col items-center justify-center">
 		<h1 class="text-5xl font-extrabold tracking-tight lg:text-6xl">{PUBLIC_APP_NAME}</h1>
 
-		<p class="text-lg text-muted-foreground mt-4">
+		<p class="mt-4 text-lg text-muted-foreground">
 			Build your roster. Manage your league. Keep everyone connected.
 		</p>
 		<p class="text-lg text-muted-foreground">
@@ -72,7 +72,7 @@
 				<li class="text-lg">{stat}</li>
 			{/each}
 		</ul>
-		<p class="italic text-muted-foreground">
+		<p class="text-muted-foreground italic">
 			GameChanger turns raw statistics into meaningful insights.
 		</p>
 	</section>
@@ -84,7 +84,7 @@
 				<li class="text-lg">{index + 1}. {step}</li>
 			{/each}
 		</ol>
-		<p class="italic text-muted-foreground">
+		<p class="text-muted-foreground italic">
 			GCIR (GameChanger Impact Rating) combines scoring efficiency (PPS), stats, and negative plays
 			to measure overall game performance.
 		</p>
@@ -92,7 +92,7 @@
 
 	<section class="flex flex-col gap-4">
 		<h2 class="text-3xl font-semibold tracking-tight">Community Impact</h2>
-		<div class="grid sm:grid-cols-4 gap-1">
+		<div class="grid grid-cols-2 gap-8 sm:grid-cols-4">
 			<div>
 				<p class="text-sm">Funding secured</p>
 				<AnimatedNumber end={1500} format={formatCurrency} class="text-2xl" />
@@ -114,7 +114,7 @@
 				<AnimatedNumber end={1000} format={formatCurrency} class="text-2xl" />
 			</div>
 		</div>
-		<p class="text-sm italic text-muted-foreground">
+		<p class="text-sm text-muted-foreground italic">
 			Recognized with a $1000 Honorarium from North Forge
 		</p>
 	</section>
