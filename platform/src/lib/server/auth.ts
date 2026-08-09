@@ -58,12 +58,18 @@ export const auth = betterAuth({
 					},
 				},
 			},
-			// For simplicity, a user can only be a member of one organization.
-			membershipLimit: 1,
-			/// This can be a function that returns a boolean if you want a user
-			// to potentially manage multiple leagues, but you want to limit it.
-			// One for now for simplicity
-			organizationLimit: 1,
+			// Returns true when a user has reached their organization limit
+			// For simplicity, ordinary users can belong to one org
+			// Admins have no limits
+			organizationLimit: async (user) => {
+				if (isAdmin(user as User)) {
+					return false;
+				}
+
+				const member = await db.query.member.findFirst({ where: { userId: user.id } });
+
+				return !!member;
+			},
 			allowUserToCreateOrganization: async (user) => {
 				try {
 					if (isAdmin(user as User)) return true;
@@ -129,27 +135,26 @@ export const auth = betterAuth({
 		session: {
 			create: {
 				before: async (session) => {
-					// NOTE: This hook will only work if a user is only a member
-					// of ONE organization. (see `membershipLimit` above)
-					// If that isn't the case then change the code below.
-					const member = await db.query.member.findFirst({
+					const memberships = await db.query.member.findMany({
 						where: { userId: session.userId },
-						columns: { organizationId: true },
+						with: {
+							organization: true,
+						},
 					});
 
-					if (!member) {
+					if (memberships.length === 0) {
 						return { data: session };
 					}
 
-					const organization = await db.query.organization.findFirst({
-						where: { id: member.organizationId },
-						columns: { id: true },
-					});
+					// Prefer to use admin org id.
+					const activeOrganizationId =
+						memberships.find((m) => m.organization?.type === 'system')?.organizationId ??
+						memberships[0].organizationId;
 
 					return {
 						data: {
 							...session,
-							activeOrganizationId: organization?.id,
+							activeOrganizationId,
 						},
 					};
 				},
