@@ -100,3 +100,13 @@ export const ensureAdminSystemOrganization = query(async () => {
 
 	return adminOrg;
 });
+
+export const getOrganizations = query(
+	z.object({
+		userId: idField,
+	}),
+	async ({ userId }) =>
+		(await db.query.member.findMany({ where: { userId }, with: { organization: true } }))
+			.map((m) => m.organization)
+			.filter((o) => o !== null)
+);

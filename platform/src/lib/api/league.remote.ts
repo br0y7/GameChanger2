@@ -2,22 +2,22 @@ import { form, getRequestEvent, query } from '$app/server';
 import { createLeagueSchema, updateLeagueSchema } from '$lib/schemas/league';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { requireSession, requireUser } from './auth.remote';
+import { isUserAdmin, requireSession, requireUser } from './auth.remote';
 import { eq } from 'drizzle-orm';
 import { serverLogger } from '$lib/server/logger';
 import { advanceOnboardingStep } from './onboarding.server';
 import { getOnboarding } from './onboarding.remote';
 import { isAPIError } from 'better-auth/api';
-import { invalid } from '@sveltejs/kit';
+import { invalid, isRedirect, redirect } from '@sveltejs/kit';
 import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps';
 import * as table from '$lib/server/db/schema';
 import { leagueFormLabels } from '$lib/forms/labels';
 import { isUserOrgAdmin } from './organization.remote';
 import { forbidden } from '$lib/server/fail';
+import { resolve } from '$app/paths';
 
 export const createLeague = form(createLeagueSchema, async (data, issue) => {
 	const user = await requireUser();
-	const onboarding = await getOnboarding({ userId: user.id });
 
 	const {
 		request: { headers },
@@ -38,10 +38,20 @@ export const createLeague = form(createLeagueSchema, async (data, issue) => {
 			body: { organizationId: league.id },
 		});
 
-		serverLogger.info('league created', league.id);
+		serverLogger.info(user.id, 'created league', league.id);
 
-		await advanceOnboardingStep(onboarding, NEXT_ORGANIZER_ONBOARDING_STEP);
+		if (await isUserAdmin()) {
+			redirect(303, resolve('/dashboard/[orgSlug]', { orgSlug: league.slug }));
+		} else {
+			const onboarding = await getOnboarding({ userId: user.id });
+			await advanceOnboardingStep(onboarding, NEXT_ORGANIZER_ONBOARDING_STEP);
+		}
 	} catch (err) {
+		if (isRedirect(err)) {
+			serverLogger.info('redirect', err.location);
+			throw err;
+		}
+
 		if (isAPIError(err) && err.body) {
 			serverLogger.error(err, err.body);
 
@@ -103,7 +113,8 @@ export const updateLeague = form(updateLeagueSchema, async ({ id, ...data }, iss
 			headers,
 		});
 
-		serverLogger.info('league updated', id);
+		const user = await requireUser();
+		serverLogger.info(user.id, 'updated league', id);
 
 		return updated;
 	} catch (err) {
