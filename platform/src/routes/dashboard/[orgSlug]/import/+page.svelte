@@ -14,6 +14,9 @@
 	import PreviewAccordion from './PreviewAccordion.svelte';
 	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { requireAdmin } from '$lib/api/auth.remote';
+
+	await requireAdmin();
 
 	const seasons = $derived(await getSeasons({ include: { organization: true } }));
 
@@ -57,7 +60,7 @@
 	}
 </script>
 
-<section class="bg-background flex min-h-svh flex-col items-center gap-6 p-6 md:p-10">
+<section class="flex min-h-svh flex-col items-center gap-6 bg-background p-6 md:p-10">
 	<h1 class="text-2xl font-bold">Import Stat Spreadsheet</h1>
 	<p>Upload stats spreadsheet for a division, see a preview, then save to the database.</p>
 	<Accordion.Root type="single" bind:value={activeItem} class="max-w-xl">
@@ -167,7 +170,7 @@
 									/>
 									<FieldErrorList errors={previewSpreadsheet.fields.timeZone.issues()} />
 								</Field.Field>
-								<Field.Field class="w-full flex items-center">
+								<Field.Field class="flex w-full items-center">
 									<SubmitButton {submitting} class="max-w-xs">
 										{#snippet icon()}
 											<UploadIcon />
@@ -190,7 +193,7 @@
 			<Accordion.Content>
 				{#if preview && selected.division}
 					<PreviewAccordion {preview} />
-					<div class="w-full flex items-center justify-center">
+					<div class="flex w-full items-center justify-center">
 						<SubmitButton onclick={savePreviewToDb} {submitting} class="min-w-xs">
 							{#snippet icon()}
 								<UploadIcon />
