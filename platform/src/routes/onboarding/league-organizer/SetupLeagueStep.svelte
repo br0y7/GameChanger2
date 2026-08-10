@@ -20,7 +20,7 @@
 
 <div class="flex flex-col gap-6">
 	<div class="flex flex-col gap-1">
-		<h1 class="text-2xl font-bold text-center">Setup your League</h1>
+		<h1 class="text-center text-2xl font-bold">Setup your League</h1>
 		<p class="text-center text-muted-foreground">
 			Add your league's divisions and assign teams per each. You can edit them anytime and invite
 			coaches later.
@@ -29,13 +29,11 @@
 	<CreateDivisionForm {seasonId} />
 	{#if hasDivisions}
 		<ExpandTransition class="flex flex-col gap-4">
-			<DivisionAccordion {divisions} />
-			<form {...completeOnboarding.for('done')} class="w-full flex justify-center">
+			<DivisionAccordion {seasonId} canEdit canDelete />
+			<form {...completeOnboarding.for('done')} class="flex w-full justify-center">
 				<SubmitButton
 					{submitting}
-					class="w-1/2 hover:-translate-y-0.5
-									duration-300 transition-transform
-									group"
+					class="group w-1/2 transition-transform duration-300 hover:-translate-y-0.5"
 				>
 					Finish Setup
 					<ArrowRight
@@ -46,13 +44,11 @@
 		</ExpandTransition>
 	{:else}
 		<ExpandTransition>
-			<form {...completeOnboarding.for('skip')} class="w-full flex justify-center">
+			<form {...completeOnboarding.for('skip')} class="flex w-full justify-center">
 				<SubmitButton
 					variant="secondary"
 					{submitting}
-					class="w-1/2 hover:-translate-y-0.5
-												duration-300 transition-transform
-												group"
+					class="group w-1/2 transition-transform duration-300 hover:-translate-y-0.5"
 				>
 					Skip for now
 					<ChevronRight
