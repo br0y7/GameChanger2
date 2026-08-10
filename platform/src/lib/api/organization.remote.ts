@@ -7,7 +7,7 @@ import { notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { getUser, requireAdmin, requireSession } from './auth.remote';
 import * as table from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { idField } from '$lib/schemas/common';
 
@@ -109,4 +109,81 @@ export const getOrganizations = query(
 		(await db.query.member.findMany({ where: { userId }, with: { organization: true } }))
 			.map((m) => m.organization)
 			.filter((o) => o !== null)
+);
+
+export const getOrgSeasonCount = query(
+	z.object({
+		organizationId: idField,
+	}),
+	async ({ organizationId }) => {
+		const [{ seasonCount }] = await db
+			.select({ seasonCount: count() })
+			.from(table.season)
+			.where(eq(table.season.organizationId, organizationId));
+
+		return seasonCount;
+	}
+);
+
+export const getOrgGameCount = query(
+	z.object({
+		organizationId: idField,
+	}),
+	async ({ organizationId }) => {
+		const [{ gameCount }] = await db
+			.select({ gameCount: count(table.game.id) })
+			.from(table.game)
+			.innerJoin(table.season, eq(table.game.seasonId, table.season.id))
+			.where(eq(table.season.organizationId, organizationId));
+
+		return gameCount;
+	}
+);
+
+export const getOrgDivisionCount = query(
+	z.object({
+		organizationId: idField,
+	}),
+	async ({ organizationId }) => {
+		const [{ divisionCount }] = await db
+			.select({ divisionCount: count(table.division.id) })
+			.from(table.division)
+			.innerJoin(table.season, eq(table.division.seasonId, table.season.id))
+			.where(eq(table.season.organizationId, organizationId));
+
+		return divisionCount;
+	}
+);
+
+export const getOrgTeamCount = query(
+	z.object({
+		organizationId: idField,
+	}),
+	async ({ organizationId }) => {
+		const [{ teamCount }] = await db
+			.select({ teamCount: count(table.division.id) })
+			.from(table.team)
+			.innerJoin(table.division, eq(table.team.divisionId, table.division.id))
+			.innerJoin(table.season, eq(table.division.seasonId, table.season.id))
+			.where(eq(table.season.organizationId, organizationId));
+
+		return teamCount;
+	}
+);
+
+export const getOrgPlayerCount = query(
+	z.object({
+		organizationId: idField,
+	}),
+	async ({ organizationId }) => {
+		const [{ playerCount }] = await db
+			.select({ playerCount: count(table.division.id) })
+			.from(table.player)
+			.innerJoin(table.team, eq(table.player.teamId, table.team.id))
+			.innerJoin(table.division, eq(table.team.divisionId, table.division.id))
+			.innerJoin(table.season, eq(table.division.seasonId, table.season.id))
+			.where(eq(table.season.organizationId, organizationId));
+
+		return playerCount;
+	}
 );
