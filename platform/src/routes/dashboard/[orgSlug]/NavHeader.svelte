@@ -30,11 +30,11 @@
 </script>
 
 {#snippet menuButtonContent()}
-	{const org = await getOrganization({ slug: orgSlug })}
+	{const org = $derived(await getOrganization({ slug: orgSlug }))}
 	<div
 		class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
 	>
-		{const HeaderIcon = iconMap[org.type]}
+		{const HeaderIcon = $derived(iconMap[org.type])}
 		<HeaderIcon class="shrink-0" />
 	</div>
 	<div class="grid flex-1 text-start text-sm leading-tight">
