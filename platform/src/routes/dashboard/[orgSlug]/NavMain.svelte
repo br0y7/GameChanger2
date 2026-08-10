@@ -20,7 +20,7 @@
 			{/snippet}
 		</NavItem>
 
-		{const org = await getOrganization({ slug: orgSlug })}
+		{const org = $derived(await getOrganization({ slug: orgSlug }))}
 		{#if org.type === 'league'}
 			<NavItem label="Seasons" href={resolve('/dashboard/[orgSlug]/seasons', { orgSlug })}>
 				{#snippet icon()}
