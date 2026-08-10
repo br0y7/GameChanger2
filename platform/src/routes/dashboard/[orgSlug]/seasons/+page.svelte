@@ -8,12 +8,21 @@
 	import type { PageProps } from './$types';
 	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
+	import { resolve } from '$app/paths';
+	import { redirect } from '@sveltejs/kit';
 
 	let { params }: PageProps = $props();
 	const isOrganizer = $derived(await isUserLeagueOrganizer());
-</script>
+	const org = $derived(await getOrganization({ slug: params.orgSlug }));
 
-{const org = await getOrganization({ slug: params.orgSlug })}
+	const validateOrg = () => {
+		if (org.type !== 'league') {
+			redirect(303, resolve('/dashboard/[orgSlug]', { orgSlug: org.slug }));
+		}
+	};
+
+	validateOrg();
+</script>
 
 <svelte:head>
 	<title>{org.name} Seasons | {PUBLIC_APP_NAME}</title>
