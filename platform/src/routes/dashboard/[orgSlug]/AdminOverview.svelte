@@ -26,7 +26,7 @@
 		<p>Number of users: {await getUserCount()}</p>
 	</section>
 
-	<section>
+	<section class="max-w-xl">
 		<Card.Root>
 			<Card.Header>
 				<Card.Title class="text-center text-xl">Create a League</Card.Title>
