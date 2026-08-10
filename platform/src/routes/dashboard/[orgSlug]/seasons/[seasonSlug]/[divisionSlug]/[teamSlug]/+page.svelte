@@ -35,13 +35,13 @@
 
 	<Separator class="lg:col-span-2" />
 
-	<section>
-		<Table.Root class="w-full table-fixed">
+	<section class="w-full justify-self-center md:col-span-2 md:max-w-2xl">
+		<Table.Root class="w-full">
 			<Table.Header>
 				<Table.Row>
 					<Table.Head>Player Name</Table.Head>
 					<Table.Head class="w-24 text-center">Jersey #</Table.Head>
-					<Table.Head class="w-28 text-center">Games Played</Table.Head>
+					<Table.Head class="hidden w-28 text-center sm:table-cell">Games Played</Table.Head>
 					<!-- Optionally add options here if user is a Coach -->
 				</Table.Row>
 			</Table.Header>
@@ -64,7 +64,7 @@
 							</a>
 						</Table.Cell>
 						<Table.Cell class="text-center">{player.jerseyNumber}</Table.Cell>
-						<Table.Cell class="text-center">
+						<Table.Cell class="hidden text-center sm:table-cell">
 							{#await getPlayerGameCount({ playerId: player.id }) then count}
 								{count}
 							{/await}
