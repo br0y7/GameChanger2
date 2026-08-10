@@ -71,7 +71,7 @@ async function annotatePreview(preview: SpreadsheetPreview, divisionId: string) 
 export const previewSpreadsheet = form(
 	uploadSpreadsheetSchema,
 	async ({ spreadsheet, version, timeZone, divisionId }) => {
-		await requireAdmin();
+		const admin = await requireAdmin();
 
 		try {
 			const parsers: Record<SpreadsheetParserVersion, SpreadsheetParser> = {
@@ -81,6 +81,8 @@ export const previewSpreadsheet = form(
 			const preview = parsers[version].parse(xlsx.read(buffer), { timeZone });
 
 			await annotatePreview(preview, divisionId);
+
+			serverLogger.info('uploaded for preview', { file: spreadsheet.name, admin: admin.id });
 
 			return preview;
 		} catch (err) {
@@ -200,7 +202,7 @@ async function saveStats(tx: Transaction, data: TeamPreview, team: Team, gameId:
 }
 
 export const savePreview = command(savePreviewSchema, async ({ games, divisionId }) => {
-	await requireAdmin();
+	const admin = await requireAdmin();
 
 	const division = await db.query.division.findFirst({
 		where: { id: divisionId },
@@ -233,6 +235,8 @@ export const savePreview = command(savePreviewSchema, async ({ games, divisionId
 				await saveStats(tx, game.awayTeam, awayTeam, gameId);
 			}
 		});
+
+		serverLogger.info('saved stats', { admin: admin.id });
 	} catch (err) {
 		serverLogger.error(err);
 		throw err;

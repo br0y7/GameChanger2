@@ -10,11 +10,13 @@ import { isAPIError } from 'better-auth/api';
 
 export const loginWithEmail = form(loginFormSchema, async (data) => {
 	try {
-		const { user } = await auth.api.signInEmail({
+		const {
+			user: { id },
+		} = await auth.api.signInEmail({
 			body: data,
 		});
 
-		serverLogger.info('user logged in', user.id);
+		serverLogger.info('logged in', { id });
 
 		redirect(303, resolve('/onboarding'));
 	} catch (err) {
@@ -39,11 +41,13 @@ export const loginWithEmail = form(loginFormSchema, async (data) => {
 
 export const signUpWithEmail = form(signupFormSchema, async (data) => {
 	try {
-		const { user } = await auth.api.signUpEmail({
+		const {
+			user: { id },
+		} = await auth.api.signUpEmail({
 			body: data,
 		});
 
-		serverLogger.info('new user sign up', user.id);
+		serverLogger.info('new user', { id });
 
 		redirect(303, resolve('/onboarding'));
 	} catch (err) {
@@ -98,9 +102,9 @@ export const isUserAdmin = query(async () => {
 });
 
 export const requireAdmin = query(async () => {
-	await requireUser();
-
 	if (!(await isUserAdmin())) {
 		forbidden({ resource: 'user' });
 	}
+
+	return await requireUser();
 });

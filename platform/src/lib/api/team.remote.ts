@@ -87,7 +87,10 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 					headers,
 				});
 
-				serverLogger.info(`hidden team org created: ${teamOrg.id}`);
+				serverLogger.info('created default team org', {
+					id: teamOrg.id,
+					userId: user.id,
+				});
 
 				const [defaultSeason] = await tx
 					.insert(table.season)
@@ -98,7 +101,10 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 					})
 					.returning({ id: table.season.id });
 
-				serverLogger.info(`default season for team org created: ${defaultSeason.id}`);
+				serverLogger.info('created default season for team org', {
+					id: defaultSeason.id,
+					userId: user.id,
+				});
 
 				const [defaultDivision] = await tx
 					.insert(table.division)
@@ -109,7 +115,10 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 					})
 					.returning({ id: table.division.id });
 
-				serverLogger.info(`default division for team org created: ${defaultDivision.id}`);
+				serverLogger.info('created default division for team org', {
+					id: defaultDivision.id,
+					userId: user.id,
+				});
 
 				return defaultDivision.id;
 			});
@@ -155,7 +164,7 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 			})
 			.returning({ id: table.team.id });
 
-		serverLogger.info(`team created ${createdTeam.id}`);
+		serverLogger.info('created team', { id: createdTeam.id, userId: user.id });
 
 		if (flow === 'solo-coach') {
 			const [createdCoach] = await db
@@ -167,7 +176,7 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 				})
 				.returning({ id: table.coach.id });
 
-			serverLogger.info(`coach created ${createdCoach.id}`);
+			serverLogger.info('created coach', { id: createdCoach.id, userId: user.id });
 
 			const onboarding = await getOnboarding({ userId: user.id });
 
@@ -195,7 +204,7 @@ export const updateTeam = form(updateTeamSchema, async ({ id, ...data }, issue) 
 	try {
 		await db.update(table.team).set(data).where(eq(table.team.id, id));
 
-		serverLogger.info('team updated', id);
+		serverLogger.info('updated team', { id, userId: user.id });
 	} catch (err) {
 		if (isConstraintError(err, table.TEAM_UNIQUE_SLUG_PER_DIVISION_CONSTRAINT)) {
 			return invalid(issue.slug(`${teamFormLabels.slug} already taken`));
@@ -213,7 +222,7 @@ export const deleteTeam = form(idOnlySchema, async ({ id }) => {
 
 	await db.delete(table.team).where(eq(table.team.id, id));
 
-	serverLogger.info('team deleted', id);
+	serverLogger.info('deleted team', { id, userId: user.id });
 });
 
 const includes = {

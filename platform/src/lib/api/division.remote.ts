@@ -12,6 +12,7 @@ import { idField, idOnlySchema } from '$lib/schemas/common';
 import type { CrudAction, ResourceTarget } from '$lib/forms/types';
 import { isUserLeagueOrganizer } from './league.remote';
 import { eq } from 'drizzle-orm';
+import { requireUser } from './auth.remote';
 
 export const getDivisions = query(
 	z.object({
@@ -104,7 +105,8 @@ export const createDivision = form(createDivisionSchema, async (data, issue) => 
 			.values(data)
 			.returning({ id: table.division.id });
 
-		serverLogger.info('division created:', created.id);
+		const user = await requireUser();
+		serverLogger.info('created division', { id: created.id, userId: user.id });
 	} catch (err) {
 		if (isConstraintError(err, table.DIVISION_UNIQUE_SLUG_PER_SEASON_CONSTRAINT)) {
 			return invalid(issue.slug(`${divisionFormLabels.slug} already taken.`));
@@ -121,7 +123,8 @@ export const updateDivision = form(updateDivisionSchema, async ({ id, ...data },
 	try {
 		await db.update(table.division).set(data).where(eq(table.division.id, id));
 
-		serverLogger.info('division updated:', id);
+		const user = await requireUser();
+		serverLogger.info('updated division', { id, userId: user.id });
 	} catch (err) {
 		if (isConstraintError(err, table.DIVISION_UNIQUE_SLUG_PER_SEASON_CONSTRAINT)) {
 			return invalid(issue.slug(`${divisionFormLabels.slug} already taken.`));
@@ -137,5 +140,6 @@ export const deleteDivision = form(idOnlySchema, async ({ id }) => {
 
 	await db.delete(table.division).where(eq(table.division.id, id));
 
-	serverLogger.info('division deleted:', id);
+	const user = await requireUser();
+	serverLogger.info('deleted division', { id, userId: user.id });
 });

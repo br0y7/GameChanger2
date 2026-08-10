@@ -70,6 +70,9 @@ export const createPlayer = form(createPlayerSchema, async (data, issue) => {
 	try {
 		const [created] = await db.insert(table.player).values(data).returning({ id: table.player.id });
 
+		const user = await requireUser();
+		serverLogger.info('created player', { id: created.id, userId: user.id });
+
 		return {
 			data: {
 				id: created.id,
@@ -93,6 +96,9 @@ export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 
 	try {
 		await db.update(table.player).set(data).where(eq(table.player.id, id));
+
+		const user = await requireUser();
+		serverLogger.info('updated player', { id, userId: user.id });
 	} catch (err) {
 		if (isConstraintError(err, PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT)) {
 			return invalid(issue.jerseyNumber('Jersey number already taken.'));
@@ -108,5 +114,6 @@ export const deletePlayer = form(idOnlySchema, async ({ id }) => {
 
 	await db.delete(table.player).where(eq(table.player.id, id));
 
-	serverLogger.info(`deleted player: ${id}`);
+	const user = await requireUser();
+	serverLogger.info('deleted player', { id, userId: user.id });
 });

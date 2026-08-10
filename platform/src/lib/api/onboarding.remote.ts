@@ -62,7 +62,7 @@ export const selectOrgCreatorRole = form(
 
 		void getOnboarding({ userId: user.id }).refresh();
 
-		serverLogger.info(`user: ${user?.id} started onboarding`);
+		serverLogger.info('started onboarding', { userId: user.id });
 
 		switch (role) {
 			case 'organizer':

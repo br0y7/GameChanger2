@@ -114,7 +114,7 @@ export const createSeason = form(createSeasonSchema, async (data, issue) => {
 
 		void getSeasons({ organizationId: org.id }).refresh();
 
-		serverLogger.info('season created', created.id);
+		serverLogger.info('created season', { id: created.id, userId: user.id });
 	} catch (err) {
 		if (isConstraintError(err, table.SEASON_UNIQUE_SLUG_PER_ORG_CONSTRAINT)) {
 			return invalid(issue.slug(`${seasonFormLabels.slug} already taken.`));
@@ -130,13 +130,14 @@ export const updateSeason = form(updateSeasonSchema, async ({ id, ...data }, iss
 	await assertPermissions('update', { resource: 'season', id });
 
 	try {
-		const [updated] = await db
+		await db
 			.update(table.season)
 			.set(data)
 			.where(eq(table.season.id, id))
 			.returning({ id: table.season.id });
 
-		serverLogger.info('season updated', updated.id);
+		const user = await requireUser();
+		serverLogger.info('updated season', { id, userId: user.id });
 	} catch (err) {
 		if (isConstraintError(err, table.SEASON_UNIQUE_SLUG_PER_ORG_CONSTRAINT)) {
 			return invalid(issue.slug(`${seasonFormLabels.slug} already taken.`));
@@ -153,5 +154,6 @@ export const deleteSeason = form(idOnlySchema, async ({ id }) => {
 
 	await db.delete(table.season).where(eq(table.season.id, id));
 
-	serverLogger.info('season deleted', id);
+	const user = await requireUser();
+	serverLogger.info('deleted season', { id, userId: user.id });
 });
