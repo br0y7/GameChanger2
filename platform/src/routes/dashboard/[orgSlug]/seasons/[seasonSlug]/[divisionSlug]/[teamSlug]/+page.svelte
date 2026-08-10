@@ -8,6 +8,7 @@
 	import { resolve } from '$app/paths';
 	import { getPlayerGameCount } from '$lib/api/player-game-stat.remote';
 	import { getOrganization } from '$lib/api/organization.remote';
+	import { PUBLIC_APP_NAME } from '$env/static/public';
 
 	let { params }: PageProps = $props();
 
@@ -18,6 +19,10 @@
 		await getTeam({ slug: params.teamSlug, divisionId: division.id, include: { players: true } })
 	);
 </script>
+
+<svelte:head>
+	<title>{division.name} - {team.name} | {PUBLIC_APP_NAME}</title>
+</svelte:head>
 
 <div class="grid grid-cols-1 gap-6 p-8 lg:grid-cols-2">
 	<section class="text-center lg:col-span-2">

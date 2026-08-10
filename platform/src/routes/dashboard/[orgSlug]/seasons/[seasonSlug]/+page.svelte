@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { PUBLIC_APP_NAME } from '$env/static/public';
 	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
 	import { getOrganization } from '$lib/api/organization.remote';
 	import { getSeason } from '$lib/api/season.remote';
@@ -11,10 +12,14 @@
 	const isOrganizer = $derived(await isUserLeagueOrganizer());
 </script>
 
-<div class="grid grid-cols-1 gap-6 p-8 lg:grid-cols-2">
-	{const org = await getOrganization({ slug: params.orgSlug })}
-	{const season = await getSeason({ slug: params.seasonSlug, organizationId: org.id })}
+{const org = await getOrganization({ slug: params.orgSlug })}
+{const season = await getSeason({ slug: params.seasonSlug, organizationId: org.id })}
 
+<svelte:head>
+	<title>{season.name} | {PUBLIC_APP_NAME}</title>
+</svelte:head>
+
+<div class="grid grid-cols-1 gap-6 p-8 lg:grid-cols-2">
 	<section class="text-center lg:col-span-2">
 		<h1 class="text-center text-2xl font-bold">{season.name}</h1>
 		{#if isOrganizer}

@@ -7,12 +7,17 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import type { PageProps } from './$types';
 	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
+	import { PUBLIC_APP_NAME } from '$env/static/public';
 
 	let { params }: PageProps = $props();
 	const isOrganizer = $derived(await isUserLeagueOrganizer());
 </script>
 
 {const org = await getOrganization({ slug: params.orgSlug })}
+
+<svelte:head>
+	<title>{org.name} Seasons | {PUBLIC_APP_NAME}</title>
+</svelte:head>
 
 <div class="grid grid-cols-1 gap-6 p-8 lg:grid-cols-2">
 	<section class="text-center lg:col-span-2">

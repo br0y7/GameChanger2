@@ -18,6 +18,7 @@
 	import { getOrganization } from '$lib/api/organization.remote';
 	import type { PageProps } from './$types';
 	import { resolve } from '$app/paths';
+	import { PUBLIC_APP_NAME } from '$env/static/public';
 
 	await requireAdmin();
 
@@ -65,6 +66,10 @@
 		}
 	}
 </script>
+
+<svelte:head>
+	<title>Import Stats | {PUBLIC_APP_NAME}</title>
+</svelte:head>
 
 <section class="flex min-h-svh flex-col items-center gap-6 bg-background p-6 md:p-10">
 	<h1 class="text-2xl font-bold">

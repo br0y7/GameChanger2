@@ -20,6 +20,7 @@
 	import { DRILLS_BY_WEAKNESS } from '$lib/player-analysis/drills-by-weakness';
 	import DrillCard from './DrillCard.svelte';
 	import { getOrganization } from '$lib/api/organization.remote';
+	import { PUBLIC_APP_NAME } from '$env/static/public';
 
 	let { params }: PageProps = $props();
 
@@ -47,6 +48,10 @@
 		format: (n: number) => string;
 	};
 </script>
+
+<svelte:head>
+	<title>{player.name} | {PUBLIC_APP_NAME}</title>
+</svelte:head>
 
 <div class="grid grid-cols-1 gap-6 px-8 pb-8 xl:grid-cols-2 xl:grid-rows-2">
 	<section class="text-center xl:col-span-2">
