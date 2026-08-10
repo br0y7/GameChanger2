@@ -14,7 +14,7 @@
 	let { drill }: Props = $props();
 </script>
 
-<Card.Root class="h-full flex flex-col">
+<Card.Root class="flex h-full flex-col">
 	<Card.Header>
 		<Card.Title>{drill.name}</Card.Title>
 		<Card.Description>{drill.description}</Card.Description>
@@ -39,16 +39,16 @@
 				<EyeIcon />
 				View Instructions
 			</Drawer.Trigger>
-			<Drawer.Content class="min-h-[50svh]">
+			<Drawer.Content class="max-h-[50svh]">
 				<Drawer.Header>
 					<Drawer.Title class="text-2xl">{drill.name} Instructions</Drawer.Title>
-					<Drawer.Description class="text-xl flex justify-center gap-4">
-						<div class="capitalize flex gap-2"><GaugeIcon />{drill.difficulty}</div>
+					<Drawer.Description class="flex justify-center gap-4 text-xl">
+						<div class="flex gap-2 capitalize"><GaugeIcon />{drill.difficulty}</div>
 						<div class="flex gap-1"><TimerIcon />{drill.duration}</div>
 					</Drawer.Description>
 				</Drawer.Header>
-				<div class="w-full h-full flex flex-col items-center my-auto">
-					<ul class="text-xl max-w-sm flex flex-col gap-4">
+				<div class="my-auto flex h-full w-full flex-col items-center overflow-auto p-8">
+					<ul class="flex max-w-sm flex-col gap-4 text-xl">
 						{#each drill.instructions as instruction (instruction)}
 							<li class="text-primary">
 								{instruction}
