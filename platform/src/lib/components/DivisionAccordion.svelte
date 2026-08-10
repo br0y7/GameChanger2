@@ -78,7 +78,7 @@
 {#if divisions.length > 0}
 	<ExpandTransition>
 		<h2 class="text-center text-xl font-bold">Divisions</h2>
-		<Accordion.Root type="single">
+		<Accordion.Root type="single" value={divisions.length === 1 ? divisions[0].id : ''}>
 			{#each divisions as division (division.id)}
 				<DivisionAccordionItem
 					{orgSlug}
