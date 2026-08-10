@@ -15,10 +15,10 @@
 	}
 
 	let { orgSlug, divisionId, confirmDelete, onRequestDelete, canEdit, canDelete }: Props = $props();
-	const teams = $derived(await getTeams({ divisionId }));
+	const teamsPromise = $derived(getTeams({ divisionId }));
 </script>
 
-{#if teams.length > 0}
+{#if (await teamsPromise).length > 0}
 	<ExpandTransition>
 		<Table.Root class="w-full">
 			<Table.Header>
@@ -31,7 +31,7 @@
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
-				{#each teams as team (team.id)}
+				{#each await teamsPromise as team (team.id)}
 					<TeamTableRow {orgSlug} {team} {confirmDelete} {onRequestDelete} {canEdit} {canDelete} />
 				{/each}
 			</Table.Body>
