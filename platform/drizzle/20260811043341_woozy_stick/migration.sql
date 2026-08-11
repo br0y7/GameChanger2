@@ -1,0 +1,1 @@
+ALTER TABLE "player" ALTER COLUMN "jersey_number" SET NOT NULL;

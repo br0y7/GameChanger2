@@ -27,7 +27,7 @@
 	let player = $state({
 		name: '',
 		teamId: '',
-		jerseyNumber: undefined,
+		jerseyNumber: '',
 	});
 
 	$effect(() => {

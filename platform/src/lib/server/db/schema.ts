@@ -141,7 +141,7 @@ export const player = snakeCase.table(
 	{
 		...baseFields,
 		name: text().notNull(),
-		jerseyNumber: varchar({ length: 2 }), // supports "00", "01"
+		jerseyNumber: varchar({ length: 2 }).notNull(), // supports "00", "01"
 		teamId: uuid()
 			.notNull()
 			.references(() => team.id, { onDelete: 'cascade' }),

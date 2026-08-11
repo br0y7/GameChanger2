@@ -6,9 +6,7 @@ export const playerSchema = {
 	jerseyNumber: z
 		.string()
 		.trim()
-		.regex(/^[0-9]{0,2}$/, 'Jersey number must be 1 or 2 digits (0 to 99)')
-		.transform((value) => (value === '' ? undefined : value))
-		.optional(),
+		.regex(/^[0-9]{1,2}$/, 'Jersey number must be 1 or 2 digits (0 to 99)'),
 };
 
 export const createPlayerSchema = z.object({

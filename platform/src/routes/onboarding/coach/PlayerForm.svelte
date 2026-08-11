@@ -18,6 +18,7 @@
 		player = $bindable({
 			name: '',
 			teamId: '',
+			jerseyNumber: '',
 		}),
 		submitting = $bindable(false),
 	}: Props = $props();
@@ -52,10 +53,11 @@
 					inputmode="numeric"
 					pattern="[0-9]+"
 					title="Numbers only from 0-99"
+					required
 					autocomplete="off"
 				/>
 			</Field.Field>
-			<Field.Field class="w-full mt-auto">
+			<Field.Field class="mt-auto w-full">
 				<SubmitButton {submitting}>
 					{#snippet icon()}
 						<PlusIcon />

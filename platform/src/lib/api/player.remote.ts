@@ -15,11 +15,13 @@ import { getCoach } from './coach.remote';
 import { z } from 'zod';
 
 export const getPlayer = query(
-	z.object({
-		id: idField.optional(),
-		teamId: idField.optional(),
-		jerseyNumber: playerSchema.jerseyNumber,
-	}),
+	z.union([
+		idOnlySchema,
+		z.object({
+			teamId: idField,
+			jerseyNumber: playerSchema.jerseyNumber,
+		}),
+	]),
 	async (filters) => {
 		const player = await db.query.player.findFirst({ where: filters });
 
