@@ -39,16 +39,18 @@
 				<EyeIcon />
 				View Instructions
 			</Drawer.Trigger>
-			<Drawer.Content class="max-h-[50svh]">
+			<Drawer.Content class="max-h-[75svh]">
 				<Drawer.Header>
-					<Drawer.Title class="text-2xl">{drill.name} Instructions</Drawer.Title>
-					<Drawer.Description class="flex justify-center gap-4 text-xl">
+					<Drawer.Title class="text-2xl max-lg:landscape:text-lg"
+						>{drill.name} Instructions</Drawer.Title
+					>
+					<Drawer.Description class="flex justify-center gap-4 text-xl max-lg:landscape:text-sm">
 						<div class="flex gap-2 capitalize"><GaugeIcon />{drill.difficulty}</div>
 						<div class="flex gap-1"><TimerIcon />{drill.duration}</div>
 					</Drawer.Description>
 				</Drawer.Header>
-				<div class="my-auto flex h-full w-full flex-col items-center overflow-auto p-8">
-					<ul class="flex max-w-sm flex-col gap-4 text-xl">
+				<div class="my-auto flex h-full w-full flex-col items-center overflow-auto portrait:p-8">
+					<ul class="flex max-w-sm flex-col gap-4 text-xl max-lg:landscape:text-base">
 						{#each drill.instructions as instruction (instruction)}
 							<li class="text-primary">
 								{instruction}
@@ -57,7 +59,7 @@
 					</ul>
 				</div>
 				<Drawer.Footer class="flex items-center">
-					<Drawer.Close class={cn('min-w-sm', buttonVariants({ variant: 'outline' }))}>
+					<Drawer.Close class={cn('w-4/5 max-w-sm', buttonVariants({ variant: 'outline' }))}>
 						Close
 					</Drawer.Close>
 				</Drawer.Footer>

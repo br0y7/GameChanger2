@@ -27,10 +27,10 @@
 
 	const user = await getUser();
 	const userOrganizations = user ? await getOrganizations({ userId: user.id }) : [];
+	const org = $derived(await getOrganization({ slug: orgSlug }));
 </script>
 
 {#snippet menuButtonContent()}
-	{const org = $derived(await getOrganization({ slug: orgSlug }))}
 	<div
 		class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
 	>
