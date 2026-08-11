@@ -6,13 +6,7 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import AnimatedNumber from '$lib/components/AnimatedNumber.svelte';
-	import {
-		getOrgDivisionCount,
-		getOrgGameCount,
-		getOrgPlayerCount,
-		getOrgSeasonCount,
-		getOrgTeamCount,
-	} from '$lib/api/organization.remote';
+	import { getOrganizationStats } from '$lib/api/organization.remote';
 
 	let { org }: { org: Organization } = $props();
 	const currentSeason = $derived(await getCurrentSeason({ organizationId: org.id }));
@@ -52,66 +46,54 @@
 	<section class="flex flex-col justify-center gap-4 lg:col-span-2 lg:w-3/4 lg:justify-self-center">
 		<h2 class="text-center text-xl font-medium">At a Glance</h2>
 		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Seasons</Card.Title>
-				</Card.Header>
-				<Card.Content class="text-2xl">
-					{#await getOrgSeasonCount({ organizationId: org.id })}
-						<Spinner class="size-6" />
-					{:then count}
-						<AnimatedNumber end={count} {format} />
-					{/await}
-				</Card.Content>
-			</Card.Root>
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Games</Card.Title>
-				</Card.Header>
-				<Card.Content class="text-2xl">
-					{#await getOrgGameCount({ organizationId: org.id })}
-						<Spinner class="size-6" />
-					{:then count}
-						<AnimatedNumber end={count} {format} />
-					{/await}
-				</Card.Content>
-			</Card.Root>
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Divisions</Card.Title>
-				</Card.Header>
-				<Card.Content class="text-2xl">
-					{#await getOrgDivisionCount({ organizationId: org.id })}
-						<Spinner class="size-6" />
-					{:then count}
-						<AnimatedNumber end={count} {format} />
-					{/await}
-				</Card.Content>
-			</Card.Root>
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Teams</Card.Title>
-				</Card.Header>
-				<Card.Content class="text-2xl">
-					{#await getOrgTeamCount({ organizationId: org.id })}
-						<Spinner class="size-6" />
-					{:then count}
-						<AnimatedNumber end={count} {format} />
-					{/await}
-				</Card.Content>
-			</Card.Root>
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Players</Card.Title>
-				</Card.Header>
-				<Card.Content class="text-2xl">
-					{#await getOrgPlayerCount({ organizationId: org.id })}
-						<Spinner class="size-6" />
-					{:then count}
-						<AnimatedNumber end={count} {format} />
-					{/await}
-				</Card.Content>
-			</Card.Root>
+			{const statCards: {
+				title: string;
+				key: keyof Awaited<ReturnType<typeof getOrganizationStats>>;
+			}[] = [
+				{
+					title: 'Seasons',
+					key: 'seasonCount',
+				},
+				{
+					title: 'Games',
+					key: 'gameCount',
+				},
+				{
+					title: 'Division',
+					key: 'divisionCount',
+				},
+				{
+					title: 'Teams',
+					key: 'teamCount',
+				},
+				{
+					title: 'Players',
+					key: 'playerCount',
+				},
+			]}
+			{#await getOrganizationStats({ id: org.id })}
+				{#each statCards as card (card.title)}
+					<Card.Root>
+						<Card.Header>
+							<Card.Title>{card.title}</Card.Title>
+						</Card.Header>
+						<Card.Content class="text-2xl">
+							<Spinner class="size-6" />
+						</Card.Content>
+					</Card.Root>
+				{/each}
+			{:then stats}
+				{#each statCards as card (card.title)}
+					<Card.Root>
+						<Card.Header>
+							<Card.Title>{card.title}</Card.Title>
+						</Card.Header>
+						<Card.Content class="text-2xl">
+							<AnimatedNumber end={stats[card.key]} {format} />
+						</Card.Content>
+					</Card.Root>
+				{/each}
+			{/await}
 		</div>
 	</section>
 </div>
