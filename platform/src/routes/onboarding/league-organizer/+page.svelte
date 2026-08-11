@@ -40,11 +40,15 @@
 		<!-- Use css grid so the layout doesn't shift when transitioning. -->
 		<div class="grid grid-cols-1 grid-rows-1 overflow-hidden">
 			{#if currentStep === 'create-league'}
-				<SlideTransition class="col-start-1 row-start-1 flex flex-col gap-6 p-1">
+				<SlideTransition
+					class="col-start-1 row-start-1 flex w-full flex-col gap-6 justify-self-center px-8"
+				>
 					<LeagueForm />
 				</SlideTransition>
 			{:else if currentStep === 'create-season'}
-				<SlideTransition class="col-start-1 row-start-1 flex flex-col gap-6 p-1">
+				<SlideTransition
+					class="col-start-1 row-start-1 flex w-full flex-col gap-6 justify-self-center px-8"
+				>
 					<div class="flex flex-col gap-1">
 						<h1 class="text-center text-2xl font-bold">Create your first Season</h1>
 						<p class="text-center text-muted-foreground">
@@ -54,7 +58,9 @@
 					<SeasonForm hideStatus />
 				</SlideTransition>
 			{:else if currentStep === 'setup-league'}
-				<SlideTransition class="col-start-1 row-start-1 h-full w-full p-1">
+				<SlideTransition
+					class="col-start-1 row-start-1 flex w-full flex-col gap-6 justify-self-center px-4"
+				>
 					{const season = await seasonPromise}
 					{#if season}
 						<SetupLeagueStep seasonId={season.id} />
