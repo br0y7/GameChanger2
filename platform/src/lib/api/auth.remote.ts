@@ -1,10 +1,12 @@
 import { resolve } from '$app/paths';
 import { form, getRequestEvent, query } from '$app/server';
+import type { Pathname } from '$app/types';
 import { loginFormSchema, signupFormSchema } from '$lib/schemas/auth';
 import { USER_ROLE } from '$lib/schemas/user';
 import { auth } from '$lib/server/auth';
 import { forbidden } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
+import { DASHBOARD_PATH, REDIRECT_TO_PARAM } from '$lib/utils/url';
 import { invalid, isRedirect, redirect } from '@sveltejs/kit';
 import { isAPIError } from 'better-auth/api';
 
@@ -18,7 +20,10 @@ export const loginWithEmail = form(loginFormSchema, async (data) => {
 
 		serverLogger.info('logged in', { id });
 
-		redirect(303, resolve('/onboarding'));
+		const { url } = getRequestEvent();
+		const redirectTo = url.searchParams.get(REDIRECT_TO_PARAM);
+
+		redirect(303, redirectTo?.startsWith(DASHBOARD_PATH) ? redirectTo : DASHBOARD_PATH);
 	} catch (err) {
 		if (isRedirect(err)) {
 			throw err;
@@ -61,7 +66,8 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 		) {
 			serverLogger.warn('existing user tried to sign up again', data.email);
 			// Compromise user enumeration for UX, rely on BetterAuth rate limit
-			return redirect(303, resolve(`/login?email=${data.email}`));
+			const searchParams = new URLSearchParams({ email: data.email });
+			return redirect(303, resolve(`/login?${searchParams}`));
 		}
 
 		serverLogger.error(err);
@@ -81,7 +87,15 @@ const requireAuth = async () => {
 	const authSession = await getAuthSession();
 
 	if (!authSession) {
-		redirect(303, resolve('/login'));
+		const { url } = getRequestEvent();
+		const redirectURL = new URL(resolve('/login'), url.origin);
+
+		const DASHBOARD_PATH: Pathname = '/dashboard';
+		if (url.pathname.startsWith(DASHBOARD_PATH)) {
+			redirectURL.searchParams.set(REDIRECT_TO_PARAM, url.pathname);
+		}
+
+		redirect(303, redirectURL);
 	}
 
 	return authSession;
@@ -102,9 +116,11 @@ export const isUserAdmin = query(async () => {
 });
 
 export const requireAdmin = query(async () => {
+	const user = await requireUser();
+
 	if (!(await isUserAdmin())) {
 		forbidden({ resource: 'user' });
 	}
 
-	return await requireUser();
+	return user;
 });

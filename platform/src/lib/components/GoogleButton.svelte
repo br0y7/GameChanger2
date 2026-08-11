@@ -3,8 +3,9 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { clientLogger } from '$lib/logger/client';
 	import * as Field from '$lib/components/ui/field/index';
-	import { resolve } from '$app/paths';
 	import ExpandTransition from './transitions/ExpandTransition.svelte';
+	import { page } from '$app/state';
+	import { DASHBOARD_PATH, REDIRECT_TO_PARAM } from '$lib/utils/url';
 
 	let { disabled = $bindable(false) } = $props();
 
@@ -15,9 +16,11 @@
 		try {
 			hasError = false;
 
+			const redirectTo = page.url.searchParams.get(REDIRECT_TO_PARAM);
+
 			await authClient.signIn.social({
 				provider: 'google',
-				callbackURL: resolve('/onboarding'),
+				callbackURL: redirectTo?.startsWith(DASHBOARD_PATH) ? redirectTo : DASHBOARD_PATH,
 			});
 		} catch (error) {
 			hasError = true;

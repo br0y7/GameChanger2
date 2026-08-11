@@ -1,21 +1,30 @@
-import { getUser, requireSession } from '$lib/api/auth.remote.js';
-import type { RouteId } from '$app/types';
-import { getOrganization } from '$lib/api/organization.remote.js';
+import { getUser, isUserAdmin, requireSession } from '$lib/api/auth.remote.js';
+import { ensureAdminSystemOrganization, getOrganization } from '$lib/api/organization.remote.js';
 import { redirect } from '@sveltejs/kit';
 import { resolve } from '$app/paths';
 import { serverLogger } from '$lib/server/logger.js';
+import { getOnboarding } from '$lib/api/onboarding.remote.js';
+import { DASHBOARD_PATH } from '$lib/utils/url.js';
 
 export const load = async (request) => {
-	const user = getUser();
+	const user = await getUser();
 
 	if (!user) {
 		return;
 	}
 
-	const BASE_ROUTE: RouteId = '/dashboard';
+	const onboarding = await getOnboarding({ userId: user.id });
 
-	if (request.url.pathname !== BASE_ROUTE) {
+	if (onboarding.status !== 'complete') {
+		redirect(307, resolve('/onboarding'));
+	}
+
+	if (request.url.pathname !== DASHBOARD_PATH) {
 		return;
+	}
+
+	if (await isUserAdmin()) {
+		await ensureAdminSystemOrganization();
 	}
 
 	const session = await requireSession();

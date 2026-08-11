@@ -53,8 +53,7 @@ export const getOrganization = query(
 );
 
 export const ensureAdminSystemOrganization = query(async () => {
-	await requireAdmin();
-
+	const user = await requireAdmin();
 	const session = await requireSession();
 
 	if (session.activeOrganizationId) {
@@ -90,13 +89,15 @@ export const ensureAdminSystemOrganization = query(async () => {
 
 		adminOrg = updated;
 
-		serverLogger.info('admin org created', adminOrg);
+		serverLogger.info('created admin org', { orgId: adminOrg.id, adminId: user.id });
 	}
 
 	await auth.api.setActiveOrganization({
 		headers,
 		body: { organizationId: adminOrg.id },
 	});
+
+	void requireSession().refresh();
 
 	return adminOrg;
 });

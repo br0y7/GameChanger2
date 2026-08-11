@@ -3,17 +3,12 @@ import type { LayoutServerLoad } from './$types';
 import { resolve } from '$app/paths';
 import { serverLogger } from '$lib/server/logger';
 import type { RouteId } from '$app/types';
-import { isUserAdmin, requireUser } from '$lib/api/auth.remote';
+import { requireUser } from '$lib/api/auth.remote';
 import { getOnboarding } from '$lib/api/onboarding.remote';
-import { ensureAdminSystemOrganization } from '$lib/api/organization.remote';
 
 export const load: LayoutServerLoad = async ({ url }) => {
 	const user = await requireUser();
 	const onboarding = await getOnboarding({ userId: user.id });
-
-	if (await isUserAdmin()) {
-		await ensureAdminSystemOrganization();
-	}
 
 	if (onboarding.status === 'complete') {
 		redirect(303, resolve('/dashboard'));
@@ -38,7 +33,7 @@ export const load: LayoutServerLoad = async ({ url }) => {
 	const targetRoute = redirectMap[onboarding.role];
 
 	if (targetRoute && !url.pathname.startsWith(targetRoute)) {
-		serverLogger.warn(`Redirected from ${url.pathname} to ${targetRoute}`);
+		serverLogger.warn('redirect', url.pathname, '->', targetRoute);
 		redirect(303, targetRoute);
 	}
 };

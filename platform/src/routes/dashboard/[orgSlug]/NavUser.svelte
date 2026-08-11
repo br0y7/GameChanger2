@@ -10,6 +10,8 @@
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import LogInIcon from '@lucide/svelte/icons/log-in';
 	import SignUpIcon from '@lucide/svelte/icons/user-round-plus';
+	import { page } from '$app/state';
+	import { REDIRECT_TO_PARAM } from '$lib/utils/url';
 
 	const user = (await getUser()) ?? { name: 'Guest', email: '', image: undefined };
 
@@ -81,7 +83,8 @@
 					{@render dropdownLabel()}
 
 					<DropdownMenu.Separator />
-					<DropdownMenu.Item onclick={() => goto(resolve('/login'))}>
+					{const searchParams = new URLSearchParams({ [REDIRECT_TO_PARAM]: page.url.pathname })}
+					<DropdownMenu.Item onclick={() => goto(resolve(`/login?${searchParams}`))}>
 						<LogInIcon />
 						Log in
 					</DropdownMenu.Item>

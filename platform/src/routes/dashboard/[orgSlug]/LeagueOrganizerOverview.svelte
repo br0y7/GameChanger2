@@ -59,7 +59,7 @@
 					key: 'gameCount',
 				},
 				{
-					title: 'Division',
+					title: 'Divisions',
 					key: 'divisionCount',
 				},
 				{
