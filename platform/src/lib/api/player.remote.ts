@@ -122,7 +122,19 @@ export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 		serverLogger.info('updated player', { id, userId: user.id });
 
 		if (updated?.teamId) {
-			void getTeam({ id: updated.teamId, include: { players: true } }).refresh();
+			const team = await db.query.team.findFirst({
+				where: { id: updated.teamId },
+				columns: { id: true, slug: true, divisionId: true },
+			});
+
+			if (team) {
+				void getTeam({ id: team.id, include: { players: true } }).refresh();
+				void getTeam({
+					slug: team.slug,
+					divisionId: team.divisionId,
+					include: { players: true },
+				}).refresh();
+			}
 		}
 	} catch (err) {
 		if (isConstraintError(err, PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT)) {

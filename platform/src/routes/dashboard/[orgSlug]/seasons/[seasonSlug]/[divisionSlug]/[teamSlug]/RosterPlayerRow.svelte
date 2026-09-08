@@ -12,6 +12,7 @@
 	import { tick } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { updatePlayer } from '$lib/api/player.remote';
+	import { getTeam } from '$lib/api/team.remote';
 	import { getPlayerGameCount } from '$lib/api/player-game-stat.remote';
 	import type { UpdatePlayerInput } from '$lib/schemas/player';
 	import FieldErrorTooltip from '$lib/components/FieldErrorTooltip.svelte';
@@ -21,9 +22,11 @@
 	interface Props {
 		player: Player;
 		playerHref: string;
+		teamSlug: string;
+		divisionId: string;
 	}
 
-	let { player, playerHref }: Props = $props();
+	let { player, playerHref, teamSlug, divisionId }: Props = $props();
 
 	const fadeOptions = { duration: 200, easing: cubicOut };
 
@@ -59,6 +62,11 @@
 	let enhancedUpdateForm = $derived(
 		updateForm.enhance(async (form) => {
 			if (await form.submit()) {
+				await getTeam({
+					slug: teamSlug,
+					divisionId,
+					include: { players: true },
+				}).refresh();
 				stopEditing();
 			}
 		})
@@ -103,15 +111,16 @@
 					>
 						<Input
 							{...updateForm.fields.jerseyNumber.as('text')}
-							required
 							inputmode="numeric"
-							pattern="[0-9]{1,2}"
-							title="Numbers only from 0-99"
 							form={updateFormId()}
 							bind:ref={inputs.jerseyNumber}
 							autocomplete="off"
 							class="text-center"
-							oninput={(e) => updateForm.fields.jerseyNumber.set(e.currentTarget.value)}
+							oninput={(e) => {
+								const digits = e.currentTarget.value.replace(/\D/g, '').slice(0, 2);
+								e.currentTarget.value = digits;
+								updateForm.fields.jerseyNumber.set(digits);
+							}}
 						/>
 					</FieldErrorTooltip>
 				</div>

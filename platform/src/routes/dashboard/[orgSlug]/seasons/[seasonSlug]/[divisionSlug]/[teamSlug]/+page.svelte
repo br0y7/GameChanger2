@@ -111,6 +111,8 @@
 							{#each team.players as player (player.id)}
 								<RosterPlayerRow
 									{player}
+									teamSlug={team.slug}
+									divisionId={division.id}
 									playerHref={resolve(
 										'/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]/[jerseyNumber]',
 										{
