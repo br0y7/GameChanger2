@@ -10,8 +10,10 @@ import { invalid } from '@sveltejs/kit';
 import * as table from '$lib/server/db/schema';
 import { isConstraintError } from './errors.server';
 import { eq } from 'drizzle-orm';
-import { requireUser } from './auth.remote';
+import { isUserAdmin, requireUser } from './auth.remote';
 import { getCoach } from './coach.remote';
+import { isUserLeagueOrganizer } from './league.remote';
+import { getTeam } from './team.remote';
 import { z } from 'zod';
 
 export const getPlayer = query(
@@ -33,13 +35,24 @@ export const getPlayer = query(
 	}
 );
 
-async function assertCoachPermissions(action: CrudAction, target: ResourceTarget): Promise<void> {
+async function assertPlayerPermissions(action: CrudAction, target: ResourceTarget): Promise<void> {
 	const user = await requireUser();
+
+	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
+		if (action === 'create') return;
+
+		if (!target.id) {
+			internalNoId(target, { action });
+		}
+
+		await getPlayer({ id: target.id });
+		return;
+	}
 
 	const coach = await getCoach({ userId: user.id });
 
 	if (!coach) {
-		forbidden({ resource: 'user' });
+		forbidden({ resource: 'player' });
 	}
 
 	const modifyingActions: CrudAction[] = ['update', 'delete'];
@@ -67,13 +80,15 @@ async function assertCoachPermissions(action: CrudAction, target: ResourceTarget
 }
 
 export const createPlayer = form(createPlayerSchema, async (data, issue) => {
-	await assertCoachPermissions('create', { resource: 'player' });
+	await assertPlayerPermissions('create', { resource: 'player' });
 
 	try {
 		const [created] = await db.insert(table.player).values(data).returning({ id: table.player.id });
 
 		const user = await requireUser();
 		serverLogger.info('created player', { id: created.id, userId: user.id });
+
+		void getTeam({ id: data.teamId, include: { players: true } }).refresh();
 
 		return {
 			data: {
@@ -94,13 +109,21 @@ export const createPlayer = form(createPlayerSchema, async (data, issue) => {
 export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 	const { id } = data;
 
-	await assertCoachPermissions('update', { resource: 'player', id });
+	await assertPlayerPermissions('update', { resource: 'player', id });
 
 	try {
-		await db.update(table.player).set(data).where(eq(table.player.id, id));
+		const [updated] = await db
+			.update(table.player)
+			.set(data)
+			.where(eq(table.player.id, id))
+			.returning({ teamId: table.player.teamId });
 
 		const user = await requireUser();
 		serverLogger.info('updated player', { id, userId: user.id });
+
+		if (updated?.teamId) {
+			void getTeam({ id: updated.teamId, include: { players: true } }).refresh();
+		}
 	} catch (err) {
 		if (isConstraintError(err, PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT)) {
 			return invalid(issue.jerseyNumber('Jersey number already taken.'));
@@ -112,10 +135,17 @@ export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 });
 
 export const deletePlayer = form(idOnlySchema, async ({ id }) => {
-	await assertCoachPermissions('delete', { resource: 'player', id });
+	await assertPlayerPermissions('delete', { resource: 'player', id });
 
-	await db.delete(table.player).where(eq(table.player.id, id));
+	const [deleted] = await db
+		.delete(table.player)
+		.where(eq(table.player.id, id))
+		.returning({ teamId: table.player.teamId });
 
 	const user = await requireUser();
 	serverLogger.info('deleted player', { id, userId: user.id });
+
+	if (deleted?.teamId) {
+		void getTeam({ id: deleted.teamId, include: { players: true } }).refresh();
+	}
 });

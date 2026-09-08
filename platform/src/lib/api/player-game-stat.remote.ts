@@ -47,3 +47,60 @@ export const getPlayerSeasonAverages = query(
 		};
 	}
 );
+
+const teamLeaderCategories = [
+	{ key: 'points', label: 'Points' },
+	{ key: 'rebounds', label: 'Rebounds' },
+	{ key: 'assists', label: 'Assists' },
+	{ key: 'steals', label: 'Steals' },
+	{ key: 'blocks', label: 'Blocks' },
+] as const;
+
+export type TeamLeaderCategory = (typeof teamLeaderCategories)[number]['key'];
+
+export const getTeamLeaders = query(z.object({ teamId: idField }), async ({ teamId }) => {
+	const players = await db.query.player.findMany({
+		where: { teamId },
+		with: { gameStats: true },
+	});
+
+	const playerAverages = players
+		.map((player) => {
+			const derived = player.gameStats.map(derivePlayerGameStats);
+			if (!derived.length) return null;
+
+			return {
+				playerId: player.id,
+				name: player.name,
+				jerseyNumber: player.jerseyNumber,
+				averages: {
+					points: averageBy(derived, (stat) => stat.pts) ?? 0,
+					rebounds: averageBy(derived, (stat) => stat.reb) ?? 0,
+					assists: averageBy(derived, (stat) => stat.ast) ?? 0,
+					steals: averageBy(derived, (stat) => stat.stl) ?? 0,
+					blocks: averageBy(derived, (stat) => stat.blk) ?? 0,
+				},
+			};
+		})
+		.filter((player) => player !== null);
+
+	return teamLeaderCategories.map(({ key, label }) => {
+		const leader = playerAverages.reduce<(typeof playerAverages)[number] | null>((best, player) => {
+			if (!best || player.averages[key] > best.averages[key]) return player;
+			return best;
+		}, null);
+
+		return {
+			key,
+			label,
+			player: leader
+				? {
+						id: leader.playerId,
+						name: leader.name,
+						jerseyNumber: leader.jerseyNumber,
+						value: leader.averages[key],
+					}
+				: null,
+		};
+	});
+});
