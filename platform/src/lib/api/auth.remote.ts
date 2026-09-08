@@ -112,7 +112,7 @@ export const isUserAdmin = query(async () => {
 		return false;
 	}
 
-	return authSession.user?.role === USER_ROLE.admin;
+	return authSession.user?.role?.trim() === USER_ROLE.admin;
 });
 
 export const requireAdmin = query(async () => {

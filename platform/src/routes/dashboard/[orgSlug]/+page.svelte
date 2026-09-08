@@ -17,4 +17,12 @@
 	<LeagueOrganizerOverview {org} />
 {:else if org.type === 'system'}
 	<AdminOverview {org} />
+{:else}
+	<div class="m-6 flex flex-col gap-4">
+		<h1 class="text-2xl font-bold">{org.name}</h1>
+		<p class="text-muted-foreground">
+			This is a {org.type} organization. Open the sidebar to manage seasons, settings, or switch
+			organizations.
+		</p>
+	</div>
 {/if}
