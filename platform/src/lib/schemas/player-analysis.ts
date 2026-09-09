@@ -2,8 +2,18 @@ import type { PlayerStats } from './player-stats';
 
 export type RuleFor<T> = T & { applies: (stats: PlayerStats) => boolean };
 
+export type PlayerAnalysisStat = {
+	/** Short label like PPG, FG%, AST */
+	label: string;
+	/** Numeric value used for display formatting */
+	value: number;
+	/** Pre-formatted value for UI, e.g. "18.4" or "45%" */
+	display: string;
+};
+
 export type PlayerStrength = {
 	description: string;
+	stat: PlayerAnalysisStat;
 };
 
 export type PlayerWeaknessCategory =
@@ -18,6 +28,7 @@ export type PlayerWeaknessCategory =
 export type PlayerWeakness = {
 	category: PlayerWeaknessCategory;
 	description: string;
+	stat: PlayerAnalysisStat;
 };
 
 export type PlayerAnalysis = {

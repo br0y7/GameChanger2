@@ -57,7 +57,7 @@
 						{/if}
 					</Table.Cell>
 					{#each rawStatKeys as key (key)}
-						<Table.Cell>{stat.stats[key]}</Table.Cell>
+						<Table.Cell>{stat.stats[key] ?? 0}</Table.Cell>
 					{/each}
 				</Table.Row>
 			{/each}

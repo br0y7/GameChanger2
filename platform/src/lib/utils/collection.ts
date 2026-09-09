@@ -14,6 +14,17 @@ export function averageBy<T>(items: T[], selector: (item: T) => number) {
 	return sumBy(items, selector) / items.length;
 }
 
+/** Accurate shooting %: total makes / total attempts (not an average of per-game %). */
+export function percentageBy<T>(
+	items: T[],
+	makesSelector: (item: T) => number,
+	attemptsSelector: (item: T) => number
+) {
+	const attempts = sumBy(items, attemptsSelector);
+	if (attempts <= 0) return 0;
+	return sumBy(items, makesSelector) / attempts;
+}
+
 export function minBy<T>(items: T[], selector: (item: T) => number) {
 	if (!items.length) {
 		return;

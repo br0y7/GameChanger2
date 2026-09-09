@@ -107,19 +107,19 @@ export const createPlayer = form(createPlayerSchema, async (data, issue) => {
 });
 
 export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
-	const { id } = data;
+	const { id, ...changes } = data;
 
 	await assertPlayerPermissions('update', { resource: 'player', id });
 
 	try {
 		const [updated] = await db
 			.update(table.player)
-			.set(data)
+			.set(changes)
 			.where(eq(table.player.id, id))
-			.returning({ teamId: table.player.teamId });
+			.returning({ teamId: table.player.teamId, name: table.player.name });
 
 		const user = await requireUser();
-		serverLogger.info('updated player', { id, userId: user.id });
+		serverLogger.info('updated player', { id, userId: user.id, name: updated?.name });
 
 		if (updated?.teamId) {
 			const team = await db.query.team.findFirst({
@@ -136,6 +136,8 @@ export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 				}).refresh();
 			}
 		}
+
+		return { success: true };
 	} catch (err) {
 		if (isConstraintError(err, PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT)) {
 			return invalid(issue.jerseyNumber('Jersey number already taken.'));

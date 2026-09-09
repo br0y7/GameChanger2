@@ -12,71 +12,49 @@
 
 	const leaders = $derived(await getTeamLeaders({ teamId }));
 
-	const formatValue = (value: number) =>
-		value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-
-	const initialsFor = (name: string) =>
-		name
-			.trim()
-			.split(/\s+/)
-			.slice(0, 2)
-			.map((part) => part[0]?.toUpperCase() ?? '')
-			.join('');
+	const formatValue = (value: number, isPercent = false) =>
+		isPercent
+			? `${(value * 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`
+			: value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 </script>
 
-<section class="w-full">
-	<h2 class="mb-3 text-xl font-bold text-foreground">Team Leaders</h2>
+<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
+	<h2 class="mb-4 text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Team Leaders</h2>
 
 	{#if leaders.every((leader) => !leader.player)}
-		<p class="text-muted-foreground text-sm">No game stats yet — import a spreadsheet to see leaders.</p>
+		<p class="text-sm text-[#8B949E]">No game stats yet — import a spreadsheet to see leaders.</p>
 	{:else}
-		<div class="overflow-x-auto rounded-md border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-card">
-			<div class="grid min-w-[52rem] grid-cols-5 divide-x divide-neutral-200 dark:divide-neutral-700">
-				{#each leaders as leader (leader.key)}
-					<div class="p-4">
-						<p class="mb-3 text-sm text-neutral-700 dark:text-neutral-300">{leader.label}</p>
-
-						{#if leader.player}
-							{@const player = leader.player}
-							<div class="flex items-start gap-3">
-								<div
-									class="flex size-11 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-bold text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200"
-									aria-hidden="true"
-								>
-									{initialsFor(player.name)}
-								</div>
-								<div class="min-w-0">
-									<p class="truncate text-sm leading-tight">
-										<a
-											href={resolve(
-												'/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]/[jerseyNumber]',
-												{
-													orgSlug: page.params.orgSlug!,
-													seasonSlug: page.params.seasonSlug!,
-													divisionSlug: page.params.divisionSlug!,
-													teamSlug,
-													jerseyNumber: player.jerseyNumber ?? '',
-												}
-											)}
-											class="font-semibold text-foreground hover:underline"
-										>
-											{player.name}
-										</a>
-										{#if player.jerseyNumber}
-											<span class="ml-1 text-neutral-500">#{player.jerseyNumber}</span>
-										{/if}
-									</p>
-									<p class="mt-1 text-3xl font-extrabold tracking-tight text-foreground">
-										{formatValue(player.value)}
-									</p>
-								</div>
-							</div>
-						{:else}
-							<p class="text-sm text-neutral-500">—</p>
-						{/if}
-					</div>
-				{/each}
-			</div>
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+			{#each leaders as leader (leader.key)}
+				<div class="rounded-xl border border-[#2A3038] bg-[#0D1117] p-4">
+					<p class="mb-2 text-xs font-medium tracking-wide text-[#8B949E] uppercase">
+						{leader.label}
+					</p>
+					{#if leader.player}
+						{@const player = leader.player}
+						<a
+							href={resolve(
+								'/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]/[jerseyNumber]',
+								{
+									orgSlug: page.params.orgSlug!,
+									seasonSlug: page.params.seasonSlug!,
+									divisionSlug: page.params.divisionSlug!,
+									teamSlug,
+									jerseyNumber: player.jerseyNumber ?? '',
+								}
+							)}
+							class="block truncate text-sm font-semibold text-[#E6EDF3] hover:text-[#58A6FF] hover:underline"
+						>
+							{player.name}
+						</a>
+						<p class="mt-1 text-2xl font-bold tracking-tight text-[#E6EDF3]">
+							{formatValue(player.value, player.isPercent)}
+						</p>
+					{:else}
+						<p class="text-sm text-[#8B949E]">—</p>
+					{/if}
+				</div>
+			{/each}
 		</div>
 	{/if}
 </section>

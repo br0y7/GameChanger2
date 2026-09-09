@@ -14,13 +14,13 @@
 	import AnimatedNumber from '$lib/components/AnimatedNumber.svelte';
 	import PlayerStatDataTable from './PlayerStatDataTable.svelte';
 	import { columns } from './columns';
-	import { Spinner } from '$lib/components/ui/spinner';
 	import { analyzePlayer } from '$lib/api/player-analysis.remote';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { DRILLS_BY_WEAKNESS } from '$lib/player-analysis/drills-by-weakness';
 	import DrillCard from './DrillCard.svelte';
 	import { getOrganization } from '$lib/api/organization.remote';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
+	import { askAiPanel } from '$lib/ai/ask-ai-state.svelte';
 
 	let { params }: PageProps = $props();
 
@@ -30,7 +30,7 @@
 	const team = $derived(await getTeam({ slug: params.teamSlug, divisionId: division.id }));
 	const player = $derived(await getPlayer({ teamId: team.id, jerseyNumber: params.jerseyNumber }));
 
-	const seasonAveragesPromise = $derived(getPlayerSeasonAverages({ playerId: player.id }));
+	const seasonAverages = $derived(await getPlayerSeasonAverages({ playerId: player.id }));
 	const gameCount = $derived(await getPlayerGameCount({ playerId: player.id }));
 
 	const numberFormatter = new Intl.NumberFormat('en', {
@@ -42,11 +42,21 @@
 
 	const gameStats = $derived(await getPlayerGameStats({ playerId: player.id }));
 
-	type AverageData = {
-		title: string;
-		key: keyof Awaited<typeof seasonAveragesPromise>;
-		format: (n: number) => string;
-	};
+	const percentFormatter = new Intl.NumberFormat('en', {
+		style: 'percent',
+		maximumFractionDigits: 0,
+	});
+
+	const formatPercent = (n: number) => percentFormatter.format(n);
+
+	const averageCards = [
+		{ title: 'Points', key: 'points', format },
+		{ title: 'Rebounds', key: 'rebounds', format },
+		{ title: 'Assists', key: 'assists', format },
+		{ title: 'FG%', key: 'fgPct', format: formatPercent },
+		{ title: '3P%', key: 'fg3Pct', format: formatPercent },
+		{ title: 'FT%', key: 'ftPct', format: formatPercent },
+	] as const;
 </script>
 
 <svelte:head>
@@ -57,6 +67,13 @@
 	<section class="text-center xl:col-span-2">
 		<h1 class="text-3xl font-extrabold">Player Performance Report</h1>
 		<h2 class="text-2xl font-bold">{player.name} of team {team.name}</h2>
+		<button
+			type="button"
+			class="mt-2 text-sm font-medium text-[#58A6FF] hover:underline"
+			onclick={() => askAiPanel.openPanel(`Summarize ${player.name}'s season`)}
+		>
+			✦ Ask AI about this player
+		</button>
 	</section>
 
 	<Separator class="xl:col-span-2" />
@@ -72,52 +89,17 @@
 				<span class="font-medium">{gameCount} games played</span>
 			{/if}
 		</p>
-		<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-			{#await seasonAveragesPromise}
-				{#each ['Points', 'Assists', 'Turnovers', 'Shooting %'] as title (title)}
-					<Card.Root>
-						<Card.Header>
-							<Card.Title>{title}</Card.Title>
-						</Card.Header>
-						<Card.Content>
-							<Spinner />
-						</Card.Content>
-					</Card.Root>
-				{/each}
-			{:then seasonAverages}
-				{let averagesData: AverageData[] = [
-					{
-						title: 'Points',
-						key: 'points',
-						format,
-					},
-					{
-						title: 'Assists',
-						key: 'assists',
-						format,
-					},
-					{
-						title: 'Turnovers',
-						key: 'turnovers',
-						format,
-					},
-					{
-						title: 'Shooting %',
-						key: 'shootingPercentage',
-						format: (p: number) => `${format(p * 100)}%`,
-					},
-				]}
-				{#each averagesData as data (data.key)}
-					<Card.Root>
-						<Card.Header>
-							<Card.Title>{data.title}</Card.Title>
-						</Card.Header>
-						<Card.Content class="text-2xl">
-							<AnimatedNumber end={seasonAverages[data.key] ?? 0} format={data.format} />
-						</Card.Content>
-					</Card.Root>
-				{/each}
-			{/await}
+		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
+			{#each averageCards as card (card.title)}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{card.title}</Card.Title>
+					</Card.Header>
+					<Card.Content class="text-2xl tabular-nums">
+						<AnimatedNumber end={seasonAverages[card.key]} format={card.format} />
+					</Card.Content>
+				</Card.Root>
+			{/each}
 		</div>
 		<Separator />
 	</section>
@@ -133,19 +115,32 @@
 		{#await analyzePlayer({ id: player.id })}
 			<Skeleton class="h-full w-full" />
 		{:then playerAnalysis}
+			{@const topStrength = playerAnalysis.strengths[0]}
+			{@const [firstWeakness] = playerAnalysis.weaknesses}
 			<p class="text-xl">
 				Strength:
 				<span class="font-bold">
-					{playerAnalysis.strengths[0]?.description ?? 'Versatile player'}
+					{topStrength?.description ?? 'Versatile player'}
 				</span>
+				{#if topStrength?.stat}
+					<span class="text-muted-foreground font-medium">
+						· {topStrength.stat.display}
+						{topStrength.stat.label}
+					</span>
+				{/if}
 			</p>
 			<section class="flex flex-col gap-4">
-				{let [firstWeakness] = playerAnalysis.weaknesses}
 				<h3 class="text-xl">
 					Area to improve:
 					<span class="font-bold">
 						{firstWeakness?.description ?? 'Consistency'}
 					</span>
+					{#if firstWeakness?.stat}
+						<span class="text-muted-foreground font-medium">
+							· {firstWeakness.stat.display}
+							{firstWeakness.stat.label}
+						</span>
+					{/if}
 				</h3>
 				{#if firstWeakness}
 					<p class="text-xl font-medium">Suggested drills:</p>

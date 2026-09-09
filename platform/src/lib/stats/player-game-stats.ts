@@ -7,9 +7,9 @@ export function derivePlayerGameStats(
 	const { fgm, fga, fg3m, fg3a, ftm, fta, oreb, dreb, ast, stl, blk, tov, pf } = rawStats;
 
 	const pts = (fgm - fg3m) * 2 + fg3m * 3 + ftm;
-	const fgPct = fgm / (fga || 1); // prevent division by zero
-	const fg3Pct = fg3m / (fg3a || 1);
-	const ftPct = ftm / (fta || 1);
+	const fgPct = fga > 0 ? fgm / fga : 0;
+	const fg3Pct = fg3a > 0 ? fg3m / fg3a : 0;
+	const ftPct = fta > 0 ? ftm / fta : 0;
 	const reb = oreb + dreb;
 	const eff = pts + reb + ast + stl + blk - (tov + pf);
 

@@ -17,25 +17,25 @@
 	let {
 		start = 0,
 		end,
-		options = { easing: expoOut, duration: 3000 },
+		options = { easing: expoOut, duration: 1200 },
 		format = (v) => v,
 		class: className,
 	}: Props = $props();
-	let visible = $state(false);
+	let visible = $state(true);
 
 	let value = Tween.of(() => start);
+
+	$effect(() => {
+		value.set(end, options);
+	});
 </script>
 
 <span
 	{@attach inView({
-		once: false,
+		once: true,
 		onEnter() {
 			value.set(end, options);
 			visible = true;
-		},
-		onExit() {
-			value.target = start;
-			visible = false;
 		},
 	})}
 	style:opacity={visible ? 1 : 0}
