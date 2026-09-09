@@ -29,6 +29,11 @@
 </script>
 
 {#snippet statsTable(playerStats: PlayerGameStatsPreview[])}
+	{@const jerseyCounts = playerStats.reduce((counts, stat) => {
+		const jersey = stat.jerseyNumber || '(blank)';
+		counts.set(jersey, (counts.get(jersey) ?? 0) + 1);
+		return counts;
+	}, new Map<string, number>())}
 	<Table.Root>
 		<Table.Header>
 			<Table.Row>
@@ -39,16 +44,20 @@
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			{#each playerStats as stat (stat.jerseyNumber)}
-				<Table.Row>
+			{#each playerStats as stat, index (`${stat.jerseyNumber}-${index}`)}
+				{@const isDuplicate = (jerseyCounts.get(stat.jerseyNumber || '(blank)') ?? 0) > 1}
+				<Table.Row class={isDuplicate ? 'bg-destructive/10' : undefined}>
 					<Table.Cell class="flex gap-2">
 						{stat.jerseyNumber}
 						<Badge variant={getBadgeVariant(stat._status)}>
 							{stat._status}
 						</Badge>
+						{#if isDuplicate}
+							<Badge variant="destructive">duplicate</Badge>
+						{/if}
 					</Table.Cell>
 					{#each rawStatKeys as key (key)}
-						<Table.Cell>{stat.stats[key]}</Table.Cell>
+						<Table.Cell>{stat.stats[key] ?? 0}</Table.Cell>
 					{/each}
 				</Table.Row>
 			{/each}

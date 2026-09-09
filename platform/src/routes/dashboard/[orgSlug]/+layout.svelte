@@ -6,6 +6,7 @@
 	import type { LayoutProps } from './$types';
 	import DashboardSidebar from './DashboardSidebar.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import AskAiAssistant from '$lib/components/ask-ai/AskAiAssistant.svelte';
 
 	// import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 
@@ -31,21 +32,11 @@
 						Back
 					</Button>
 				{/if}
-				<!-- <Breadcrumb.Root>
-					<Breadcrumb.List>
-						<Breadcrumb.Item class="hidden md:block">
-							<Breadcrumb.Link href="##">Build Your Application</Breadcrumb.Link>
-						</Breadcrumb.Item>
-						<Breadcrumb.Separator class="hidden md:block" />
-						<Breadcrumb.Item>
-							<Breadcrumb.Page>Data Fetching</Breadcrumb.Page>
-						</Breadcrumb.Item>
-					</Breadcrumb.List>
-				</Breadcrumb.Root> -->
 			</div>
 		</header>
 		<main>
 			{@render children()}
 		</main>
+		<AskAiAssistant />
 	</Sidebar.Inset>
 </Sidebar.Provider>

@@ -60,7 +60,13 @@
 
 			toast.success('Preview saved to the database');
 		} catch (err) {
-			toast.error(`Error: ${err}`);
+			const message =
+				err && typeof err === 'object' && 'body' in err
+					? String((err as { body?: { message?: string } }).body?.message ?? err)
+					: err instanceof Error
+						? err.message
+						: String(err);
+			toast.error(message, { duration: 12000 });
 		} finally {
 			submitting = false;
 		}

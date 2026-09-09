@@ -1,7 +1,7 @@
 import { command, form } from '$app/server';
 import * as xlsx from 'xlsx';
 import { serverLogger } from '$lib/server/logger';
-import { invalid } from '@sveltejs/kit';
+import { error, invalid } from '@sveltejs/kit';
 import {
 	savePreviewSchema,
 	uploadSpreadsheetSchema,
@@ -24,6 +24,9 @@ import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { slugify } from '$lib/utils/string';
 import { and, eq } from 'drizzle-orm';
+import { rawStatKeys } from '$lib/schemas/player-game-stat';
+import { idField } from '$lib/schemas/common';
+import { z } from 'zod';
 
 async function annotatePlayers(playerPreviews: PlayerGameStatsPreview[], players: Player[]) {
 	const playerMap = new Map<string, Player>();
@@ -144,6 +147,8 @@ async function saveGame(
 			awayTeamId: awayTeam.id,
 			name: `${homeTeam.name} vs ${awayTeam.name}`,
 			completedAt: gamePreview.completedAt,
+			homeTeamScore: gamePreview.homeTeam.score,
+			awayTeamScore: gamePreview.awayTeam.score,
 			status: 'completed',
 		})
 		.returning({ id: table.game.id });
@@ -153,10 +158,20 @@ async function saveGame(
 
 async function saveStats(tx: Transaction, data: TeamPreview, team: Team, gameId: string) {
 	for (const playerPreview of data.playerStats) {
-		const { jerseyNumber, stats } = playerPreview;
+		const { jerseyNumber, stats: rawStats } = playerPreview;
 
 		if (!jerseyNumber) {
 			notFound({ resource: 'player' }, { message: 'No jersey number while trying to save stats.' });
+		}
+
+		const stats = Object.fromEntries(
+			rawStatKeys.map((key) => [key, Number(rawStats?.[key]) || 0])
+		) as typeof rawStats;
+
+		// Skip players who appear with no recorded stats (not actually on the sheet box score)
+		const hasAnyStat = rawStatKeys.some((key) => Number(stats?.[key]) > 0);
+		if (!hasAnyStat) {
+			continue;
 		}
 
 		let player = await tx.query.player.findFirst({
@@ -201,44 +216,113 @@ async function saveStats(tx: Transaction, data: TeamPreview, team: Team, gameId:
 	}
 }
 
-export const savePreview = command(savePreviewSchema, async ({ games, divisionId }) => {
-	const admin = await requireAdmin();
+function formatSaveValidationIssues(
+	games: GamePreview[],
+	issues: { path: PropertyKey[]; message: string }[]
+) {
+	return issues
+		.map((issue) => {
+			const path = issue.path.map(String);
+			const gameIndex = path[0] === 'games' ? Number(path[1]) : NaN;
+			const game = Number.isInteger(gameIndex) ? games[gameIndex] : undefined;
 
-	const division = await db.query.division.findFirst({
-		where: { id: divisionId },
-		with: { season: true },
-	});
-
-	if (!division) {
-		notFound({ resource: 'division', id: divisionId });
-	}
-
-	try {
-		// Transactions will roll back (discard changes)
-		// if any operation fails.
-		await db.transaction(async (tx) => {
-			if (!division.season) {
-				notFound({ resource: 'season' });
+			const parts: string[] = [];
+			if (game) {
+				parts.push(`Game: ${game.name}`);
+			} else if (Number.isInteger(gameIndex)) {
+				parts.push(`Game #${gameIndex + 1}`);
 			}
 
-			for (const game of games) {
-				const homeTeam = await saveTeam(tx, game.homeTeam, divisionId);
-				const awayTeam = await saveTeam(tx, game.awayTeam, divisionId);
+			if (path[2] === 'homeTeam' || path[2] === 'awayTeam') {
+				const side = path[2] === 'homeTeam' ? 'Home' : 'Away';
+				const team = path[2] === 'homeTeam' ? game?.homeTeam : game?.awayTeam;
+				parts.push(`Team: ${team?.name ?? side}`);
+			}
 
-				if (!homeTeam || !awayTeam) {
-					notFound({ resource: 'team' });
+			if (path[3] === 'playerStats' && path[4] !== undefined) {
+				const playerIndex = Number(path[4]);
+				const side = path[2] === 'homeTeam' ? game?.homeTeam : game?.awayTeam;
+				const player = side?.playerStats?.[playerIndex];
+				const jersey = player?.jerseyNumber ? `#${player.jerseyNumber}` : `row ${playerIndex + 1}`;
+				parts.push(`Player: ${jersey}`);
+			}
+
+			if (path.length > 0) {
+				const field = path.at(-1);
+				if (field && field !== 'games' && !String(field).match(/^\d+$/)) {
+					parts.push(`Field: ${String(field)}`);
 				}
-
-				const { id: gameId } = await saveGame(tx, homeTeam, awayTeam, game, division.season.id);
-
-				await saveStats(tx, game.homeTeam, homeTeam, gameId);
-				await saveStats(tx, game.awayTeam, awayTeam, gameId);
 			}
+
+			parts.push(issue.message);
+			return parts.join(' — ');
+		})
+		.join('\n');
+}
+
+export const savePreview = command(
+	z.object({
+		games: z.array(z.any()),
+		divisionId: idField,
+	}),
+	async ({ games, divisionId }) => {
+		const admin = await requireAdmin();
+
+		const parsed = savePreviewSchema.safeParse({ games, divisionId });
+		if (!parsed.success) {
+			const details = formatSaveValidationIssues(
+				games as GamePreview[],
+				parsed.error.issues.map((issue) => ({ path: issue.path, message: issue.message }))
+			);
+			serverLogger.error('save preview validation failed', details);
+			error(400, details || 'Invalid statsheet data');
+		}
+
+		const division = await db.query.division.findFirst({
+			where: { id: parsed.data.divisionId },
+			with: { season: true },
 		});
 
-		serverLogger.info('saved stats', { admin: admin.id });
-	} catch (err) {
-		serverLogger.error(err);
-		throw err;
+		if (!division) {
+			notFound({ resource: 'division', id: divisionId });
+		}
+
+		try {
+			await db.transaction(async (tx) => {
+				if (!division.season) {
+					notFound({ resource: 'season' });
+				}
+
+				for (const game of parsed.data.games) {
+					try {
+						const homeTeam = await saveTeam(tx, game.homeTeam, divisionId);
+						const awayTeam = await saveTeam(tx, game.awayTeam, divisionId);
+
+						if (!homeTeam || !awayTeam) {
+							notFound({ resource: 'team' });
+						}
+
+						const { id: gameId } = await saveGame(
+							tx,
+							homeTeam,
+							awayTeam,
+							game,
+							division.season.id
+						);
+
+						await saveStats(tx, game.homeTeam, homeTeam, gameId);
+						await saveStats(tx, game.awayTeam, awayTeam, gameId);
+					} catch (err) {
+						const message = err instanceof Error ? err.message : 'Unknown save error';
+						throw new Error(`[Game: ${game.name}] ${message}`, { cause: err });
+					}
+				}
+			});
+
+			serverLogger.info('saved stats', { admin: admin.id });
+		} catch (err) {
+			serverLogger.error(err);
+			throw err;
+		}
 	}
-});
+);

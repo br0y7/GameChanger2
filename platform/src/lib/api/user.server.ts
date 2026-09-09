@@ -10,4 +10,4 @@ import type { User } from '$lib/server/auth';
  * @param user User, from db hooks, casted to `User`
  * @returns Whether user is admin
  */
-export const isAdmin = (user: User) => user.role === USER_ROLE.admin;
+export const isAdmin = (user: User) => user.role?.trim() === USER_ROLE.admin;
