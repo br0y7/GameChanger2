@@ -5,16 +5,20 @@ import {
 	pgEnum,
 	real,
 	integer,
+	boolean,
 	uuid,
 	snakeCase,
 	unique,
 	varchar,
 } from 'drizzle-orm/pg-core';
-import { organization, user } from './auth-schema.ts';
+import { invitation, organization, user } from './auth-schema.ts';
 import { baseFields, creationFields, nameSlugFields } from './base-schema.ts';
 import { ONBOARDING_DEFAULT_STEP } from '$lib/onboarding/steps';
 import { divisionTypes } from '$lib/schemas/division';
 import { seasonStatuses } from '$lib/schemas/season';
+import { gameTypes } from '$lib/schemas/game';
+import { coachAssignmentRoles, coachStatuses } from '$lib/schemas/coach';
+import { gameStatsStatuses } from '$lib/schemas/game-stats';
 
 export const seasonStatusEnum = pgEnum('season_status', seasonStatuses);
 
@@ -79,25 +83,41 @@ export const team = snakeCase.table(
 
 export type Team = typeof team.$inferSelect;
 
+export const coachAssignmentRoleEnum = pgEnum('coach_assignment_role', coachAssignmentRoles);
+export const coachStatusEnum = pgEnum('coach_status', coachStatuses);
+
 export const coach = snakeCase.table(
 	'coach',
 	{
 		...baseFields,
 		name: text().notNull(),
-		// nullable, organizer creates a record then invites a coach
+		// nullable until the invite is accepted
 		userId: uuid().references(() => user.id, { onDelete: 'set null' }),
 		teamId: uuid()
 			.notNull()
 			.references(() => team.id, { onDelete: 'cascade' }),
-		// potentially could add 'type/role' if you want to disambiguate head, assistant coach
+		assignmentRole: coachAssignmentRoleEnum().notNull().default('head_coach'),
+		status: coachStatusEnum().notNull().default('active'),
+		email: text(),
+		invitedAt: timestamp(),
+		acceptedAt: timestamp(),
+		expiresAt: timestamp(),
+		inviteToken: uuid(),
+		invitationId: uuid().references(() => invitation.id, { onDelete: 'set null' }),
 	},
 	(table) => [
 		index('coach_userId_idx').on(table.userId),
 		index('coach_teamId_idx').on(table.teamId),
+		index('coach_email_idx').on(table.email),
+		index('coach_inviteToken_idx').on(table.inviteToken),
 	]
 );
 
+export type Coach = typeof coach.$inferSelect;
+
 export const gameStatusEnum = pgEnum('game_status', ['upcoming', 'completed', 'cancelled']);
+export const gameTypeEnum = pgEnum('game_type', gameTypes);
+export const gameStatsStatusEnum = pgEnum('game_stats_status', gameStatsStatuses);
 
 export const game = snakeCase.table(
 	'game',
@@ -124,11 +144,19 @@ export const game = snakeCase.table(
 		completedAt: timestamp(),
 
 		status: gameStatusEnum().notNull().default('upcoming'),
+		gameType: gameTypeEnum().notNull().default('regular'),
+		/** False when the sheet only recorded Win/Lose/Default Lose (no box-score stats). */
+		statsAvailable: boolean().notNull().default(true),
+		statsStatus: gameStatsStatusEnum().notNull().default('none'),
+		statsSubmittedAt: timestamp(),
+		statsSubmittedByUserId: uuid().references(() => user.id, { onDelete: 'set null' }),
+		statsPublishedAt: timestamp(),
 	},
 	(table) => [
 		index('game_seasonId_idx').on(table.seasonId),
 		index('game_homeTeamId_idx').on(table.homeTeamId),
 		index('game_awayTeamId_idx').on(table.awayTeamId),
+		index('game_statsStatus_idx').on(table.statsStatus),
 	]
 );
 
@@ -168,23 +196,38 @@ export const relationshipEnum = pgEnum('follower_relationship', [
 	'other',
 ]);
 
+export const familyAccessStatusEnum = pgEnum('family_access_status', [
+	'invited',
+	'active',
+	'expired',
+	'removed',
+]);
+
 export const playerFollower = snakeCase.table(
 	'player_follower',
 	{
 		...creationFields,
-		userId: uuid()
-			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
+		// nullable until invite is accepted
+		userId: uuid().references(() => user.id, { onDelete: 'cascade' }),
 		playerId: uuid()
 			.notNull()
 			.references(() => player.id, { onDelete: 'cascade' }),
-		relationship: relationshipEnum().notNull().default('fan'),
+		relationship: relationshipEnum().notNull().default('parent'),
+		status: familyAccessStatusEnum().notNull().default('active'),
+		email: text(),
+		invitedAt: timestamp(),
+		acceptedAt: timestamp(),
+		expiresAt: timestamp(),
+		inviteToken: uuid(),
 	},
 	(table) => [
 		index('playerFollower_userId_idx').on(table.userId),
 		index('playerFollower_playerId_idx').on(table.playerId),
+		index('playerFollower_email_idx').on(table.email),
+		index('playerFollower_inviteToken_idx').on(table.inviteToken),
 	]
 );
+
 
 export const playerGameStat = snakeCase.table(
 	'player_game_stat',
@@ -256,5 +299,33 @@ export const userOnboarding = snakeCase.table('user_onboarding', {
 });
 
 export type Onboarding = typeof userOnboarding.$inferSelect;
+
+/** Per-league public discovery / stats visibility (Admin settings). */
+export const leagueVisibility = snakeCase.table(
+	'league_visibility',
+	{
+		organizationId: uuid()
+			.primaryKey()
+			.references(() => organization.id, { onDelete: 'cascade' }),
+		updatedAt: timestamp('updated_at')
+			.$onUpdateFn(() => new Date())
+			.notNull()
+			.defaultNow(),
+		/** Appear in public Leagues / Stats discovery. */
+		isListed: boolean().notNull().default(true),
+		publishStandings: boolean().notNull().default(true),
+		publishGameScores: boolean().notNull().default(true),
+		publishTeamStats: boolean().notNull().default(true),
+		publishPlayerStats: boolean().notNull().default(true),
+		showPlayerFullNames: boolean().notNull().default(true),
+		showPlayerPhotos: boolean().notNull().default(false),
+		showBirthdate: boolean().notNull().default(false),
+		/** Always private for GC 1.5 — kept for future; default OFF. */
+		publishDevelopmentReports: boolean().notNull().default(false),
+	},
+	(table) => [index('league_visibility_listed_idx').on(table.isListed)]
+);
+
+export type LeagueVisibility = typeof leagueVisibility.$inferSelect;
 
 export * from './auth-schema.ts';

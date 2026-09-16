@@ -13,6 +13,11 @@
 	import { getTeamOverview } from '$lib/api/team-overview.remote';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { askAiPanel } from '$lib/ai/ask-ai-state.svelte';
+	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
+	import { getTeamCoach } from '$lib/api/coach.remote';
+	import { getMyTeamCoachAssignment } from '$lib/api/coach-portal.remote';
+	import { coachRoleLabels, coachStatusLabels } from '$lib/schemas/coach';
+	import ClipboardIcon from '@lucide/svelte/icons/clipboard';
 
 	let { params }: PageProps = $props();
 
@@ -26,6 +31,25 @@
 			include: { players: true, coaches: true },
 		})
 	);
+	const isOrganizer = $derived(await isUserLeagueOrganizer());
+	const teamCoach = $derived(await getTeamCoach({ teamId: team.id }));
+	const myAssignment = $derived(await getMyTeamCoachAssignment({ teamId: team.id }));
+	let inviteCopied = $state(false);
+	const coachesManageHref = $derived(
+		resolve('/dashboard/[orgSlug]/coaches', { orgSlug: params.orgSlug })
+	);
+	const coachPortalHref = $derived(
+		resolve('/dashboard/[orgSlug]/portal/[teamId]', {
+			orgSlug: params.orgSlug,
+			teamId: team.id,
+		})
+	);
+	const adminOverviewHref = $derived(
+		resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug })
+	);
+	const manageTeamsHref = $derived(
+		resolve('/dashboard/[orgSlug]/teams', { orgSlug: params.orgSlug })
+	);
 	const overview = $derived(
 		await getTeamOverview({
 			teamId: team.id,
@@ -36,7 +60,20 @@
 
 	const tabs = ['Overview', 'Schedule', 'Roster', 'Stats'] as const;
 	type Tab = (typeof tabs)[number];
+	type ScheduleFilter = 'all' | 'regular' | 'playoffs';
+
 	let activeTab = $state<Tab>('Overview');
+	let scheduleFilter = $state<ScheduleFilter>('all');
+
+	const filteredSchedule = $derived(
+		overview.schedule.filter((game) => {
+			if (scheduleFilter === 'regular') return game.gameType === 'regular';
+			if (scheduleFilter === 'playoffs') {
+				return game.gameType === 'playoff' || game.gameType === 'finals';
+			}
+			return true;
+		})
+	);
 
 	const formatAvg = (value: number) =>
 		value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -84,13 +121,23 @@
 
 <div class="min-h-full bg-[#0D1117] text-[#E6EDF3]">
 	<div class="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
-		<a
-			href={divisionTeamsHref}
-			class="mb-4 inline-flex items-center gap-1 text-sm text-[#8B949E] transition-colors hover:text-[#58A6FF]"
-		>
-			<ChevronLeftIcon class="size-4" />
-			Teams / {season.name}
-		</a>
+		<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+			<a
+				href={divisionTeamsHref}
+				class="inline-flex items-center gap-1 text-sm text-[#8B949E] transition-colors hover:text-[#58A6FF]"
+			>
+				<ChevronLeftIcon class="size-4" />
+				Teams / {season.name}
+			</a>
+			{#if isOrganizer}
+				<p class="text-xs text-[#8B949E]">
+					Admin:
+					<a href={manageTeamsHref} class="text-[#58A6FF] hover:underline">Manage roster</a>
+					<span class="mx-1 text-[#2A3038]">·</span>
+					<a href={adminOverviewHref} class="text-[#58A6FF] hover:underline">League overview</a>
+				</p>
+			{/if}
+		</div>
 
 		<header class="mb-5 flex items-start gap-4 rounded-2xl border border-[#2A3038] bg-[#161B22] p-4 sm:p-5">
 			<div
@@ -138,6 +185,70 @@
 				{/if}
 			</div>
 		</header>
+
+		{#if myAssignment && !isOrganizer}
+			<section
+				class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#58A6FF]/40 bg-[#161B22] p-5"
+			>
+				<div>
+					<p class="text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">
+						You manage this team
+					</p>
+					<p class="mt-1 text-sm text-[#8B949E]">Open your Coach Portal to view roster and games.</p>
+				</div>
+				<a
+					href={coachPortalHref}
+					class="inline-flex items-center rounded-md bg-[#58A6FF] px-3 py-2 text-sm font-semibold text-[#0D1117]"
+				>
+					Open Coach Portal
+				</a>
+			</section>
+		{/if}
+
+		{#if isOrganizer}
+			<section class="mb-6 rounded-2xl border border-[#2A3038] bg-[#161B22] p-5">
+				<p class="text-xs font-semibold tracking-wide text-[#8B949E] uppercase">Coach</p>
+				{#if teamCoach}
+					<p class="mt-2 text-base font-medium">{teamCoach.name}</p>
+					{#if teamCoach.email}
+						<p class="text-sm text-[#8B949E]">{teamCoach.email}</p>
+					{/if}
+					<p class="mt-1 text-sm text-[#8B949E]">
+						{coachRoleLabels[teamCoach.assignmentRole]} · {coachStatusLabels[teamCoach.status]}
+					</p>
+					<div class="mt-3 flex flex-wrap gap-2">
+						{#if teamCoach.status === 'invited' && teamCoach.inviteUrl}
+							<button
+								type="button"
+								class="inline-flex items-center gap-1.5 rounded-md border border-[#2A3038] bg-[#0D1117] px-3 py-2 text-sm hover:border-[#58A6FF]"
+								onclick={async () => {
+									await navigator.clipboard.writeText(teamCoach.inviteUrl!);
+									inviteCopied = true;
+									setTimeout(() => (inviteCopied = false), 2000);
+								}}
+							>
+								<ClipboardIcon class="size-3.5" />
+								{inviteCopied ? 'Copied' : 'Copy invite link'}
+							</button>
+						{/if}
+						<a
+							href={coachesManageHref}
+							class="inline-flex items-center rounded-md bg-[#58A6FF] px-3 py-2 text-sm font-semibold text-[#0D1117]"
+						>
+							Manage Coach
+						</a>
+					</div>
+				{:else}
+					<p class="mt-2 text-sm text-[#8B949E]">No coach assigned</p>
+					<a
+						href={coachesManageHref}
+						class="mt-3 inline-flex items-center rounded-md bg-[#58A6FF] px-3 py-2 text-sm font-semibold text-[#0D1117]"
+					>
+						Invite Coach
+					</a>
+				{/if}
+			</section>
+		{/if}
 
 		<nav class="mb-6 flex gap-5 overflow-x-auto border-b border-[#2A3038]" aria-label="Team sections">
 			{#each tabs as tab (tab)}
@@ -208,9 +319,18 @@
 											class="min-w-0 flex-1 truncate text-[#E6EDF3] hover:text-[#58A6FF]"
 										>
 											<span class="font-semibold tabular-nums underline-offset-2 hover:underline">
-												{game.teamScore}–{game.oppScore}
+												{#if game.statsAvailable === false}
+													{game.result}
+												{:else}
+													{game.teamScore}–{game.oppScore}
+												{/if}
 											</span>
 											<span class="text-[#8B949E]"> vs {game.opponentName}</span>
+											{#if game.gameType === 'playoff'}
+												<span class="ml-1 text-[#F0A020]">· Playoff</span>
+											{:else if game.gameType === 'finals'}
+												<span class="ml-1 text-[#A371F7]">· Finals</span>
+											{/if}
 										</a>
 										<span class="shrink-0 text-[#8B949E]">{formatDate(game.completedAt)}</span>
 									</li>
@@ -343,39 +463,93 @@
 			</div>
 		{:else if activeTab === 'Schedule'}
 			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
-				<h2 class="mb-4 text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Schedule</h2>
-				{#if overview.recentGames.length === 0 && !overview.nextGame}
+				<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+					<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Schedule</h2>
+					<div
+						class="inline-flex rounded-lg border border-[#2A3038] bg-[#0D1117] p-0.5 text-xs font-medium"
+						role="group"
+						aria-label="Filter schedule by game type"
+					>
+						<button
+							type="button"
+							class="rounded-md px-2.5 py-1.5 transition-colors {scheduleFilter === 'all'
+								? 'bg-[#21262D] text-[#E6EDF3]'
+								: 'text-[#8B949E] hover:text-[#E6EDF3]'}"
+							onclick={() => (scheduleFilter = 'all')}
+						>
+							All
+						</button>
+						<button
+							type="button"
+							class="rounded-md px-2.5 py-1.5 transition-colors {scheduleFilter === 'regular'
+								? 'bg-[#21262D] text-[#E6EDF3]'
+								: 'text-[#8B949E] hover:text-[#E6EDF3]'}"
+							onclick={() => (scheduleFilter = 'regular')}
+						>
+							Regular Season
+						</button>
+						<button
+							type="button"
+							class="rounded-md px-2.5 py-1.5 transition-colors {scheduleFilter === 'playoffs'
+								? 'bg-[#21262D] text-[#E6EDF3]'
+								: 'text-[#8B949E] hover:text-[#E6EDF3]'}"
+							onclick={() => (scheduleFilter = 'playoffs')}
+						>
+							Playoffs
+						</button>
+					</div>
+				</div>
+				{#if overview.schedule.length === 0}
 					<p class="text-sm text-[#8B949E]">No games on the schedule yet.</p>
+				{:else if filteredSchedule.length === 0}
+					<p class="text-sm text-[#8B949E]">
+						No {scheduleFilter === 'regular' ? 'regular season' : 'playoff'} games to show.
+					</p>
 				{:else}
 					<ul class="space-y-3">
-						{#if overview.nextGame}
-							<li class="rounded-xl border border-[#2A3038] bg-[#0D1117] p-4">
-								<p class="text-xs font-medium tracking-wide text-[#58A6FF] uppercase">Upcoming</p>
-								<p class="mt-1 font-semibold">vs {overview.nextGame.opponentName}</p>
-								<p class="text-sm text-[#8B949E]">{formatDate(overview.nextGame.scheduledAt)}</p>
-							</li>
-						{/if}
-						{#each overview.recentGames as game (game.id)}
-							<li class="flex items-center justify-between gap-3 rounded-xl border border-[#2A3038] bg-[#0D1117] px-4 py-3 text-sm">
-								<span
-									class="font-bold {game.result === 'W'
-										? 'text-[#3FB950]'
-										: game.result === 'L'
-											? 'text-[#F85149]'
-											: 'text-[#8B949E]'}"
-								>
-									{game.result}
-								</span>
-								<a
-									href={gameBoxHref(game.id)}
-									class="min-w-0 flex-1 truncate hover:text-[#58A6FF]"
-								>
-									<span class="font-semibold tabular-nums underline-offset-2 hover:underline">
-										{game.teamScore}–{game.oppScore}
+						{#each filteredSchedule as game (game.id)}
+							<li
+								class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#2A3038] bg-[#0D1117] px-4 py-3 text-sm"
+							>
+								{#if game.status === 'upcoming'}
+									<span class="w-8 shrink-0 text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">
+										TBD
 									</span>
-									<span class="text-[#8B949E]"> vs {game.opponentName}</span>
-								</a>
-								<span class="text-[#8B949E]">{formatDate(game.completedAt)}</span>
+								{:else}
+									<span
+										class="w-8 shrink-0 font-bold {game.result === 'W'
+											? 'text-[#3FB950]'
+											: game.result === 'L'
+												? 'text-[#F85149]'
+												: 'text-[#8B949E]'}"
+									>
+										{game.result}
+									</span>
+								{/if}
+
+								{#if game.status === 'completed'}
+									<a
+										href={gameBoxHref(game.id)}
+										class="min-w-0 flex-1 truncate hover:text-[#58A6FF]"
+									>
+										<span class="font-semibold tabular-nums underline-offset-2 hover:underline">
+											{#if game.statsAvailable === false}
+												{game.result}
+											{:else}
+												{game.teamScore}–{game.oppScore}
+											{/if}
+										</span>
+										<span class="text-[#8B949E]"> vs {game.opponentName}</span>
+									</a>
+								{:else}
+									<div class="min-w-0 flex-1 truncate">
+										<span class="font-semibold">vs {game.opponentName}</span>
+									</div>
+								{/if}
+
+								<span class="w-16 shrink-0 text-right text-[#8B949E]">
+									{formatDate(game.status === 'upcoming' ? game.scheduledAt : game.completedAt)}
+								</span>
 							</li>
 						{/each}
 					</ul>

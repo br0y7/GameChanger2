@@ -11,6 +11,7 @@ import {
 	type StatKey,
 	type TeamPreview,
 } from '$lib/schemas/preview';
+import type { GameType } from '$lib/schemas/game';
 import { Temporal } from 'temporal-polyfill';
 import { serverLogger } from '$lib/server/logger';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
@@ -27,6 +28,103 @@ const HEADER_REPLACEMENTS: Record<string, Header> = {
 };
 
 type RowValue = string | number | null | undefined;
+
+function parseGameType(value: RowValue, gameName: string, excelRow: number): GameType {
+	if (value === undefined || value === null || String(value).trim() === '') {
+		return 'regular';
+	}
+
+	const normalized = String(value)
+		.trim()
+		.toLowerCase()
+		.replace(/[_-]+/g, ' ')
+		.replace(/\s+/g, ' ');
+
+	if (normalized === 'playoff' || normalized === 'playoffs') {
+		return 'playoff';
+	}
+
+	if (
+		normalized === 'finals' ||
+		normalized === 'final' ||
+		normalized === 'championship' ||
+		normalized === 'championship game'
+	) {
+		return 'finals';
+	}
+
+	if (
+		normalized === 'regular' ||
+		normalized === 'normal' ||
+		normalized === 'season' ||
+		normalized === 'regular season' ||
+		normalized.startsWith('regular season')
+	) {
+		return 'regular';
+	}
+
+	throw gameError(
+		gameName,
+		`Game Type row (Excel row ${excelRow})`,
+		`Unknown Game Type "${value}". Use Regular Season, Playoff, or Finals.`
+	);
+}
+
+function isGameTypeLabel(label: string) {
+	const normalized = label.trim().toLowerCase().replace(/[_-]+/g, ' ');
+	return normalized === 'game type' || normalized === 'gametype' || normalized.startsWith('game type');
+}
+
+/** Parse the cell beside the team name: a number, or Win/Lose/Default Lose when no stats exist. */
+function parseTeamScoreCell(
+	value: RowValue,
+	gameName: string,
+	teamName: string,
+	excelRow: number
+): { kind: 'points'; score: number } | { kind: 'result'; result: 'win' | 'lose'; score: number } {
+	if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
+		return { kind: 'points', score: 0 };
+	}
+
+	if (typeof value === 'number' && Number.isFinite(value)) {
+		return { kind: 'points', score: value };
+	}
+
+	const normalized = String(value)
+		.trim()
+		.toLowerCase()
+		.replace(/[_-]+/g, ' ')
+		.replace(/\s+/g, ' ');
+
+	if (normalized === 'win' || normalized === 'won' || normalized === 'w') {
+		return { kind: 'result', result: 'win', score: 1 };
+	}
+
+	// Classic lose, or default/forfeit lose — other team wins; no box-score stats.
+	if (
+		normalized === 'lose' ||
+		normalized === 'loss' ||
+		normalized === 'lost' ||
+		normalized === 'l' ||
+		normalized === 'default lose' ||
+		normalized === 'default loss' ||
+		normalized === 'default lost' ||
+		normalized === 'dl'
+	) {
+		return { kind: 'result', result: 'lose', score: 0 };
+	}
+
+	const asNumber = Number(normalized);
+	if (Number.isFinite(asNumber) && normalized !== '') {
+		return { kind: 'points', score: asNumber };
+	}
+
+	throw gameError(
+		gameName,
+		`Team: ${teamName} (Excel row ${excelRow})`,
+		`Invalid score "${value}". Use a number, or Win / Lose / Default Lose when stats are unavailable.`
+	);
+}
 
 function gameError(gameName: string, section: string, message: string, cause?: unknown) {
 	return new SpreadsheetParserError(`[Game: ${gameName}] [${section}] ${message}`, { cause });
@@ -115,11 +213,14 @@ function parseGameSheet(
 	}) as RowValue[][];
 
 	let gameTime = Temporal.Now.zonedDateTimeISO();
+	let gameType: GameType = 'regular';
 
 	const teams: TeamPreview[] = [];
 	let currentTeam: TeamPreview | null = null;
 	let currentHeaders: Header[] = [];
 	let isReadingStats = false;
+	let resultOnlyGame = false;
+	const teamResults: Array<'win' | 'lose' | null> = [];
 
 	try {
 		for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
@@ -149,16 +250,25 @@ function parseGameSheet(
 			}
 
 			if (firstLowerText.startsWith('time') && !isReadingStats) {
+				// Time row is optional: missing/blank values are ignored (date-only is fine).
+				if (second === undefined || second === null || second === '') {
+					continue;
+				}
 				try {
 					gameTime = applyExcelTime(gameTime, second as number);
 				} catch (err) {
-					throw gameError(
+					serverLogger.warn('optional time row skipped', {
 						gameName,
-						`Time row (Excel row ${excelRow})`,
-						err instanceof Error ? err.message : 'Invalid time',
-						err
-					);
+						excelRow,
+						value: second,
+						error: err instanceof Error ? err.message : String(err),
+					});
 				}
+				continue;
+			}
+
+			if (isGameTypeLabel(firstLowerText) && !isReadingStats) {
+				gameType = parseGameType(second, gameName, excelRow);
 				continue;
 			}
 
@@ -175,6 +285,12 @@ function parseGameSheet(
 				typeof first === 'string' &&
 				(firstLowerText.startsWith('player no') || firstLowerText.startsWith('player name'))
 			) {
+				// Result-only sheets (Win/Lose/Default Lose) may still include a header row — ignore it.
+				if (resultOnlyGame) {
+					currentHeaders = [];
+					continue;
+				}
+
 				if (!row.every((h) => typeof h === 'string')) {
 					throw gameError(
 						gameName,
@@ -190,15 +306,29 @@ function parseGameSheet(
 			}
 
 			if (typeof first === 'string') {
+				const parsedScore = parseTeamScoreCell(second, gameName, first.toString(), excelRow);
+
+				if (parsedScore.kind === 'result') {
+					resultOnlyGame = true;
+					teamResults.push(parsedScore.result);
+				} else {
+					teamResults.push(null);
+				}
+
 				currentTeam = {
 					name: first.toString(),
-					score: Number(second) || 0,
+					score: parsedScore.score,
 					playerStats: [],
 					_status: 'new',
 				};
 
 				teams.push(currentTeam);
 
+				continue;
+			}
+
+			// Win/Lose/Default Lose sheets have no usable player box score — skip leftover rows.
+			if (resultOnlyGame) {
 				continue;
 			}
 
@@ -234,9 +364,32 @@ function parseGameSheet(
 			);
 		}
 
+		if (resultOnlyGame) {
+			const wins = teamResults.filter((r) => r === 'win').length;
+			const losses = teamResults.filter((r) => r === 'lose').length;
+			if (wins !== 1 || losses !== 1) {
+				throw gameError(
+					gameName,
+					'Teams',
+					'Result-only sheets need exactly one Win and one Lose (or Default Lose) beside the team names'
+				);
+			}
+
+			for (const team of teams) {
+				team.playerStats = [];
+			}
+		}
+
 		const [homeTeam, awayTeam] = teams;
 
-		return { name: gameName, completedAt: new Date(gameTime.epochMilliseconds), homeTeam, awayTeam };
+		return {
+			name: gameName,
+			completedAt: new Date(gameTime.epochMilliseconds),
+			gameType,
+			statsAvailable: !resultOnlyGame,
+			homeTeam,
+			awayTeam,
+		};
 	} catch (err) {
 		if (err instanceof SpreadsheetParserError) {
 			throw err;

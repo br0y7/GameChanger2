@@ -66,9 +66,13 @@ export const auth = betterAuth({
 					return false;
 				}
 
-				const member = await db.query.member.findFirst({ where: { userId: user.id } });
+				const memberships = await db.query.member.findMany({
+					where: { userId: user.id },
+					columns: { id: true },
+				});
 
-				return !!member;
+				// Allow a few orgs so invited league coaches can join alongside a solo team org.
+				return memberships.length >= 3;
 			},
 			allowUserToCreateOrganization: async (user) => {
 				try {

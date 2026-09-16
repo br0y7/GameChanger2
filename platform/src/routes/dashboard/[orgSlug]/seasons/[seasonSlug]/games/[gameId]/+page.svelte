@@ -8,6 +8,7 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { teamColorFromId, teamInitials } from '$lib/utils/team-identity';
 	import { askAiPanel } from '$lib/ai/ask-ai-state.svelte';
+	import { gameTypeLabel } from '$lib/schemas/game';
 
 	let { params }: PageProps = $props();
 
@@ -33,6 +34,21 @@
 	);
 
 	const dateLabel = $derived(formatDate(box.completedAt ?? box.scheduledAt));
+	const potg = $derived(box.playerOfTheGame);
+
+	const potgHref = $derived.by(() => {
+		if (!potg?.jerseyNumber || !potg.teamSlug || !potg.divisionSlug) return null;
+		return resolve(
+			'/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]/[jerseyNumber]',
+			{
+				orgSlug: params.orgSlug,
+				seasonSlug: params.seasonSlug,
+				divisionSlug: potg.divisionSlug,
+				teamSlug: potg.teamSlug,
+				jerseyNumber: potg.jerseyNumber,
+			}
+		);
+	});
 </script>
 
 <svelte:head>
@@ -81,13 +97,39 @@
 				</div>
 
 				<div class="text-center">
-					<p class="text-3xl font-extrabold tracking-tight tabular-nums sm:text-4xl">
-						{box.awayTeam.score}
-						<span class="mx-1 text-[#8B949E]">–</span>
-						{box.homeTeam.score}
-					</p>
+					{#if box.statsAvailable === false}
+						<p class="text-3xl font-extrabold tracking-tight sm:text-4xl">
+							{box.awayTeam.score > box.homeTeam.score ? 'W' : 'L'}
+							<span class="mx-1 text-[#8B949E]">–</span>
+							{box.homeTeam.score > box.awayTeam.score ? 'W' : 'L'}
+						</p>
+						<p class="mt-1 text-sm text-[#8B949E]">Result only · no box score</p>
+					{:else}
+						<p class="text-3xl font-extrabold tracking-tight tabular-nums sm:text-4xl">
+							{box.awayTeam.score}
+							<span class="mx-1 text-[#8B949E]">–</span>
+							{box.homeTeam.score}
+						</p>
+					{/if}
 					{#if dateLabel}
-						<p class="mt-1 text-sm text-[#8B949E]">{dateLabel}</p>
+						<p class="mt-1 text-sm text-[#8B949E]">
+							{dateLabel}
+							{#if box.gameType === 'playoff'}
+								<span class="mx-1.5 text-[#2A3038]">·</span>
+								<span class="font-medium text-[#F0A020]">Playoff</span>
+							{:else if box.gameType === 'finals'}
+								<span class="mx-1.5 text-[#2A3038]">·</span>
+								<span class="font-medium text-[#A371F7]">Finals</span>
+							{/if}
+						</p>
+					{:else if box.gameType === 'playoff' || box.gameType === 'finals'}
+						<p
+							class="mt-1 text-sm font-medium {box.gameType === 'finals'
+								? 'text-[#A371F7]'
+								: 'text-[#F0A020]'}"
+						>
+							{gameTypeLabel(box.gameType)}
+						</p>
 					{/if}
 				</div>
 
@@ -106,54 +148,111 @@
 			</div>
 		</header>
 
-		{#each [box.awayTeam, box.homeTeam] as side (side.id)}
+		{#if potg && box.statsAvailable !== false}
 			<section class="mb-5 rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
-				<div class="mb-4 flex items-baseline justify-between gap-3">
-					<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">{side.name}</h2>
-					<p class="text-xl font-bold tabular-nums">{side.score}</p>
-				</div>
-
-				{#if side.players.length === 0}
-					<p class="text-sm text-[#8B949E]">No player stats recorded for this team.</p>
-				{:else}
-					<div class="overflow-x-auto">
-						<table class="w-full min-w-[40rem] text-sm">
-							<thead>
-								<tr class="border-b border-[#2A3038] text-[#8B949E]">
-									<th class="w-10 py-2 text-left font-medium">#</th>
-									<th class="py-2 text-left font-medium">Player</th>
-									<th class="py-2 text-center font-medium">PTS</th>
-									<th class="py-2 text-center font-medium">REB</th>
-									<th class="py-2 text-center font-medium">AST</th>
-									<th class="py-2 text-center font-medium">FG</th>
-									<th class="py-2 text-center font-medium">3P</th>
-									<th class="py-2 text-center font-medium">FT</th>
-									<th class="py-2 text-center font-medium">STL</th>
-									<th class="py-2 text-center font-medium">BLK</th>
-									<th class="py-2 text-center font-medium">TO</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each side.players as player (player.playerId)}
-									<tr class="border-b border-[#2A3038]/last:border-0">
-										<td class="py-2.5 tabular-nums text-[#8B949E]">{player.jerseyNumber}</td>
-										<td class="py-2.5 font-medium">{player.name}</td>
-										<td class="py-2.5 text-center font-semibold tabular-nums">{player.pts}</td>
-										<td class="py-2.5 text-center tabular-nums">{player.reb}</td>
-										<td class="py-2.5 text-center tabular-nums">{player.ast}</td>
-										<td class="py-2.5 text-center tabular-nums">{player.fgm}-{player.fga}</td>
-										<td class="py-2.5 text-center tabular-nums">{player.fg3m}-{player.fg3a}</td>
-										<td class="py-2.5 text-center tabular-nums">{player.ftm}-{player.fta}</td>
-										<td class="py-2.5 text-center tabular-nums">{player.stl}</td>
-										<td class="py-2.5 text-center tabular-nums">{player.blk}</td>
-										<td class="py-2.5 text-center tabular-nums">{player.tov}</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
+				<p class="mb-3 text-xs font-semibold tracking-wide text-[#F0A020] uppercase">
+					Player of the Game
+				</p>
+				<div class="flex flex-wrap items-center justify-between gap-4">
+					<div class="min-w-0">
+						{#if potgHref}
+							<a href={potgHref} class="text-xl font-bold text-[#E6EDF3] hover:text-[#58A6FF]">
+								#{potg.jerseyNumber}
+								{potg.name}
+							</a>
+						{:else}
+							<p class="text-xl font-bold">
+								#{potg.jerseyNumber}
+								{potg.name}
+							</p>
+						{/if}
+						<p class="mt-0.5 text-sm text-[#8B949E]">{potg.teamName}</p>
 					</div>
-				{/if}
+					<div class="flex gap-4 text-center text-sm">
+						<div>
+							<p class="text-xs tracking-wide text-[#8B949E] uppercase">PTS</p>
+							<p class="text-lg font-bold tabular-nums">{potg.pts}</p>
+						</div>
+						<div>
+							<p class="text-xs tracking-wide text-[#8B949E] uppercase">REB</p>
+							<p class="text-lg font-bold tabular-nums">{potg.reb}</p>
+						</div>
+						<div>
+							<p class="text-xs tracking-wide text-[#8B949E] uppercase">AST</p>
+							<p class="text-lg font-bold tabular-nums">{potg.ast}</p>
+						</div>
+					</div>
+				</div>
 			</section>
-		{/each}
+		{/if}
+
+		{#if box.statsAvailable === false}
+			<section class="mb-5 rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
+				<p class="text-sm text-[#8B949E]">
+					This game was recorded as Win / Lose / Default Lose only (e.g. a default/forfeit).
+					No player box score is available.
+				</p>
+			</section>
+		{:else}
+			{#each [box.awayTeam, box.homeTeam] as side (side.id)}
+				<section class="mb-5 rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
+					<div class="mb-4 flex items-baseline justify-between gap-3">
+						<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">{side.name}</h2>
+						<p class="text-xl font-bold tabular-nums">{side.score}</p>
+					</div>
+
+					{#if side.players.length === 0}
+						<p class="text-sm text-[#8B949E]">No player stats recorded for this team.</p>
+					{:else}
+						<div class="overflow-x-auto">
+							<table class="w-full min-w-[40rem] text-sm">
+								<thead>
+									<tr class="border-b border-[#2A3038] text-[#8B949E]">
+										<th class="w-10 py-2 text-left font-medium">#</th>
+										<th class="py-2 text-left font-medium">Player</th>
+										<th class="py-2 text-center font-medium">PTS</th>
+										<th class="py-2 text-center font-medium">REB</th>
+										<th class="py-2 text-center font-medium">AST</th>
+										<th class="py-2 text-center font-medium">FG</th>
+										<th class="py-2 text-center font-medium">3P</th>
+										<th class="py-2 text-center font-medium">FT</th>
+										<th class="py-2 text-center font-medium">STL</th>
+										<th class="py-2 text-center font-medium">BLK</th>
+										<th class="py-2 text-center font-medium">TO</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each side.players as player (player.playerId)}
+										<tr
+											class="border-b border-[#2A3038] last:border-0 {potg?.playerId ===
+											player.playerId
+												? 'bg-[#F0A020]/10'
+												: ''}"
+										>
+											<td class="py-2.5 tabular-nums text-[#8B949E]">{player.jerseyNumber}</td>
+											<td class="py-2.5 font-medium">
+												{player.name}
+												{#if potg?.playerId === player.playerId}
+													<span class="ml-2 text-xs font-semibold text-[#F0A020]">POTG</span>
+												{/if}
+											</td>
+											<td class="py-2.5 text-center font-semibold tabular-nums">{player.pts}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.reb}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.ast}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.fgm}-{player.fga}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.fg3m}-{player.fg3a}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.ftm}-{player.fta}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.stl}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.blk}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.tov}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
+				</section>
+			{/each}
+		{/if}
 	</div>
 </div>

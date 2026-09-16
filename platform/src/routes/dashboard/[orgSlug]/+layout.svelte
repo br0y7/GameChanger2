@@ -34,7 +34,7 @@
 				{/if}
 			</div>
 		</header>
-		<main>
+		<main class="min-h-[calc(100svh-4rem)] bg-[#0D1117] text-[#E6EDF3]">
 			{@render children()}
 		</main>
 		<AskAiAssistant />

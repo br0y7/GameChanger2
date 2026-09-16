@@ -4,6 +4,7 @@ import { idField, requiredName } from './common';
 import { playerSchema } from './player';
 import { Temporal } from 'temporal-polyfill';
 import { rawStatKeys } from './player-game-stat';
+import { gameTypes } from './game';
 
 const TIME_ZONE_ERROR = 'Time Zone is invalid. Follow IANA time zone format: America/Winnipeg';
 
@@ -68,6 +69,9 @@ export type TeamPreview = z.infer<typeof teamPreviewSchema>;
 export const gamePreviewSchema = z.object({
 	...requiredName('Game Name'),
 	completedAt: z.date(),
+	gameType: z.enum(gameTypes).default('regular'),
+	/** False when scores were Win/Lose/Default Lose and no box score stats exist. */
+	statsAvailable: z.boolean().default(true),
 	homeTeam: teamPreviewSchema,
 	awayTeam: teamPreviewSchema,
 });

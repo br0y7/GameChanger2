@@ -12,7 +12,7 @@ import { getTeam } from './team.remote';
 import { getDivision } from './division.remote';
 import { getSeason } from './season.remote';
 import { getOrganization } from './organization.remote';
-import { AI_TASK, COACH_SYSTEM_PROMPT } from '$lib/ai/prompts';
+import { AI_TASK, COACH_SYSTEM_PROMPT, WEBSITE_HELP_GUIDE } from '$lib/ai/prompts';
 
 const historyMessageSchema = z.object({
 	role: z.enum(['user', 'assistant']),
@@ -166,6 +166,10 @@ async function buildContextBlock(context: z.infer<typeof askAiSchema>['context']
 	if (!parts.length) {
 		parts.push('No page-specific stats are available.');
 	}
+
+	parts.push('');
+	parts.push('Website help:');
+	parts.push(WEBSITE_HELP_GUIDE.trim());
 
 	return parts.join('\n');
 }

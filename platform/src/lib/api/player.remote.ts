@@ -55,6 +55,24 @@ async function assertPlayerPermissions(action: CrudAction, target: ResourceTarge
 		forbidden({ resource: 'player' });
 	}
 
+	// Foundation: league coaches are view-only; solo (team org) coaches keep roster writes.
+	const teamRow = await db.query.team.findFirst({
+		where: { id: coach.teamId },
+		with: {
+			division: {
+				with: {
+					season: {
+						with: { organization: true },
+					},
+				},
+			},
+		},
+	});
+
+	if (teamRow?.division?.season?.organization?.type === 'league') {
+		forbidden({ resource: 'player' }, { message: 'Coach portal is read-only for now.' });
+	}
+
 	const modifyingActions: CrudAction[] = ['update', 'delete'];
 
 	if (!modifyingActions.includes(action)) {

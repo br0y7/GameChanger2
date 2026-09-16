@@ -1,5 +1,10 @@
 import { form, getRequestEvent, query } from '$app/server';
-import { createLeagueSchema, updateLeagueSchema } from '$lib/schemas/league';
+import {
+	clearLeagueLogoSchema,
+	createLeagueSchema,
+	updateLeagueSchema,
+	uploadLeagueLogoSchema,
+} from '$lib/schemas/league';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { isUserAdmin, requireSession, requireUser } from './auth.remote';
@@ -15,6 +20,24 @@ import { leagueFormLabels } from '$lib/forms/labels';
 import { isUserOrgAdmin } from './organization.remote';
 import { forbidden } from '$lib/server/fail';
 import { resolve } from '$app/paths';
+import { mkdir, unlink } from 'node:fs/promises';
+import path from 'node:path';
+
+const LOGO_EXT: Record<string, string> = {
+	'image/png': 'png',
+	'image/webp': 'webp',
+	'image/jpeg': 'jpg',
+};
+
+async function removeStoredLogoFile(logoUrl: string | null | undefined) {
+	if (!logoUrl?.startsWith('/uploads/logos/')) return;
+	const filePath = path.join(process.cwd(), 'static', logoUrl.replace(/^\//, ''));
+	try {
+		await unlink(filePath);
+	} catch {
+		// ignore missing file
+	}
+}
 
 export const createLeague = form(createLeagueSchema, async (data, issue) => {
 	const user = await requireUser();
@@ -32,6 +55,11 @@ export const createLeague = form(createLeagueSchema, async (data, issue) => {
 			.update(table.organization)
 			.set({ type: 'league' })
 			.where(eq(table.organization.id, league.id));
+
+		await db
+			.insert(table.leagueVisibility)
+			.values({ organizationId: league.id })
+			.onConflictDoNothing();
 
 		await auth.api.setActiveOrganization({
 			headers,
@@ -134,4 +162,80 @@ export const updateLeague = form(updateLeagueSchema, async ({ id, ...data }, iss
 
 		return invalid('Something went wrong.');
 	}
+});
+
+/** League / platform admin only — homepage hero logo (PNG / WebP preferred). */
+export const uploadLeagueLogo = form(uploadLeagueLogoSchema, async ({ organizationId, logo }) => {
+	const user = await requireUser();
+	const isPlatformAdmin = await isUserAdmin();
+	if (!isPlatformAdmin) {
+		await requireLeagueOrganizer();
+		const { activeOrganizationId } = await requireSession();
+		if (activeOrganizationId !== organizationId) {
+			forbidden({ resource: 'organization' });
+		}
+	}
+
+	const org = await db.query.organization.findFirst({
+		where: { id: organizationId },
+		columns: { id: true, logo: true, type: true },
+	});
+	if (!org || org.type !== 'league') {
+		return invalid('League not found.');
+	}
+
+	const ext = LOGO_EXT[logo.type];
+	if (!ext) {
+		return invalid('Upload a PNG, WebP, or JPEG logo.');
+	}
+
+	const uploadsDir = path.join(process.cwd(), 'static', 'uploads', 'logos');
+	await mkdir(uploadsDir, { recursive: true });
+
+	const publicPath = `/uploads/logos/${organizationId}.${ext}`;
+	const filePath = path.join(process.cwd(), 'static', publicPath.replace(/^\//, ''));
+
+	await removeStoredLogoFile(org.logo);
+	// Clear other extensions for this org so only one logo file remains
+	for (const other of Object.values(LOGO_EXT)) {
+		if (other === ext) continue;
+		await removeStoredLogoFile(`/uploads/logos/${organizationId}.${other}`);
+	}
+
+	await Bun.write(filePath, Buffer.from(await logo.arrayBuffer()));
+
+	const cacheBusted = `${publicPath}?v=${Date.now()}`;
+	await db.update(table.organization).set({ logo: cacheBusted }).where(eq(table.organization.id, organizationId));
+
+	serverLogger.info(user.id, 'uploaded league logo', organizationId);
+	return { logo: cacheBusted };
+});
+
+export const clearLeagueLogo = form(clearLeagueLogoSchema, async ({ organizationId }) => {
+	const user = await requireUser();
+	const isPlatformAdmin = await isUserAdmin();
+	if (!isPlatformAdmin) {
+		await requireLeagueOrganizer();
+		const { activeOrganizationId } = await requireSession();
+		if (activeOrganizationId !== organizationId) {
+			forbidden({ resource: 'organization' });
+		}
+	}
+
+	const org = await db.query.organization.findFirst({
+		where: { id: organizationId },
+		columns: { id: true, logo: true, type: true },
+	});
+	if (!org || org.type !== 'league') {
+		return invalid('League not found.');
+	}
+
+	await removeStoredLogoFile(org.logo);
+	for (const ext of Object.values(LOGO_EXT)) {
+		await removeStoredLogoFile(`/uploads/logos/${organizationId}.${ext}`);
+	}
+
+	await db.update(table.organization).set({ logo: null }).where(eq(table.organization.id, organizationId));
+	serverLogger.info(user.id, 'cleared league logo', organizationId);
+	return { logo: null };
 });

@@ -2,12 +2,16 @@ export const ONBOARDING_DEFAULT_STEP = 'not-started';
 
 export const ONBOARDING_DONE_STEP = 'done';
 
+/** Coach / player signed up but not yet linked via invite. */
+export const AWAITING_INVITE_STEP = 'awaiting-invite';
+
 export const ORGANIZER_STEPS = [
 	'create-league',
 	'create-season',
 	'setup-league',
 	ONBOARDING_DONE_STEP,
 ] as const;
+
 
 export const ORGANIZER_START_STEP = ORGANIZER_STEPS[0];
 

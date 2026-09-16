@@ -55,6 +55,23 @@ async function assertPermissions(
 	if (!coach) {
 		forbidden(target);
 	}
+
+	const teamWithOrg = await db.query.team.findFirst({
+		where: { id: team.id },
+		with: {
+			division: {
+				with: {
+					season: {
+						with: { organization: true },
+					},
+				},
+			},
+		},
+	});
+
+	if (teamWithOrg?.division?.season?.organization?.type === 'league') {
+		forbidden(target, { message: 'Coach portal is read-only for now.' });
+	}
 }
 
 export const createTeam = form(createTeamSchema, async (data, issue) => {
@@ -171,8 +188,12 @@ export const createTeam = form(createTeamSchema, async (data, issue) => {
 				.insert(table.coach)
 				.values({
 					name: user.name,
+					email: user.email,
 					userId: user.id,
 					teamId: createdTeam.id,
+					assignmentRole: 'head_coach',
+					status: 'active',
+					acceptedAt: new Date(),
 				})
 				.returning({ id: table.coach.id });
 

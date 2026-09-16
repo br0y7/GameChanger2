@@ -1,0 +1,1 @@
+ALTER TABLE "game" ADD COLUMN "stats_available" boolean DEFAULT true NOT NULL;

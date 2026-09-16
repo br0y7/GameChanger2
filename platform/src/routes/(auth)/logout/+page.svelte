@@ -1,11 +1,20 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
 	import { isAuthenticated } from '$lib/api/auth.remote';
 	import { authClient } from '$lib/auth-client';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { REDIRECT_TO_PARAM } from '$lib/utils/url';
 	import { onMount } from 'svelte';
+
+	function safePostLogoutPath(value: string | null): string {
+		if (!value || !value.startsWith('/') || value.startsWith('//')) {
+			return resolve('/');
+		}
+		return value;
+	}
 
 	// Using this page so this server can remove the cookie.
 	// If you try to call the /api/auth/signout in Streamlit it
@@ -13,7 +22,7 @@
 	onMount(async () => {
 		await authClient.signOut();
 		await isAuthenticated().refresh();
-		await goto(resolve('/'));
+		await goto(safePostLogoutPath(page.url.searchParams.get(REDIRECT_TO_PARAM)));
 	});
 </script>
 

@@ -1,13 +1,20 @@
 <script lang="ts">
-	import ModeToggle from '$lib/components/ui/ModeToggle.svelte';
+	import NavBar from '$lib/components/NavBar.svelte';
 
 	let { children } = $props();
 </script>
 
-<div class="relative">
-	<div class="absolute top-2 right-2">
-		<ModeToggle />
-	</div>
+<svelte:head>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap"
+		rel="stylesheet"
+	/>
+</svelte:head>
+
+<div class="min-h-screen bg-[#0C1210] text-[#E8F0EA]" style="font-family: Figtree, system-ui, sans-serif">
+	<NavBar />
 	<main>
 		{@render children()}
 	</main>
