@@ -56,7 +56,7 @@ export function resolveAskAiContext(params: Record<string, string>, pathname: st
 			suggestions: [
 				'Summarize this team',
 				'Who are the top players?',
-				'What should this team improve?',
+				'How do I edit a player name?',
 				'How have they performed recently?',
 			],
 			orgSlug,
@@ -85,10 +85,10 @@ export function resolveAskAiContext(params: Record<string, string>, pathname: st
 		type: 'general',
 		label: 'GameChanger',
 		suggestions: [
+			'How do I edit a player name?',
 			'How do I import a statsheet?',
+			'How do I view the schedule?',
 			'What stats does GameChanger track?',
-			'How are season averages calculated?',
-			'Help me understand shooting percentages',
 		],
 		orgSlug,
 	};

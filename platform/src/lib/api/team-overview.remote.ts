@@ -23,6 +23,8 @@ type GameWithSides = {
 	awayTeamId: string;
 	homeTeamScore: number | null;
 	awayTeamScore: number | null;
+	gameType?: string;
+	statsAvailable?: boolean;
 	homeTeam: { id: string; name: string };
 	awayTeam: { id: string; name: string };
 	playerStats: {
@@ -181,11 +183,15 @@ export const getTeamOverview = query(
 
 				return {
 					id: game.id,
+					status: 'completed' as const,
 					result,
 					teamScore,
 					oppScore,
 					opponentName: opponent.name,
 					completedAt: at,
+					scheduledAt: game.scheduledAt,
+					gameType: game.gameType,
+					statsAvailable: game.statsAvailable,
 					sortAt: (at ?? new Date(0)).getTime(),
 				};
 			})
@@ -203,12 +209,32 @@ export const getTeamOverview = query(
 			orderBy: { scheduledAt: 'asc' },
 		});
 
-		const next = upcoming.find((g) => g.homeTeamId === teamId || g.awayTeamId === teamId);
-		const nextOpponent = next
-			? next.homeTeamId === teamId
-				? next.awayTeam
-				: next.homeTeam
-			: null;
+		const teamUpcoming = upcoming
+			.filter((g) => g.homeTeamId === teamId || g.awayTeamId === teamId)
+			.map((game) => {
+				const isHome = game.homeTeamId === teamId;
+				const opponent = isHome ? game.awayTeam : game.homeTeam;
+				return {
+					id: game.id,
+					status: 'upcoming' as const,
+					result: null as 'W' | 'L' | 'T' | null,
+					teamScore: null as number | null,
+					oppScore: null as number | null,
+					opponentName: opponent?.name ?? 'TBD',
+					completedAt: null as Date | null,
+					scheduledAt: game.scheduledAt,
+					gameType: game.gameType,
+					statsAvailable: game.statsAvailable,
+					sortAt: (game.scheduledAt ?? new Date(0)).getTime(),
+				};
+			});
+
+		const next = teamUpcoming[0] ?? null;
+
+		const schedule = [
+			...teamUpcoming.map(({ sortAt: _, ...game }) => game),
+			...teamGames.map(({ sortAt: _, ...game }) => game),
+		];
 
 		const players = await db.query.player.findMany({
 			where: { teamId },
@@ -268,9 +294,10 @@ export const getTeamOverview = query(
 			teamsInDivision: rows.length,
 			streak: streakLabel(standing?.resultsNewestFirst ?? []),
 			recentGames: teamGames.slice(0, 5).map(({ sortAt: _, ...game }) => game),
+			schedule,
 			nextGame: next
 				? {
-						opponentName: nextOpponent?.name ?? 'TBD',
+						opponentName: next.opponentName,
 						scheduledAt: next.scheduledAt,
 					}
 				: null,

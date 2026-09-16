@@ -9,6 +9,7 @@
 		type SpreadsheetPreview,
 		type TeamPreview,
 	} from '$lib/schemas/preview';
+	import { gameTypeLabel } from '$lib/schemas/game';
 	import { rawStatKeys } from '$lib/schemas/player-game-stat';
 	interface Props {
 		preview: SpreadsheetPreview;
@@ -84,13 +85,43 @@
 <Accordion.Root type="single" class="w-[98%]">
 	{#each preview.games as game (game.name)}
 		<Accordion.Item value={game.name + game.completedAt}>
-			<Accordion.Trigger>
+			<Accordion.Trigger class="flex flex-wrap items-center gap-2">
 				{game.name}
+				{#if game.gameType === 'playoff'}
+					<Badge variant="warning">Playoff</Badge>
+				{:else if game.gameType === 'finals'}
+					<Badge variant="info">Finals</Badge>
+				{:else}
+					<Badge variant="default">Regular Season</Badge>
+				{/if}
+				{#if game.statsAvailable === false}
+					<Badge variant="secondary">No stats</Badge>
+				{/if}
 			</Accordion.Trigger>
 			<Accordion.Content>
 				<p class="text-md">{game.completedAt}</p>
-				{@render teamAccordion(game.homeTeam)}
-				{@render teamAccordion(game.awayTeam)}
+				<p class="mb-2 text-sm text-muted-foreground">
+					Game Type: {gameTypeLabel(game.gameType)}
+					{#if game.statsAvailable === false}
+						· Result only (Win / Lose / Default Lose) — no box score
+					{/if}
+				</p>
+				{#if game.statsAvailable === false}
+					<p class="mb-3 text-sm">
+						{game.homeTeam.name}:
+						<span class="font-semibold">
+							{game.homeTeam.score > game.awayTeam.score ? 'Win' : 'Lose'}
+						</span>
+						·
+						{game.awayTeam.name}:
+						<span class="font-semibold">
+							{game.awayTeam.score > game.homeTeam.score ? 'Win' : 'Lose'}
+						</span>
+					</p>
+				{:else}
+					{@render teamAccordion(game.homeTeam)}
+					{@render teamAccordion(game.awayTeam)}
+				{/if}
 			</Accordion.Content>
 		</Accordion.Item>
 	{/each}

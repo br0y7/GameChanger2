@@ -9,21 +9,35 @@ import { serverLogger } from '$lib/server/logger';
 import { DASHBOARD_PATH, REDIRECT_TO_PARAM } from '$lib/utils/url';
 import { invalid, isRedirect, redirect } from '@sveltejs/kit';
 import { isAPIError } from 'better-auth/api';
+import { z } from 'zod';
+import { resolvePostLoginPath } from './auth.server';
+import { db } from '$lib/server/db';
+import * as table from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
+import { AWAITING_INVITE_STEP, ORGANIZER_START_STEP } from '$lib/onboarding/steps';
 
 export const loginWithEmail = form(loginFormSchema, async (data) => {
 	try {
 		const {
 			user: { id },
 		} = await auth.api.signInEmail({
-			body: data,
+			body: {
+				email: data.email,
+				password: data.password,
+			},
 		});
 
 		serverLogger.info('logged in', { id });
 
 		const { url } = getRequestEvent();
-		const redirectTo = url.searchParams.get(REDIRECT_TO_PARAM);
+		const redirectTo = data.redirectTo || url.searchParams.get(REDIRECT_TO_PARAM);
+		const safeRedirect =
+			redirectTo &&
+			(redirectTo.startsWith(DASHBOARD_PATH) || redirectTo.startsWith('/invite/'));
 
-		redirect(303, redirectTo?.startsWith(DASHBOARD_PATH) ? redirectTo : DASHBOARD_PATH);
+		// Session cookie is applied on the next request — send to /dashboard (or a
+		// safe deep link) and let layout resolve coach/family portal landing.
+		redirect(303, safeRedirect ? redirectTo : DASHBOARD_PATH);
 	} catch (err) {
 		if (isRedirect(err)) {
 			throw err;
@@ -46,13 +60,62 @@ export const loginWithEmail = form(loginFormSchema, async (data) => {
 
 export const signUpWithEmail = form(signupFormSchema, async (data) => {
 	try {
+		const { redirectTo, role, ...credentials } = data;
 		const {
 			user: { id },
 		} = await auth.api.signUpEmail({
-			body: data,
+			body: credentials,
 		});
 
-		serverLogger.info('new user', { id });
+		serverLogger.info('new user', { id, role });
+
+		const safeRedirect =
+			redirectTo &&
+			(redirectTo.startsWith(DASHBOARD_PATH) || redirectTo.startsWith('/invite/'));
+
+		// Invite accept flow should return to the invite link.
+		if (safeRedirect) {
+			const inferredRole = redirectTo.startsWith('/invite/family')
+				? 'player_follower'
+				: redirectTo.startsWith('/invite/coach')
+					? 'coach'
+					: null;
+			if (inferredRole) {
+				await db
+					.update(table.userOnboarding)
+					.set({
+						role: inferredRole,
+						status: 'in_progress',
+						currentStep: AWAITING_INVITE_STEP,
+					})
+					.where(eq(table.userOnboarding.userId, id));
+			}
+			redirect(303, redirectTo);
+		}
+
+		if (role === 'organizer') {
+			await db
+				.update(table.userOnboarding)
+				.set({
+					role: 'organizer',
+					status: 'in_progress',
+					currentStep: ORGANIZER_START_STEP,
+				})
+				.where(eq(table.userOnboarding.userId, id));
+			redirect(303, resolve('/onboarding/league-organizer'));
+		}
+
+		if (role === 'coach' || role === 'player_follower') {
+			await db
+				.update(table.userOnboarding)
+				.set({
+					role,
+					status: 'in_progress',
+					currentStep: AWAITING_INVITE_STEP,
+				})
+				.where(eq(table.userOnboarding.userId, id));
+			redirect(303, resolve('/onboarding/awaiting-invite'));
+		}
 
 		redirect(303, resolve('/onboarding'));
 	} catch (err) {
@@ -65,9 +128,7 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 			err.body?.code === auth.$ERROR_CODES.USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL.code
 		) {
 			serverLogger.warn('existing user tried to sign up again', data.email);
-			// Compromise user enumeration for UX, rely on BetterAuth rate limit
-			const searchParams = new URLSearchParams({ email: data.email });
-			return redirect(303, resolve(`/login?${searchParams}`));
+			return invalid('This email is already being used');
 		}
 
 		serverLogger.error(err);
@@ -124,3 +185,8 @@ export const requireAdmin = query(async () => {
 
 	return user;
 });
+
+export const getPostLoginRedirect = query(
+	z.object({ redirectTo: z.string().nullable().optional() }),
+	async ({ redirectTo }) => resolvePostLoginPath(redirectTo)
+);

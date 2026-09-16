@@ -136,6 +136,27 @@ async function saveGame(
 	});
 
 	if (game) {
+		const nextType = gamePreview.gameType ?? 'regular';
+		const nextStatsAvailable = gamePreview.statsAvailable ?? true;
+		const patch: {
+			gameType?: typeof nextType;
+			statsAvailable?: boolean;
+			homeTeamScore?: number;
+			awayTeamScore?: number;
+			completedAt?: Date;
+		} = {};
+
+		if (game.gameType !== nextType) patch.gameType = nextType;
+		if (game.statsAvailable !== nextStatsAvailable) patch.statsAvailable = nextStatsAvailable;
+		if (!nextStatsAvailable) {
+			patch.homeTeamScore = gamePreview.homeTeam.score;
+			patch.awayTeamScore = gamePreview.awayTeam.score;
+			patch.completedAt = gamePreview.completedAt;
+		}
+
+		if (Object.keys(patch).length > 0) {
+			await tx.update(table.game).set(patch).where(eq(table.game.id, game.id));
+		}
 		return { id: game.id };
 	}
 
@@ -150,6 +171,8 @@ async function saveGame(
 			homeTeamScore: gamePreview.homeTeam.score,
 			awayTeamScore: gamePreview.awayTeam.score,
 			status: 'completed',
+			gameType: gamePreview.gameType ?? 'regular',
+			statsAvailable: gamePreview.statsAvailable ?? true,
 		})
 		.returning({ id: table.game.id });
 
@@ -310,8 +333,10 @@ export const savePreview = command(
 							division.season.id
 						);
 
-						await saveStats(tx, game.homeTeam, homeTeam, gameId);
-						await saveStats(tx, game.awayTeam, awayTeam, gameId);
+						if (game.statsAvailable !== false) {
+							await saveStats(tx, game.homeTeam, homeTeam, gameId);
+							await saveStats(tx, game.awayTeam, awayTeam, gameId);
+						}
 					} catch (err) {
 						const message = err instanceof Error ? err.message : 'Unknown save error';
 						throw new Error(`[Game: ${game.name}] ${message}`, { cause: err });

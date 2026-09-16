@@ -25,14 +25,26 @@ function seasonAveragesFromGames(stats: PlayerGameStats[]) {
 		(stat) => stat.fta
 	);
 
+	const avg = (pick: (stat: PlayerGameStats) => number) => averageBy(stats, pick) ?? 0;
+
 	return {
 		gamesPlayed: stats.length,
-		points: averageBy(stats, (stat) => stat.pts) ?? 0,
-		rebounds: averageBy(stats, (stat) => stat.reb) ?? 0,
-		assists: averageBy(stats, (stat) => stat.ast) ?? 0,
-		steals: averageBy(stats, (stat) => stat.stl) ?? 0,
-		blocks: averageBy(stats, (stat) => stat.blk) ?? 0,
-		turnovers: averageBy(stats, (stat) => stat.tov) ?? 0,
+		points: avg((stat) => stat.pts),
+		rebounds: avg((stat) => stat.reb),
+		assists: avg((stat) => stat.ast),
+		steals: avg((stat) => stat.stl),
+		blocks: avg((stat) => stat.blk),
+		turnovers: avg((stat) => stat.tov),
+		fgm: avg((stat) => stat.fgm),
+		fga: avg((stat) => stat.fga),
+		fg3m: avg((stat) => stat.fg3m),
+		fg3a: avg((stat) => stat.fg3a),
+		ftm: avg((stat) => stat.ftm),
+		fta: avg((stat) => stat.fta),
+		oreb: avg((stat) => stat.oreb),
+		dreb: avg((stat) => stat.dreb),
+		pf: avg((stat) => stat.pf),
+		eff: avg((stat) => stat.eff),
 		fgPct,
 		fg3Pct,
 		ftPct,

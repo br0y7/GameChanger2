@@ -11,7 +11,15 @@ export type AuthAction = 'login' | 'signup';
 export type FormAction = CrudAction | AuthAction;
 
 export type Resource =
-	'user' | 'player' | 'team' | 'coach' | 'season' | 'division' | 'league' | 'organization';
+	| 'user'
+	| 'player'
+	| 'team'
+	| 'coach'
+	| 'season'
+	| 'division'
+	| 'league'
+	| 'organization'
+	| 'game';
 
 export type ResourceTarget = {
 	id?: string;

@@ -90,4 +90,10 @@ export const relations = defineRelationsPart(schema, (r) => ({
 			to: r.user.id,
 		}),
 	},
+	leagueVisibility: {
+		organization: r.one.organization({
+			from: r.leagueVisibility.organizationId,
+			to: r.organization.id,
+		}),
+	},
 }));

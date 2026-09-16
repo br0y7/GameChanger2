@@ -14,6 +14,8 @@
 	import { loginWithEmail } from '$lib/api/auth.remote';
 	import { onMount } from 'svelte';
 	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
+	import { page } from '$app/state';
+	import { REDIRECT_TO_PARAM } from '$lib/utils/url';
 
 	interface Props extends HTMLAttributes<HTMLDivElement> {
 		email?: string;
@@ -21,6 +23,7 @@
 	let { class: className, email, ...restProps }: Props = $props();
 
 	let submitting = $derived(!!loginWithEmail.pending);
+	const redirectTo = $derived(page.url.searchParams.get(REDIRECT_TO_PARAM) ?? '');
 
 	let passwordField: HTMLInputElement | null = $state(null);
 	onMount(() => {
@@ -38,6 +41,7 @@
 		})}
 		{...loginWithEmail}
 	>
+		<input {...loginWithEmail.fields.redirectTo.as('hidden', redirectTo)} />
 		<Field.Set disabled={submitting}>
 			<Field.Group>
 				<div class="flex flex-col items-center gap-2 text-center">
@@ -73,7 +77,16 @@
 				</Field.Field>
 				<div class="flex flex-col items-center">
 					<Field.Description>
-						Don't have an account? <a href={resolve('/signup')}>Create Account</a>
+						Don't have an account? <a
+							href={redirectTo
+								? resolve(
+										`/signup?${new URLSearchParams({
+											[REDIRECT_TO_PARAM]: redirectTo,
+											...(email ? { email } : {}),
+										})}`
+									)
+								: resolve('/signup')}>Create Account</a
+						>
 					</Field.Description>
 				</div>
 			</Field.Group>

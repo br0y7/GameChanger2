@@ -2,6 +2,7 @@ import { resolve } from '$app/paths';
 import { form, query } from '$app/server';
 import { ORG_CREATOR_ROLES, type OnboardingOrgCreatorRole } from '$lib/onboarding/roles';
 import {
+	AWAITING_INVITE_STEP,
 	COACH_START_STEP,
 	ONBOARDING_DONE_STEP,
 	ORGANIZER_START_STEP,
@@ -29,6 +30,30 @@ export const getOnboarding = query(
 	}
 );
 
+/** Coach or player/family waiting for an invite link (no team yet). */
+export const startAwaitingInvite = form(
+	z.object({
+		role: z.enum(['coach', 'player_follower']),
+	}),
+	async ({ role }) => {
+		const user = await requireUser();
+		const onboarding = await getOnboarding({ userId: user.id });
+
+		await db
+			.update(table.userOnboarding)
+			.set({
+				role,
+				status: 'in_progress',
+				currentStep: AWAITING_INVITE_STEP,
+			})
+			.where(eq(table.userOnboarding.id, onboarding.id));
+
+		void getOnboarding({ userId: user.id }).refresh();
+		serverLogger.info('awaiting invite', { userId: user.id, role });
+		redirect(303, resolve('/onboarding/awaiting-invite'));
+	}
+);
+
 export const selectOrgCreatorRole = form(
 	z.object({
 		role: z.enum(ORG_CREATOR_ROLES),
@@ -44,10 +69,10 @@ export const selectOrgCreatorRole = form(
 				currentStep = ORGANIZER_START_STEP;
 				break;
 			case 'coach':
-				currentStep = COACH_START_STEP;
+				// Default coach path: wait for league invite (not solo team create).
+				currentStep = AWAITING_INVITE_STEP;
 				break;
 			default:
-				// For type safety only, 'satisfies' will error if you don't code each case.
 				return `${role satisfies OnboardingOrgCreatorRole[]}`;
 		}
 
@@ -62,19 +87,36 @@ export const selectOrgCreatorRole = form(
 
 		void getOnboarding({ userId: user.id }).refresh();
 
-		serverLogger.info('started onboarding', { userId: user.id });
+		serverLogger.info('started onboarding', { userId: user.id, role, currentStep });
 
 		switch (role) {
 			case 'organizer':
 				return redirect(303, resolve('/onboarding/league-organizer'));
 			case 'coach':
-				return redirect(303, resolve('/onboarding/coach'));
+				return redirect(303, resolve('/onboarding/awaiting-invite'));
 			default:
-				// For type safety only, 'satisfies' will error if you don't code each case.
 				return `${role satisfies OnboardingOrgCreatorRole[]}`;
 		}
 	}
 );
+
+/** Explicit opt-in to solo coach team creation. */
+export const startSoloCoachOnboarding = form('unchecked', async () => {
+	const user = await requireUser();
+	const onboarding = await getOnboarding({ userId: user.id });
+
+	await db
+		.update(table.userOnboarding)
+		.set({
+			role: 'coach',
+			status: 'in_progress',
+			currentStep: COACH_START_STEP,
+		})
+		.where(eq(table.userOnboarding.id, onboarding.id));
+
+	void getOnboarding({ userId: user.id }).refresh();
+	redirect(303, resolve('/onboarding/coach'));
+});
 
 export const completeOnboarding = form('unchecked', async () => {
 	const { id: userId } = await requireUser();
@@ -88,7 +130,6 @@ export const completeOnboarding = form('unchecked', async () => {
 		})
 		.where(eq(table.userOnboarding.id, onboarding.id));
 
-	// void -> no need to wait for this
 	void getOnboarding({ userId }).refresh();
 
 	redirect(303, resolve('/dashboard'));
