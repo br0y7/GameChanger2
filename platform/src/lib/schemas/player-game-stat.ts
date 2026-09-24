@@ -24,6 +24,9 @@ export type DerivedStatKey = (typeof derivedStatKeys)[number];
 
 export type PlayerGameStats = RawPlayerGameStats & {
 	[K in DerivedStatKey]: number;
+} & {
+	/** True when the sheet recorded points and left the rest of the box score blank. */
+	pointsOnly: boolean;
 };
 
 export type WithGame<T> = T & { game?: Game | null };

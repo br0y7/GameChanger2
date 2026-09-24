@@ -73,6 +73,12 @@
 		);
 	}
 
+	const accountStatusLabel = {
+		account: 'Has account',
+		invited: 'Invited',
+		none: 'No account',
+	} as const;
+
 	function absoluteStatsUrl(player: (typeof players)[number]) {
 		return new URL(playerHref(player), page.url.origin).toString();
 	}
@@ -218,6 +224,7 @@
 							<th class="px-4 py-3 font-semibold">Player</th>
 							<th class="px-4 py-3 font-semibold">Team</th>
 							<th class="hidden px-4 py-3 font-semibold sm:table-cell">Division</th>
+							<th class="px-4 py-3 font-semibold">Account</th>
 							<th class="px-4 py-3 font-semibold">Share</th>
 						</tr>
 					</thead>
@@ -237,6 +244,18 @@
 								</td>
 								<td class="hidden px-4 py-2.5 text-[#8B949E] sm:table-cell">
 									{player.divisionName}
+								</td>
+								<td class="px-4 py-2.5">
+									<span
+										class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold {player.accountStatus ===
+										'account'
+											? 'bg-[#3FB950]/15 text-[#3FB950]'
+											: player.accountStatus === 'invited'
+												? 'bg-[#58A6FF]/15 text-[#58A6FF]'
+												: 'bg-white/5 text-[#8B949E]'}"
+									>
+										{accountStatusLabel[player.accountStatus]}
+									</span>
 								</td>
 								<td class="px-4 py-2.5">
 									<button

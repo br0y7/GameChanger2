@@ -67,6 +67,9 @@
 		<span class="tabular-nums text-[#B8E05C]">{box.homeTeam.score}</span>
 		{box.homeTeam.name}
 	</h1>
+	{#if box.pointsOnly}
+		<p class="mt-2 text-sm text-[#8FA398]">Points only. Other stats were not on the sheet, so there is no game rating.</p>
+	{/if}
 
 	{#if box.statsAvailable === false}
 		<p class="mt-8 text-sm text-[#8FA398]">Result only. No player box score for this game.</p>
@@ -94,10 +97,10 @@
 									<td class="py-2 tabular-nums text-[#8FA398]">{player.jerseyNumber}</td>
 									<td class="py-2">{player.name}</td>
 									<td class="py-2 text-center tabular-nums">{player.pts}</td>
-									<td class="py-2 text-center tabular-nums">{player.reb}</td>
-									<td class="py-2 text-center tabular-nums">{player.ast}</td>
-									<td class="py-2 text-center tabular-nums">{player.stl}</td>
-									<td class="py-2 text-center tabular-nums">{player.blk}</td>
+									<td class="py-2 text-center tabular-nums">{player.pointsOnly ? '—' : player.reb}</td>
+									<td class="py-2 text-center tabular-nums">{player.pointsOnly ? '—' : player.ast}</td>
+									<td class="py-2 text-center tabular-nums">{player.pointsOnly ? '—' : player.stl}</td>
+									<td class="py-2 text-center tabular-nums">{player.pointsOnly ? '—' : player.blk}</td>
 									<td class="py-2 text-center tabular-nums">
 										{#if player.gameRating != null}
 											<button

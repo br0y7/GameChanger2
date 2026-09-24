@@ -5,7 +5,8 @@ import { ratingMeaning } from '$lib/stats/game-rating';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
 import type { RawPlayerGameStats } from '$lib/server/db/schema';
 
-function pointsFromRaw(stat: { fgm: number; fg3m: number; ftm: number }) {
+function pointsFromRaw(stat: { fgm: number; fg3m: number; ftm: number; recordedPts: number | null }) {
+	if (stat.recordedPts != null) return stat.recordedPts;
 	return (stat.fgm - stat.fg3m) * 2 + stat.fg3m * 3 + stat.ftm;
 }
 
@@ -19,7 +20,7 @@ type StatWithPlayer = RawPlayerGameStats & {
 };
 
 function hasSheetStats(stat: StatWithPlayer) {
-	return rawStatKeys.some((key) => Number(stat[key]) > 0);
+	return stat.recordedPts != null || rawStatKeys.some((key) => Number(stat[key]) > 0);
 }
 
 function playerRowsForTeam(playerStats: StatWithPlayer[], teamId: string) {
@@ -33,6 +34,7 @@ function playerRowsForTeam(playerStats: StatWithPlayer[], teamId: string) {
 				jerseyNumber: stat.player?.jerseyNumber ?? '',
 				teamId,
 				pts: derived.pts,
+				pointsOnly: derived.pointsOnly,
 				reb: derived.reb,
 				ast: derived.ast,
 				stl: derived.stl,
@@ -139,6 +141,7 @@ export async function loadBoxScore(gameId: string) {
 		status: game.status,
 		gameType: game.gameType,
 		statsAvailable: game.statsAvailable,
+		pointsOnly: game.pointsOnly,
 		completedAt: game.completedAt,
 		scheduledAt: game.scheduledAt,
 		playerOfTheGame: playerOfTheGame

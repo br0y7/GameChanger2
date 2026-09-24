@@ -21,38 +21,46 @@ const shootingAverageKeys = {
  * @param gameStats List of player game stats
  * @returns Player Stats
  */
-export const derivePlayerStats = (gameStats: PlayerGameStats[]): PlayerStats => ({
-	raw: rawStatKeys.reduce(
-		(obj, key) => {
-			obj[key] = {
-				total: sumBy(gameStats, (stats) => stats[key]),
-				average: averageBy(gameStats, (stats) => stats[key]),
-				min: minBy(gameStats, (stats) => stats[key]),
-				max: maxBy(gameStats, (stats) => stats[key]),
-			};
-			return obj;
-		},
-		{} as Record<RawStatKey, Statistic>
-	),
-	derived: derivedStatKeys.reduce(
-		(obj, key) => {
-			const shooting = shootingAverageKeys[key as keyof typeof shootingAverageKeys];
-			const average = shooting
-				? percentageBy(
-						gameStats,
-						(stats) => stats[shooting.makes],
-						(stats) => stats[shooting.attempts]
-					)
-				: averageBy(gameStats, (stats) => stats[key]);
+export const derivePlayerStats = (gameStats: PlayerGameStats[]): PlayerStats => {
+	// Points-only sheets have real points and zeros everywhere else. Those zeros are not a box score.
+	const boxGames = gameStats.filter((stats) => !stats.pointsOnly);
+	const gamesFor = (key: string) => (key === 'pts' ? gameStats : boxGames);
 
-			obj[key] = {
-				total: sumBy(gameStats, (stats) => stats[key]),
-				average,
-				min: minBy(gameStats, (stats) => stats[key]),
-				max: maxBy(gameStats, (stats) => stats[key]),
-			};
-			return obj;
-		},
-		{} as Record<DerivedStatKey, Statistic>
-	),
-});
+	return {
+		raw: rawStatKeys.reduce(
+			(obj, key) => {
+				const games = boxGames;
+				obj[key] = {
+					total: sumBy(games, (stats) => stats[key]),
+					average: averageBy(games, (stats) => stats[key]),
+					min: minBy(games, (stats) => stats[key]),
+					max: maxBy(games, (stats) => stats[key]),
+				};
+				return obj;
+			},
+			{} as Record<RawStatKey, Statistic>
+		),
+		derived: derivedStatKeys.reduce(
+			(obj, key) => {
+				const games = gamesFor(key);
+				const shooting = shootingAverageKeys[key as keyof typeof shootingAverageKeys];
+				const average = shooting
+					? percentageBy(
+							games,
+							(stats) => stats[shooting.makes],
+							(stats) => stats[shooting.attempts]
+						)
+					: averageBy(games, (stats) => stats[key]);
+
+				obj[key] = {
+					total: sumBy(games, (stats) => stats[key]),
+					average,
+					min: minBy(games, (stats) => stats[key]),
+					max: maxBy(games, (stats) => stats[key]),
+				};
+				return obj;
+			},
+			{} as Record<DerivedStatKey, Statistic>
+		),
+	};
+};

@@ -20,6 +20,9 @@
 	import ErrorPopover from '$lib/components/ErrorPopover.svelte';
 	import ExpandTransition from '$lib/components/transitions/ExpandTransition.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import CoachNoteEditor from '$lib/components/CoachNoteEditor.svelte';
+	import MessageSquareIcon from '@lucide/svelte/icons/message-square';
 
 	interface RosterAverages {
 		gamesPlayed: number;
@@ -35,9 +38,18 @@
 		divisionId: string;
 		seasonId: string;
 		averages?: RosterAverages | null;
+		canManage?: boolean;
 	}
 
-	let { player, playerHref, teamSlug, divisionId, seasonId, averages = null }: Props = $props();
+	let {
+		player,
+		playerHref,
+		teamSlug,
+		divisionId,
+		seasonId,
+		averages = null,
+		canManage = false,
+	}: Props = $props();
 
 	const fadeOptions = { duration: 200, easing: cubicOut };
 
@@ -45,6 +57,7 @@
 	const updateFormId = () => `roster-player-form-${player.id}`;
 	let updateButton: HTMLButtonElement | null = $state(null);
 	let editing = $state(false);
+	let notesOpen = $state(false);
 	let submitting = $derived(!!updateForm.pending);
 
 	let inputs: Record<keyof Omit<UpdatePlayerInput, 'id'>, HTMLInputElement | null> = $state({
@@ -163,6 +176,7 @@
 	<Table.Cell class="text-center tabular-nums text-[#E6EDF3]">{formatAvg(averages?.rebounds)}</Table.Cell>
 	<Table.Cell class="text-center tabular-nums text-[#E6EDF3]">{formatAvg(averages?.assists)}</Table.Cell>
 
+	{#if canManage}
 	<Table.Cell class="w-12 text-end">
 		<ExpandTransition>
 			{#if editing}
@@ -222,10 +236,31 @@
 								<PencilIcon class="size-4" />
 								Edit player
 							</DropdownMenu.Item>
+							<DropdownMenu.Item
+								class="cursor-pointer focus:bg-white/10"
+								onclick={() => (notesOpen = true)}
+							>
+								<MessageSquareIcon class="size-4" />
+								Coach notes
+							</DropdownMenu.Item>
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
 				</div>
 			{/if}
 		</ExpandTransition>
+		<Dialog.Root bind:open={notesOpen}>
+			<Dialog.Content class="border-[#2A3038] bg-[#161B22] text-[#E6EDF3] sm:max-w-lg">
+				<Dialog.Header>
+					<Dialog.Title>Coach notes</Dialog.Title>
+					<Dialog.Description class="text-[#8B949E]">
+						{player.name}. This stays off public pages and other families' accounts.
+					</Dialog.Description>
+				</Dialog.Header>
+				{#if notesOpen}
+					<CoachNoteEditor playerId={player.id} />
+				{/if}
+			</Dialog.Content>
+		</Dialog.Root>
 	</Table.Cell>
+	{/if}
 </Table.Row>

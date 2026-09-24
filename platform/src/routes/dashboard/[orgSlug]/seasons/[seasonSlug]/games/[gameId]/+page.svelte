@@ -142,16 +142,27 @@
 							{:else if box.gameType === 'finals'}
 								<span class="mx-1.5 text-[#2A3038]">·</span>
 								<span class="font-medium text-[#A371F7]">Finals</span>
+							{:else if box.gameType === 'third_place'}
+								<span class="mx-1.5 text-[#2A3038]">·</span>
+								<span class="font-medium text-[#56D4DD]">Third Place</span>
 							{/if}
 						</p>
-					{:else if box.gameType === 'playoff' || box.gameType === 'finals'}
+						{#if box.pointsOnly}
+							<p class="mt-1 text-xs text-[#8B949E]">Points only · no game rating</p>
+						{/if}
+					{:else if box.gameType === 'playoff' || box.gameType === 'finals' || box.gameType === 'third_place'}
 						<p
 							class="mt-1 text-sm font-medium {box.gameType === 'finals'
 								? 'text-[#A371F7]'
-								: 'text-[#F0A020]'}"
+								: box.gameType === 'third_place'
+									? 'text-[#56D4DD]'
+									: 'text-[#F0A020]'}"
 						>
 							{gameTypeLabel(box.gameType)}
 						</p>
+					{/if}
+					{#if box.pointsOnly && !dateLabel}
+						<p class="mt-1 text-xs text-[#8B949E]">Points only · no game rating</p>
 					{/if}
 				</div>
 
@@ -260,14 +271,14 @@
 												{/if}
 											</td>
 											<td class="py-2.5 text-center font-semibold tabular-nums">{player.pts}</td>
-											<td class="py-2.5 text-center tabular-nums">{player.reb}</td>
-											<td class="py-2.5 text-center tabular-nums">{player.ast}</td>
-											<td class="py-2.5 text-center tabular-nums">{player.fgm}-{player.fga}</td>
-											<td class="py-2.5 text-center tabular-nums">{player.fg3m}-{player.fg3a}</td>
-											<td class="py-2.5 text-center tabular-nums">{player.ftm}-{player.fta}</td>
-											<td class="py-2.5 text-center tabular-nums">{player.stl}</td>
-											<td class="py-2.5 text-center tabular-nums">{player.blk}</td>
-											<td class="py-2.5 text-center tabular-nums">{player.tov}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.pointsOnly ? '—' : player.reb}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.pointsOnly ? '—' : player.ast}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.pointsOnly ? '—' : `${player.fgm}-${player.fga}`}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.pointsOnly ? '—' : `${player.fg3m}-${player.fg3a}`}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.pointsOnly ? '—' : `${player.ftm}-${player.fta}`}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.pointsOnly ? '—' : player.stl}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.pointsOnly ? '—' : player.blk}</td>
+											<td class="py-2.5 text-center tabular-nums">{player.pointsOnly ? '—' : player.tov}</td>
 											<td class="py-2.5 text-center tabular-nums">
 												{#if player.gameRating != null}
 													<button

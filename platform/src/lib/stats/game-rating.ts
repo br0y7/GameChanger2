@@ -291,7 +291,7 @@ export type ApplicableScale = {
 	scope: 'division' | 'league';
 };
 
-function clearedRating() {
+export function clearedRating() {
 	return {
 		gameRating: null,
 		ratingVersion: null,

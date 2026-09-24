@@ -282,8 +282,8 @@
 									{/if}
 								</td>
 								<td class="py-2.5 tabular-nums">{game.pts}</td>
-								<td class="py-2.5 tabular-nums">{game.reb}</td>
-								<td class="py-2.5 tabular-nums">{game.ast}</td>
+								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.reb}</td>
+								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.ast}</td>
 								<td class="py-2.5 tabular-nums">
 									{#if game.gameRating != null}
 										<button

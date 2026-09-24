@@ -772,13 +772,20 @@ Edit a player name or jersey number:
 4. Choose Edit.
 5. Change the name and/or jersey number.
 6. Click the checkmark to save (or X to cancel).
+League organizers and admins can edit names. Coaches and families cannot.
+
+Add a private coach note:
+1. Open the team Roster, or open the player's page.
+2. Choose Coach notes (roster ••• menu) or use the Coach notes section on the player page.
+3. Write the note and click Save note.
+4. Only that player's family and league staff can see it. It is not public.
 
 Import a statsheet (spreadsheet):
 1. Go to your organization dashboard.
 2. Open Import (admin/import tools).
 3. Upload the .xlsx statsheet and preview the games.
 4. Confirm/save to create games, teams, and player stats.
-5. In the sheet, optional rows: Game Type (Regular Season / Playoff / Finals). Beside a team name, Win or Lose means result-only (no box score stats).
+5. In the sheet, optional rows: Game Type (Regular Season / Playoff / Finals / Third Place). Beside a team name, Win or Lose means result-only (no box score stats). A sheet with only a points column is points-only: those points count, and the other stats stay blank. Points-only games do not get a game rating.
 
 View the team schedule:
 1. Open the team page.

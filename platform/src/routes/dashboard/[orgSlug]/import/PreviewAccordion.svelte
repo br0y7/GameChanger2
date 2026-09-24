@@ -91,11 +91,15 @@
 					<Badge variant="warning">Playoff</Badge>
 				{:else if game.gameType === 'finals'}
 					<Badge variant="info">Finals</Badge>
+				{:else if game.gameType === 'third_place'}
+					<Badge variant="info">Third Place</Badge>
 				{:else}
 					<Badge variant="default">Regular Season</Badge>
 				{/if}
 				{#if game.statsAvailable === false}
 					<Badge variant="secondary">No stats</Badge>
+				{:else if game.pointsOnly}
+					<Badge variant="secondary">Points only</Badge>
 				{/if}
 			</Accordion.Trigger>
 			<Accordion.Content>
@@ -104,6 +108,8 @@
 					Game Type: {gameTypeLabel(game.gameType)}
 					{#if game.statsAvailable === false}
 						· Result only (Win / Lose / Default Lose) — no box score
+					{:else if game.pointsOnly}
+						· Points only — counted in scoring, not in the game rating
 					{/if}
 				</p>
 				{#if game.statsAvailable === false}

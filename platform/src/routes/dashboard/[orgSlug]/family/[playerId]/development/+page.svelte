@@ -83,9 +83,7 @@
 		{#if home.coachFeedback}
 			<p class="mt-3 text-sm leading-relaxed">“{home.coachFeedback}”</p>
 		{:else}
-			<p class="mt-3 text-sm text-[#8B949E]">
-				Coach comments will show here once coaches can leave private notes (GameChanger 2.0).
-			</p>
+			<p class="mt-3 text-sm text-[#8B949E]">No coach notes yet.</p>
 		{/if}
 	</section>
 </section>

@@ -36,7 +36,11 @@ export const getSeasonPlayers = query(z.object({ seasonId: idField }), async ({ 
 		with: {
 			teams: {
 				with: {
-					players: true,
+					players: {
+						with: {
+							followers: { columns: { status: true } },
+						},
+					},
 				},
 			},
 		},
@@ -44,18 +48,29 @@ export const getSeasonPlayers = query(z.object({ seasonId: idField }), async ({ 
 
 	const players = divisions.flatMap((division) =>
 		division.teams.flatMap((team) =>
-			team.players.map((player) => ({
-				id: player.id,
-				name: player.name,
-				jerseyNumber: player.jerseyNumber,
-				teamId: team.id,
-				teamName: team.name,
-				teamSlug: team.slug,
-				divisionId: division.id,
-				divisionName: division.name,
-				divisionSlug: division.slug,
-				updatedAt: player.updatedAt,
-			}))
+			team.players.map((player) => {
+				const hasAccount =
+					!!player.userId || player.followers.some((follower) => follower.status === 'active');
+				const accountStatus = hasAccount
+					? ('account' as const)
+					: player.followers.some((follower) => follower.status === 'invited')
+						? ('invited' as const)
+						: ('none' as const);
+
+				return {
+					id: player.id,
+					name: player.name,
+					jerseyNumber: player.jerseyNumber,
+					teamId: team.id,
+					teamName: team.name,
+					teamSlug: team.slug,
+					divisionId: division.id,
+					divisionName: division.name,
+					divisionSlug: division.slug,
+					updatedAt: player.updatedAt,
+					accountStatus,
+				};
+			})
 		)
 	);
 

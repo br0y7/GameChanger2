@@ -12,6 +12,7 @@ import {
 	type TeamPreview,
 } from '$lib/schemas/preview';
 import type { GameType } from '$lib/schemas/game';
+import { isPointsColumn, isPointsOnlyHeaders, parseGameTypeLabel } from '$lib/parsers/sheet-labels';
 import { Temporal } from 'temporal-polyfill';
 import { serverLogger } from '$lib/server/logger';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
@@ -34,39 +35,13 @@ function parseGameType(value: RowValue, gameName: string, excelRow: number): Gam
 		return 'regular';
 	}
 
-	const normalized = String(value)
-		.trim()
-		.toLowerCase()
-		.replace(/[_-]+/g, ' ')
-		.replace(/\s+/g, ' ');
-
-	if (normalized === 'playoff' || normalized === 'playoffs') {
-		return 'playoff';
-	}
-
-	if (
-		normalized === 'finals' ||
-		normalized === 'final' ||
-		normalized === 'championship' ||
-		normalized === 'championship game'
-	) {
-		return 'finals';
-	}
-
-	if (
-		normalized === 'regular' ||
-		normalized === 'normal' ||
-		normalized === 'season' ||
-		normalized === 'regular season' ||
-		normalized.startsWith('regular season')
-	) {
-		return 'regular';
-	}
+	const parsed = parseGameTypeLabel(value);
+	if (parsed) return parsed;
 
 	throw gameError(
 		gameName,
 		`Game Type row (Excel row ${excelRow})`,
-		`Unknown Game Type "${value}". Use Regular Season, Playoff, or Finals.`
+		`Unknown Game Type "${value}". Use Regular Season, Playoff, Finals, or Third Place.`
 	);
 }
 
@@ -147,9 +122,11 @@ function parseStatsRow(
 	row: RowValue[],
 	headers: Header[],
 	gameName: string,
-	teamName: string
+	teamName: string,
+	pointsOnly: boolean
 ): PlayerGameStatsPreview {
 	let jerseyNumber = '';
+	let recordedPts: number | null = pointsOnly ? 0 : null;
 	const stats = Object.fromEntries(rawStatKeys.map((key) => [key, 0])) as Record<
 		StatKey,
 		number
@@ -157,6 +134,11 @@ function parseStatsRow(
 
 	for (let i = 0; i < headers.length; i++) {
 		const header = headers[i];
+
+		if (pointsOnly && isPointsColumn(header)) {
+			recordedPts = parseStatNumber(row[i]);
+			continue;
+		}
 
 		if (!ALLOWED_HEADERS.has(header)) {
 			continue;
@@ -198,6 +180,7 @@ function parseStatsRow(
 	return {
 		jerseyNumber,
 		stats,
+		recordedPts,
 		_status: 'new',
 	};
 }
@@ -218,6 +201,7 @@ function parseGameSheet(
 	const teams: TeamPreview[] = [];
 	let currentTeam: TeamPreview | null = null;
 	let currentHeaders: Header[] = [];
+	let currentPointsOnly = false;
 	let isReadingStats = false;
 	let resultOnlyGame = false;
 	const teamResults: Array<'win' | 'lose' | null> = [];
@@ -302,6 +286,7 @@ function parseGameSheet(
 				currentHeaders = row
 					.map((v) => v.toString().toLowerCase())
 					.map((h) => HEADER_REPLACEMENTS[h] ?? h);
+				currentPointsOnly = isPointsOnlyHeaders(currentHeaders);
 				continue;
 			}
 
@@ -348,7 +333,13 @@ function parseGameSheet(
 				);
 			}
 
-			const playerStats = parseStatsRow(row, currentHeaders, gameName, currentTeam.name);
+			const playerStats = parseStatsRow(
+				row,
+				currentHeaders,
+				gameName,
+				currentTeam.name,
+				currentPointsOnly
+			);
 			currentTeam.playerStats.push(playerStats);
 		}
 
@@ -381,12 +372,18 @@ function parseGameSheet(
 		}
 
 		const [homeTeam, awayTeam] = teams;
+		const playerRows = teams.flatMap((team) => team.playerStats);
+		const pointsOnly =
+			!resultOnlyGame &&
+			playerRows.length > 0 &&
+			playerRows.every((row) => row.recordedPts != null);
 
 		return {
 			name: gameName,
 			completedAt: new Date(gameTime.epochMilliseconds),
 			gameType,
 			statsAvailable: !resultOnlyGame,
+			pointsOnly,
 			homeTeam,
 			awayTeam,
 		};

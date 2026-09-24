@@ -149,6 +149,8 @@ export const game = snakeCase.table(
 		gameType: gameTypeEnum().notNull().default('regular'),
 		/** False when the sheet only recorded Win/Lose/Default Lose (no box-score stats). */
 		statsAvailable: boolean().notNull().default(true),
+		/** True when the sheet recorded points only, with no shot or rebound columns. */
+		pointsOnly: boolean().notNull().default(false),
 		statsStatus: gameStatsStatusEnum().notNull().default('none'),
 		statsSubmittedAt: timestamp(),
 		statsSubmittedByUserId: uuid().references(() => user.id, { onDelete: 'set null' }),
@@ -188,6 +190,26 @@ export const player = snakeCase.table(
 );
 
 export type Player = typeof player.$inferSelect;
+
+export const PLAYER_COACH_NOTE_PLAYER_UQ = 'player_coach_note_player_id_uq';
+
+/** Private note for one player's family. Not included on public or coach roster queries. */
+export const playerCoachNote = snakeCase.table(
+	'player_coach_note',
+	{
+		...baseFields,
+		playerId: uuid()
+			.notNull()
+			.references(() => player.id, { onDelete: 'cascade' }),
+		body: text().notNull(),
+	},
+	(table) => [
+		unique(PLAYER_COACH_NOTE_PLAYER_UQ).on(table.playerId),
+		index('playerCoachNote_playerId_idx').on(table.playerId),
+	]
+);
+
+export type PlayerCoachNote = typeof playerCoachNote.$inferSelect;
 
 export const relationshipEnum = pgEnum('follower_relationship', [
 	'fan',
@@ -268,6 +290,8 @@ export const playerGameStat = snakeCase.table(
 		blk: integer().default(0).notNull(),
 		// personal fouls
 		pf: integer().default(0).notNull(),
+		/** Set when the sheet recorded points without a shot breakdown. Other columns stay 0. */
+		recordedPts: integer(),
 
 		// GC-v1 game rating. Null until a scale exists or the line is empty.
 		gameRating: real(),

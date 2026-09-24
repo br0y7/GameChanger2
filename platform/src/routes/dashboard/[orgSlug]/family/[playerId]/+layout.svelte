@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { getFamilyPlayerHome } from '$lib/api/family.remote';
+	import AdminPlayerRename from '$lib/components/AdminPlayerRename.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children, params }: LayoutProps = $props();
@@ -46,6 +47,12 @@
 			<p class="text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">Family Portal</p>
 			<p class="mt-1 text-sm text-[#8B949E]">{home.player.leagueName}</p>
 			<h1 class="mt-1 text-3xl font-extrabold tracking-tight">{home.player.name}</h1>
+			<AdminPlayerRename
+				playerId={home.player.id}
+				name={home.player.name}
+				jerseyNumber={home.player.jerseyNumber}
+				seasonId={home.player.seasonId}
+			/>
 			<p class="mt-1 text-sm text-[#8B949E]">
 				#{home.player.jerseyNumber}
 				{#if home.player.divisionName}

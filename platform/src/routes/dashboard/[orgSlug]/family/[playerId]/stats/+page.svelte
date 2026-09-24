@@ -145,9 +145,9 @@
 							<tr class="border-t border-[#2A3038]/60">
 								<td class="py-2.5">{game.opponentName}</td>
 								<td class="py-2.5 tabular-nums font-medium">{game.pts}</td>
-								<td class="py-2.5 tabular-nums">{game.reb}</td>
-								<td class="py-2.5 tabular-nums">{game.ast}</td>
-								<td class="py-2.5 tabular-nums">{game.stl}</td>
+								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.reb}</td>
+								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.ast}</td>
+								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.stl}</td>
 								<td class="py-2.5 tabular-nums">
 									{#if game.gameRating != null}
 										<button

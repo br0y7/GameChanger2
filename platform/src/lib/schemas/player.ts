@@ -22,3 +22,10 @@ export const updatePlayerSchema = z.object({
 });
 
 export type UpdatePlayerInput = z.infer<typeof updatePlayerSchema>;
+
+export const coachNoteSchema = z.object({
+	playerId: z.uuid('Player ID is required.'),
+	body: z.string().trim().max(2000, 'Coach note must be 2000 characters or less'),
+});
+
+export type CoachNoteInput = z.infer<typeof coachNoteSchema>;

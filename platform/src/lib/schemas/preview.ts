@@ -52,6 +52,8 @@ export const playerGameStatPreviewSchema = z.object({
 	_status: importStatusSchema.default('new'),
 
 	stats: z.record(statKeysSchema, z.number()),
+	/** Set when this row came from a points-only sheet. Null on a full box score. */
+	recordedPts: z.number().nullable().optional(),
 });
 
 export type PlayerGameStatsPreview = z.infer<typeof playerGameStatPreviewSchema>;
@@ -72,6 +74,8 @@ export const gamePreviewSchema = z.object({
 	gameType: z.enum(gameTypes).default('regular'),
 	/** False when scores were Win/Lose/Default Lose and no box score stats exist. */
 	statsAvailable: z.boolean().default(true),
+	/** True when every player row recorded points only. */
+	pointsOnly: z.boolean().default(false),
 	homeTeam: teamPreviewSchema,
 	awayTeam: teamPreviewSchema,
 });
