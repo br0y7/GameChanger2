@@ -7,7 +7,7 @@ import {
 } from '$lib/schemas/league';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { isUserAdmin, requireSession, requireUser } from './auth.remote';
+import { isUserAdmin, requireAdmin, requireSession, requireUser } from './auth.remote';
 import { eq } from 'drizzle-orm';
 import { serverLogger } from '$lib/server/logger';
 import { advanceOnboardingStep } from './onboarding.server';
@@ -17,11 +17,12 @@ import { invalid, isRedirect, redirect } from '@sveltejs/kit';
 import { NEXT_ORGANIZER_ONBOARDING_STEP } from '$lib/onboarding/steps';
 import * as table from '$lib/server/db/schema';
 import { leagueFormLabels } from '$lib/forms/labels';
-import { isUserOrgAdmin } from './organization.remote';
+import { isUserOrgAdmin, listAllLeaguesForAdmin, getHomepageLeague } from './organization.remote';
 import { forbidden } from '$lib/server/fail';
 import { resolve } from '$app/paths';
 import { mkdir, unlink } from 'node:fs/promises';
 import path from 'node:path';
+import { idOnlySchema } from '$lib/schemas/common';
 
 const LOGO_EXT: Record<string, string> = {
 	'image/png': 'png',
@@ -238,4 +239,56 @@ export const clearLeagueLogo = form(clearLeagueLogoSchema, async ({ organization
 	await db.update(table.organization).set({ logo: null }).where(eq(table.organization.id, organizationId));
 	serverLogger.info(user.id, 'cleared league logo', organizationId);
 	return { logo: null };
+});
+
+/** Platform admin only — permanently deletes a league and cascaded seasons/teams/games. */
+export const deleteLeague = form(idOnlySchema, async ({ id }) => {
+	const user = await requireAdmin();
+
+	const league = await db.query.organization.findFirst({
+		where: { id },
+		columns: { id: true, name: true, slug: true, type: true, logo: true },
+	});
+
+	if (!league || league.type !== 'league') {
+		return invalid('League not found.');
+	}
+
+	const session = await requireSession();
+	const {
+		request: { headers },
+	} = getRequestEvent();
+
+	await removeStoredLogoFile(league.logo);
+	for (const ext of Object.values(LOGO_EXT)) {
+		await removeStoredLogoFile(`/uploads/logos/${league.id}.${ext}`);
+	}
+
+	try {
+		await db.delete(table.organization).where(eq(table.organization.id, league.id));
+	} catch (err) {
+		serverLogger.error(err);
+		return invalid('Could not delete this league. Try again.');
+	}
+
+	if (session.activeOrganizationId === league.id) {
+		const adminOrg = await db.query.organization.findFirst({
+			where: { type: 'system' },
+			columns: { id: true },
+		});
+		if (adminOrg) {
+			await auth.api.setActiveOrganization({
+				headers,
+				body: { organizationId: adminOrg.id },
+			});
+			void requireSession().refresh();
+		}
+	}
+
+	serverLogger.info(user.id, 'deleted league', { id: league.id, slug: league.slug });
+
+	void listAllLeaguesForAdmin().refresh();
+	void getHomepageLeague().refresh();
+
+	return { id: league.id, name: league.name };
 });

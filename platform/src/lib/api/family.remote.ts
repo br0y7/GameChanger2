@@ -14,6 +14,13 @@ import { serverLogger } from '$lib/server/logger';
 import { ONBOARDING_DONE_STEP } from '$lib/onboarding/steps';
 import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
 import { derivePlayerStats } from '$lib/stats/player-stats';
+import { ranksForPlayer, type RankRow } from '$lib/stats/stat-ranks';
+import {
+	averageGameRating,
+	ratingMeaning,
+	trendVersusAverage,
+} from '$lib/stats/game-rating';
+import { loadSeasonPlayerLines } from '$lib/server/season-player-directory.server';
 import { derivePlayerStrengths } from '$lib/player-analysis/player-strengths';
 import { derivePlayerWeaknesses } from '$lib/player-analysis/player-weaknesses';
 import { invalid, isRedirect, redirect } from '@sveltejs/kit';
@@ -362,12 +369,30 @@ export const getFamilyPlayerHome = query(
 		});
 
 		const gp = chronological.length;
+		const analysisStats = derivePlayerStats(chronological);
+		const rawAvg = (key: keyof typeof analysisStats.raw) => analysisStats.raw[key].average ?? 0;
+		const derivedAvg = (key: keyof typeof analysisStats.derived) =>
+			analysisStats.derived[key].average ?? 0;
 		const season = {
-			ppg: avg(chronological, 'pts'),
-			rpg: avg(chronological, 'reb'),
-			apg: avg(chronological, 'ast'),
-			spg: avg(chronological, 'stl'),
 			gp,
+			ppg: derivedAvg('pts'),
+			rpg: derivedAvg('reb'),
+			apg: rawAvg('ast'),
+			spg: rawAvg('stl'),
+			bpg: rawAvg('blk'),
+			topg: rawAvg('tov'),
+			orpg: rawAvg('oreb'),
+			drpg: rawAvg('dreb'),
+			pf: rawAvg('pf'),
+			fgm: rawAvg('fgm'),
+			fga: rawAvg('fga'),
+			fg3m: rawAvg('fg3m'),
+			fg3a: rawAvg('fg3a'),
+			ftm: rawAvg('ftm'),
+			fta: rawAvg('fta'),
+			fgPct: derivedAvg('fgPct'),
+			fg3Pct: derivedAvg('fg3Pct'),
+			ftPct: derivedAvg('ftPct'),
 		};
 
 		const split = Math.max(1, Math.floor(gp / 2));
@@ -383,29 +408,60 @@ export const getFamilyPlayerHome = query(
 		};
 
 		const teamId = player.teamId;
-		const recentGames = [...player.gameStats]
-			.filter((s) => s.game)
+		const lineByGameId = new Map(
+			player.gameStats
+				.filter((stat) => stat.game)
+				.map((raw) => {
+					const stat = derivePlayerGameStats(raw);
+					return [raw.game!.id, { pts: stat.pts, reb: stat.reb, ast: stat.ast }] as const;
+				})
+		);
+		const gameLog = [...player.gameStats]
+			.filter((stat) => stat.game)
 			.sort((a, b) => {
 				const aAt = (a.game?.completedAt ?? a.game?.scheduledAt)?.getTime() ?? 0;
 				const bAt = (b.game?.completedAt ?? b.game?.scheduledAt)?.getTime() ?? 0;
 				return bAt - aAt;
 			})
-			.slice(0, 5)
 			.map((raw) => {
-				const stat = derivePlayerGameStats(raw);
-				const game = raw.game!;
-				const isHome = game.homeTeamId === teamId;
-				const opponent = isHome ? game.awayTeam : game.homeTeam;
-				return {
-					gameId: game.id,
-					date: game.completedAt ?? game.scheduledAt,
-					opponentName: opponent?.name ?? 'Opponent',
-					pts: stat.pts,
-					reb: stat.reb,
-					ast: stat.ast,
-					stl: stat.stl,
-				};
-			});
+			const stat = derivePlayerGameStats(raw);
+			const game = raw.game!;
+			const isHome = game.homeTeamId === teamId;
+			const opponent = isHome ? game.awayTeam : game.homeTeam;
+			return {
+				gameId: game.id,
+				date: game.completedAt ?? game.scheduledAt,
+				opponentName: opponent?.name ?? 'Opponent',
+				pts: stat.pts,
+				reb: stat.reb,
+				ast: stat.ast,
+				stl: stat.stl,
+				blk: stat.blk,
+				tov: stat.tov,
+				oreb: stat.oreb,
+				gameRating: stat.gameRating,
+				meaning: stat.gameRating == null ? null : ratingMeaning(stat.gameRating),
+				breakdown: stat.ratingBreakdown,
+				impactScore: stat.impactScore,
+				percentile: stat.ratingPercentile,
+				contextBonus: stat.contextBonus,
+			};
+		});
+		const recentGames = gameLog.slice(0, 5);
+		const ratedChronological = chronological.filter((stat) => stat.gameRating != null);
+		const seasonRatings = ratedChronological.map((stat) => stat.gameRating!);
+		const lastFiveRatings = seasonRatings.slice(-5);
+		const seasonAverageRating = averageGameRating(seasonRatings);
+		const lastFiveAverage = averageGameRating(lastFiveRatings);
+		const ratingSummary = {
+			average: seasonAverageRating,
+			lastFive: lastFiveRatings,
+			lastFiveAverage,
+			trend:
+				lastFiveAverage == null
+					? ('flat' as const)
+					: trendVersusAverage(lastFiveAverage, seasonAverageRating),
+		};
 
 		const seasonId = player.team?.division?.seasonId;
 		const scheduleGames = seasonId
@@ -443,10 +499,22 @@ export const getFamilyPlayerHome = query(
 					result,
 					teamScore: game.status === 'completed' ? teamScore : null,
 					oppScore: game.status === 'completed' ? oppScore : null,
+					playerLine: game.status === 'completed' ? (lineByGameId.get(game.id) ?? null) : null,
 				};
 			});
 
-		const analysisStats = derivePlayerStats(chronological);
+		const divisionId = player.team?.division?.id ?? '';
+		const rankRows: RankRow[] =
+			seasonId && divisionId
+				? (await loadSeasonPlayerLines(seasonId)).map((line) => ({
+						id: line.id,
+						divisionId: line.divisionId,
+						values: line.values,
+					}))
+				: [];
+
+		const ranks = divisionId ? ranksForPlayer(rankRows, player.id, divisionId) : {};
+
 		const strengths = derivePlayerStrengths(analysisStats)
 			.slice(0, 3)
 			.map((s) => s.description);
@@ -463,8 +531,11 @@ export const getFamilyPlayerHome = query(
 				divisionName: player.team?.division?.name ?? '',
 				seasonName: player.team?.division?.season?.name ?? '',
 				leagueName: player.team?.division?.season?.organization?.name ?? '',
+				seasonId: player.team?.division?.seasonId ?? null,
 			},
 			season,
+			ratingSummary,
+			gameLog,
 			progress: {
 				points: progressMetric('pts'),
 				rebounds: progressMetric('reb'),
@@ -472,6 +543,7 @@ export const getFamilyPlayerHome = query(
 			},
 			recentGames,
 			schedule,
+			ranks,
 			strengths,
 			focusAreas,
 			coachFeedback: null as string | null,

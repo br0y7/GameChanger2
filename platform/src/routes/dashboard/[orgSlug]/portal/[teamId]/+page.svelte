@@ -2,19 +2,23 @@
 	import { resolve } from '$app/paths';
 	import { getTeam } from '$lib/api/team.remote';
 	import { getTeamOverview } from '$lib/api/team-overview.remote';
-	import { getCoachAssignmentForTeamQuery } from '$lib/api/coach-portal.remote';
+	import { getPortalTeamContext } from '$lib/api/coach-portal.remote';
 	import {
+		getCoachLatestGameRatings,
 		getCoachTeamDevelopment,
 		getCoachTeamPlayerStats,
 	} from '$lib/api/coach-player-stats.remote';
+	import GameRatingDetail, {
+		type GameRatingDetailModel,
+	} from '$lib/components/GameRatingDetail.svelte';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
 
-	const assignment = $derived(await getCoachAssignmentForTeamQuery({ teamId: params.teamId }));
+	const context = $derived(await getPortalTeamContext({ teamId: params.teamId }));
 	const team = $derived(await getTeam({ id: params.teamId, include: { players: true } }));
-	const season = $derived(assignment?.team?.division?.season);
-	const division = $derived(assignment?.team?.division);
+	const season = $derived(context?.season);
+	const division = $derived(context?.division);
 
 	const overview = $derived(
 		season && division
@@ -27,6 +31,34 @@
 	);
 
 	const playerStats = $derived(await getCoachTeamPlayerStats({ teamId: params.teamId }));
+	const latestRatings = $derived(await getCoachLatestGameRatings({ teamId: params.teamId }));
+	let ratingOpen = $state(false);
+	let ratingDetail = $state<GameRatingDetailModel | null>(null);
+
+	function openRating(player: NonNullable<typeof latestRatings>['players'][number]) {
+		ratingDetail = {
+			playerName: player.name,
+			opponentName: latestRatings?.opponentName,
+			rating: player.gameRating,
+			meaning: player.meaning,
+			points: player.pts,
+			rebounds: player.reb,
+			offensiveRebounds: player.oreb,
+			assists: player.ast,
+			steals: player.stl,
+			blocks: player.blk,
+			turnovers: player.tov,
+			breakdown: player.breakdown,
+		};
+		ratingOpen = true;
+	}
+
+	function trendLabel(trend: 'up' | 'flat' | 'down', delta: number | null) {
+		const arrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
+		if (delta == null || trend === 'flat') return arrow;
+		const sign = delta > 0 ? '+' : '';
+		return `${arrow} ${sign}${delta.toFixed(1)}`;
+	}
 	const development = $derived(await getCoachTeamDevelopment({ teamId: params.teamId }));
 
 	const base = $derived(
@@ -143,6 +175,52 @@
 				{/if}
 			</section>
 		</div>
+
+		{#if latestRatings && latestRatings.players.length > 0}
+			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5">
+				<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
+					Latest game
+				</h3>
+				<p class="mt-1 text-sm text-[#E6EDF3]">
+					vs {latestRatings.opponentName}
+					<span class="tabular-nums text-[#8B949E]">
+						· {latestRatings.teamScore}–{latestRatings.oppScore}
+					</span>
+				</p>
+				<div class="mt-4 overflow-x-auto">
+					<table class="w-full min-w-[520px] text-left text-sm">
+						<thead class="border-b border-[#2A3038] text-xs tracking-wide text-[#8B949E] uppercase">
+							<tr>
+								<th class="pb-2 font-medium">Player</th>
+								<th class="pb-2 font-medium tabular-nums">Game Rating</th>
+								<th class="pb-2 font-medium tabular-nums">Average Game Rating</th>
+								<th class="pb-2 font-medium">vs Avg</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each latestRatings.players as player (player.playerId)}
+								<tr class="border-b border-[#2A3038]/50">
+									<td class="py-2.5">
+										<button
+											type="button"
+											class="font-medium text-[#58A6FF] hover:underline"
+											onclick={() => openRating(player)}
+										>
+											{player.name}
+										</button>
+									</td>
+									<td class="py-2.5 tabular-nums font-semibold">{player.gameRating.toFixed(1)}</td>
+									<td class="py-2.5 tabular-nums text-[#8B949E]">
+										{player.seasonAverage == null ? '—' : player.seasonAverage.toFixed(1)}
+									</td>
+									<td class="py-2.5 tabular-nums">{trendLabel(player.trend, player.delta)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		{/if}
 
 		<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5">
 			<div class="flex flex-wrap items-center justify-between gap-2">
@@ -337,3 +415,5 @@
 {:else}
 	<p class="text-sm text-[#8B949E]">Unable to load team overview.</p>
 {/if}
+
+<GameRatingDetail bind:open={ratingOpen} detail={ratingDetail} mode="development" askAs="player" />

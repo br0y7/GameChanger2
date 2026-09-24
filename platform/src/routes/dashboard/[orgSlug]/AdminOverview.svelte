@@ -6,7 +6,7 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
-	import { createLeague } from '$lib/api/league.remote';
+	import { createLeague, deleteLeague } from '$lib/api/league.remote';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import NameSlugFields from '$lib/forms/NameSlugFields.svelte';
 	import { leagueFormLabels } from '$lib/forms/labels';
@@ -19,6 +19,7 @@
 	} from '$lib/api/organization.remote';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 
 	let { org }: { org: Organization } = $props();
 	await requireAdmin();
@@ -27,14 +28,19 @@
 	const homepageLeague = $derived(await getHomepageLeague());
 	const leagues = $derived(await listAllLeaguesForAdmin());
 	let openingId = $state<string | null>(null);
+	let confirmDeleteOpen = $state(false);
+	let leagueToDelete = $state<(typeof leagues)[number] | null>(null);
 
 	async function openLeague(
 		leagueId: string,
-		destination: 'dashboard' | 'stats'
+		destination: 'dashboard' | 'stats' | 'portal' | 'family'
 	) {
 		openingId = `${leagueId}:${destination}`;
 		try {
-			const result = await enterLeagueAsAdmin({ organizationId: leagueId, destination });
+			const result = await enterLeagueAsAdmin({
+				organizationId: leagueId,
+				destination: destination === 'stats' ? 'stats' : 'dashboard',
+			});
 			if (destination === 'stats' && result.seasonSlug) {
 				await goto(
 					resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]/stats', {
@@ -44,10 +50,23 @@
 				);
 				return;
 			}
+			if (destination === 'portal') {
+				await goto(resolve('/dashboard/[orgSlug]/portal', { orgSlug: result.slug }));
+				return;
+			}
+			if (destination === 'family') {
+				await goto(resolve('/dashboard/[orgSlug]/family', { orgSlug: result.slug }));
+				return;
+			}
 			await goto(resolve('/dashboard/[orgSlug]', { orgSlug: result.slug }));
 		} finally {
 			openingId = null;
 		}
+	}
+
+	function requestDelete(league: (typeof leagues)[number]) {
+		leagueToDelete = league;
+		confirmDeleteOpen = true;
 	}
 </script>
 
@@ -64,7 +83,7 @@
 			<div>
 				<h2 class="text-xl font-semibold">Leagues</h2>
 				<p class="mt-1 text-sm text-[#8B949E]">
-					Open a league dashboard or jump straight to its stats.
+					Open a league admin, coach, or player dashboard.
 				</p>
 			</div>
 			<a
@@ -89,7 +108,7 @@
 							<th class="hidden px-4 py-3 font-semibold md:table-cell">Teams</th>
 							<th class="hidden px-4 py-3 font-semibold md:table-cell">Players</th>
 							<th class="hidden px-4 py-3 font-semibold lg:table-cell">Games</th>
-							<th class="px-4 py-3 font-semibold">Open</th>
+							<th class="px-4 py-3 font-semibold">Actions</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-[#2A3038]">
@@ -121,7 +140,23 @@
 											disabled={openingId !== null}
 											onclick={() => openLeague(league.id, 'dashboard')}
 										>
-											{openingId === `${league.id}:dashboard` ? 'Opening…' : 'Dashboard'}
+											{openingId === `${league.id}:dashboard` ? 'Opening…' : 'League'}
+										</button>
+										<button
+											type="button"
+											class="text-[#58A6FF] hover:underline disabled:opacity-60"
+											disabled={openingId !== null}
+											onclick={() => openLeague(league.id, 'portal')}
+										>
+											{openingId === `${league.id}:portal` ? 'Opening…' : 'Coaches'}
+										</button>
+										<button
+											type="button"
+											class="text-[#58A6FF] hover:underline disabled:opacity-60"
+											disabled={openingId !== null}
+											onclick={() => openLeague(league.id, 'family')}
+										>
+											{openingId === `${league.id}:family` ? 'Opening…' : 'Players'}
 										</button>
 										<button
 											type="button"
@@ -131,6 +166,14 @@
 										>
 											{openingId === `${league.id}:stats` ? 'Opening…' : 'Stats'}
 										</button>
+										<button
+											type="button"
+											class="text-[#F85149] hover:underline disabled:opacity-60"
+											disabled={openingId !== null || !!deleteLeague.pending}
+											onclick={() => requestDelete(league)}
+										>
+											Delete
+										</button>
 									</div>
 								</td>
 							</tr>
@@ -138,6 +181,7 @@
 					</tbody>
 				</table>
 			</div>
+			<ErrorAlert errors={deleteLeague.fields.issues()} />
 		{/if}
 	</section>
 
@@ -185,3 +229,63 @@
 		</Card.Root>
 	</section>
 </div>
+
+{#if leagueToDelete}
+	{@const deleteForm = deleteLeague.for(leagueToDelete.id)}
+	<AlertDialog.Root
+		bind:open={confirmDeleteOpen}
+		onOpenChange={(open) => {
+			if (!open) leagueToDelete = null;
+		}}
+	>
+		<AlertDialog.Content>
+			<AlertDialog.Header>
+				<AlertDialog.Title>Delete {leagueToDelete.name}?</AlertDialog.Title>
+				<AlertDialog.Description class="space-y-3">
+					<p>
+						This cannot be undone. Deleting this league permanently removes
+						<strong class="text-destructive"> all of its stats</strong>
+						— standings, box scores, player averages, and game results.
+					</p>
+					<p>
+						It also deletes related seasons, teams, players, coaches, invites, and imported
+						spreadsheet data.
+					</p>
+					{#if leagueToDelete.stats.games > 0 || leagueToDelete.stats.players > 0}
+						<p class="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+							This league currently has
+							{leagueToDelete.stats.players} player{leagueToDelete.stats.players === 1 ? '' : 's'}
+							and
+							{leagueToDelete.stats.games} game{leagueToDelete.stats.games === 1 ? '' : 's'}
+							of stats that will be lost.
+						</p>
+					{/if}
+				</AlertDialog.Description>
+			</AlertDialog.Header>
+			<AlertDialog.Footer>
+				<form
+					class="contents"
+					{...deleteForm.enhance(async ({ submit }) => {
+						const ok = await submit();
+						if (ok) {
+							confirmDeleteOpen = false;
+							leagueToDelete = null;
+							await listAllLeaguesForAdmin().refresh();
+							await getHomepageLeague().refresh();
+						}
+					})}
+				>
+					<input {...deleteForm.fields.id.as('hidden', leagueToDelete.id)} />
+					<AlertDialog.Cancel type="button">Cancel</AlertDialog.Cancel>
+					<AlertDialog.Action
+						variant="destructive"
+						type="submit"
+						disabled={!!deleteForm.pending}
+					>
+						{deleteForm.pending ? 'Deleting…' : 'Delete league'}
+					</AlertDialog.Action>
+				</form>
+			</AlertDialog.Footer>
+		</AlertDialog.Content>
+	</AlertDialog.Root>
+{/if}

@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	if (active) {
 		redirect(
 			303,
-			resolve('/leagues/[orgSlug]/[seasonSlug]', {
+			resolve('/(public)/leagues/[orgSlug]/[seasonSlug]', {
 				orgSlug: params.orgSlug,
 				seasonSlug: active.slug,
 			})

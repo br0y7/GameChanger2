@@ -502,9 +502,6 @@
 	.hero-delay-2 {
 		animation-delay: 0.16s;
 	}
-	.hero-delay-3 {
-		animation-delay: 0.24s;
-	}
 	@keyframes home-rise {
 		from {
 			opacity: 0;

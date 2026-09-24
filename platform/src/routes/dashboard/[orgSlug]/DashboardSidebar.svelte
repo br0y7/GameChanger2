@@ -5,6 +5,9 @@
 	import NavMain from './NavMain.svelte';
 	import NavModeToggle from './NavModeToggle.svelte';
 	import NavHeader from './NavHeader.svelte';
+	import NavItem from './NavItem.svelte';
+	import { resolve } from '$app/paths';
+	import HouseIcon from '@lucide/svelte/icons/house';
 
 	interface Props extends ComponentProps<typeof Sidebar.Root> {
 		orgSlug: string;
@@ -20,6 +23,13 @@
 		<NavMain {orgSlug} />
 	</Sidebar.Content>
 	<Sidebar.Footer>
+		<Sidebar.Menu>
+			<NavItem label="Home" href={resolve('/')}>
+				{#snippet icon()}
+					<HouseIcon />
+				{/snippet}
+			</NavItem>
+		</Sidebar.Menu>
 		<NavModeToggle />
 		<NavUser />
 	</Sidebar.Footer>

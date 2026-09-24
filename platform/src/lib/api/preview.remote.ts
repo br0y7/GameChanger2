@@ -25,6 +25,8 @@ import * as table from '$lib/server/db/schema';
 import { slugify } from '$lib/utils/string';
 import { and, eq } from 'drizzle-orm';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
+import { RATING_VERSION, type CountingLine } from '$lib/stats/game-rating';
+import { loadApplicableScale, ratingPatch, type ApplicableScale } from '$lib/server/game-rating.server';
 import { idField } from '$lib/schemas/common';
 import { z } from 'zod';
 
@@ -179,7 +181,14 @@ async function saveGame(
 	return createdGame;
 }
 
-async function saveStats(tx: Transaction, data: TeamPreview, team: Team, gameId: string) {
+async function saveStats(
+	tx: Transaction,
+	data: TeamPreview,
+	team: Team,
+	gameId: string,
+	teamPoints: number | null,
+	scale: ApplicableScale | null
+) {
 	for (const playerPreview of data.playerStats) {
 		const { jerseyNumber, stats: rawStats } = playerPreview;
 
@@ -226,15 +235,21 @@ async function saveStats(tx: Transaction, data: TeamPreview, team: Team, gameId:
 			},
 		});
 
+		const preserveExistingVersion =
+			gameStats?.ratingVersion != null && gameStats.ratingVersion !== RATING_VERSION;
+		const rated = preserveExistingVersion
+			? {}
+			: ratingPatch(stats as CountingLine, teamPoints, scale);
+
 		if (gameStats) {
 			await tx
 				.update(table.playerGameStat)
-				.set(stats)
+				.set({ ...stats, ...rated })
 				.where(
 					and(eq(table.playerGameStat.gameId, gameId), eq(table.playerGameStat.playerId, playerId))
 				);
 		} else {
-			await tx.insert(table.playerGameStat).values({ ...stats, gameId, playerId });
+			await tx.insert(table.playerGameStat).values({ ...stats, ...rated, gameId, playerId });
 		}
 	}
 }
@@ -311,11 +326,14 @@ export const savePreview = command(
 		}
 
 		try {
-			await db.transaction(async (tx) => {
-				if (!division.season) {
-					notFound({ resource: 'season' });
-				}
+			const season = division.season;
+			if (!season) {
+				notFound({ resource: 'season' });
+			}
 
+			const ratingScale = await loadApplicableScale(season.organizationId, division.slug);
+
+			await db.transaction(async (tx) => {
 				for (const game of parsed.data.games) {
 					try {
 						const homeTeam = await saveTeam(tx, game.homeTeam, divisionId);
@@ -330,12 +348,26 @@ export const savePreview = command(
 							homeTeam,
 							awayTeam,
 							game,
-							division.season.id
+							season.id
 						);
 
 						if (game.statsAvailable !== false) {
-							await saveStats(tx, game.homeTeam, homeTeam, gameId);
-							await saveStats(tx, game.awayTeam, awayTeam, gameId);
+							await saveStats(
+								tx,
+								game.homeTeam,
+								homeTeam,
+								gameId,
+								game.homeTeam.score ?? null,
+								ratingScale
+							);
+							await saveStats(
+								tx,
+								game.awayTeam,
+								awayTeam,
+								gameId,
+								game.awayTeam.score ?? null,
+								ratingScale
+							);
 						}
 					} catch (err) {
 						const message = err instanceof Error ? err.message : 'Unknown save error';

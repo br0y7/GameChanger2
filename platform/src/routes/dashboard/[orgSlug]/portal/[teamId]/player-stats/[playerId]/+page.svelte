@@ -2,21 +2,45 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { getCoachPlayerDetail } from '$lib/api/coach-player-stats.remote';
-	import { getCoachAssignmentForTeamQuery } from '$lib/api/coach-portal.remote';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import { getPortalTeamContext } from '$lib/api/coach-portal.remote';
+	import BackLink from '$lib/components/BackLink.svelte';
+	import GameRatingDetail, {
+		type GameRatingDetailModel,
+	} from '$lib/components/GameRatingDetail.svelte';
 	import ClipboardIcon from '@lucide/svelte/icons/clipboard';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
 
-	const assignment = $derived(await getCoachAssignmentForTeamQuery({ teamId: params.teamId }));
-	const season = $derived(assignment?.team?.division?.season);
+	const context = $derived(await getPortalTeamContext({ teamId: params.teamId }));
+	const season = $derived(context?.season);
 	const detail = $derived(
 		await getCoachPlayerDetail({ teamId: params.teamId, playerId: params.playerId })
 	);
 
 	let copied = $state(false);
+	let ratingOpen = $state(false);
+	let ratingDetail = $state<GameRatingDetailModel | null>(null);
+
+	function openRating(game: (typeof detail.gameLog)[number]) {
+		if (game.gameRating == null || !game.meaning) return;
+		ratingDetail = {
+			playerName: detail.player.name,
+			opponentName: game.opponentName,
+			rating: game.gameRating,
+			meaning: game.meaning,
+			points: game.pts,
+			rebounds: game.reb,
+			offensiveRebounds: game.oreb,
+			assists: game.ast,
+			steals: game.stl,
+			blocks: game.blk,
+			turnovers: game.tov,
+			breakdown: game.breakdown,
+		};
+		ratingOpen = true;
+	}
 
 	const backHref = $derived(
 		resolve('/dashboard/[orgSlug]/portal/[teamId]/player-stats', {
@@ -80,13 +104,7 @@
 </script>
 
 <section class="space-y-6">
-	<a
-		href={backHref}
-		class="inline-flex items-center gap-1 text-sm text-[#58A6FF] hover:underline"
-	>
-		<ChevronLeftIcon class="size-4" />
-		Player Stats
-	</a>
+	<BackLink fallbackHref={backHref} fallbackLabel="Player Stats" class="text-[#58A6FF] hover:underline" />
 
 	<header class="flex flex-wrap items-start justify-between gap-3">
 		<div>
@@ -113,7 +131,7 @@
 		{/if}
 	</header>
 
-	<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+	<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
 		<div class="rounded-xl border border-[#2A3038] bg-[#161B22] p-4">
 			<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">Games Played</p>
 			<p class="mt-2 text-2xl font-bold tabular-nums">{detail.summary.gp}</p>
@@ -130,14 +148,19 @@
 			<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">APG</p>
 			<p class="mt-2 text-2xl font-bold tabular-nums">{fmt(detail.summary.apg)}</p>
 		</div>
+		<div class="rounded-xl border border-[#2A3038] bg-[#161B22] p-4">
+			<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">Average Game Rating</p>
+			<p class="mt-2 text-2xl font-bold tabular-nums">
+				{detail.summary.averageGameRating == null ? '—' : fmt(detail.summary.averageGameRating)}
+			</p>
+		</div>
 	</div>
 
 	<div class="grid gap-4 lg:grid-cols-2">
 		<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5">
 			<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Season Stats</h3>
-			<div class="mt-4 grid grid-cols-5 gap-2 text-center">
+			<div class="mt-4 grid grid-cols-4 gap-2 text-center">
 				{#each [
-					{ label: 'PTS', value: detail.summary.pts },
 					{ label: 'REB', value: detail.summary.reb },
 					{ label: 'AST', value: detail.summary.ast },
 					{ label: 'STL', value: detail.summary.stl },
@@ -234,6 +257,7 @@
 							<th class="pb-2 font-medium tabular-nums">PTS</th>
 							<th class="pb-2 font-medium tabular-nums">REB</th>
 							<th class="pb-2 font-medium tabular-nums">AST</th>
+							<th class="pb-2 font-medium tabular-nums">Rating</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -260,6 +284,19 @@
 								<td class="py-2.5 tabular-nums">{game.pts}</td>
 								<td class="py-2.5 tabular-nums">{game.reb}</td>
 								<td class="py-2.5 tabular-nums">{game.ast}</td>
+								<td class="py-2.5 tabular-nums">
+									{#if game.gameRating != null}
+										<button
+											type="button"
+											class="font-semibold text-[#58A6FF] hover:underline"
+											onclick={() => openRating(game)}
+										>
+											{game.gameRating.toFixed(1)}
+										</button>
+									{:else}
+										<span class="text-[#8B949E]">—</span>
+									{/if}
+								</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -275,3 +312,5 @@
 		{/if}
 	</p>
 </section>
+
+<GameRatingDetail bind:open={ratingOpen} detail={ratingDetail} mode="development" askAs="player" />

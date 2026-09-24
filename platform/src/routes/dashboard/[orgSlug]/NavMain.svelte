@@ -8,14 +8,15 @@
 	import UserIcon from '@lucide/svelte/icons/user';
 	import TrophyIcon from '@lucide/svelte/icons/trophy';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import ShieldIcon from '@lucide/svelte/icons/shield';
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { isAuthenticated, isUserAdmin } from '$lib/api/auth.remote';
-	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
 	import { isCoachOnlyUser } from '$lib/api/coach-nav.remote';
 	import { isFamilyOnlyUser } from '$lib/api/family-nav.remote';
-	import NavItem from './NavItem.svelte';
-	import { getOrganization } from '$lib/api/organization.remote';
+	import { getOrganization, goToAdminDashboard } from '$lib/api/organization.remote';
 	import { getCurrentSeason } from '$lib/api/season.remote';
+	import NavItem from './NavItem.svelte';
 
 	let { orgSlug }: { orgSlug: string } = $props();
 
@@ -23,9 +24,10 @@
 	const currentSeason = $derived(
 		org.type === 'league' ? await getCurrentSeason({ organizationId: org.id }) : null
 	);
-	const canImport = $derived((await isUserAdmin()) || (await isUserLeagueOrganizer()));
 	const coachOnly = $derived(await isCoachOnlyUser());
 	const familyOnly = $derived(await isFamilyOnlyUser());
+	const sidebar = Sidebar.useSidebar();
+	let goingToAdmin = $state(false);
 
 	const statsHref = $derived(
 		currentSeason
@@ -89,20 +91,50 @@
 		</Sidebar.Group>
 	{/if}
 {:else if org.type === 'league'}
+	{#if await isUserAdmin()}
+		<Sidebar.Group>
+			<Sidebar.GroupLabel>Admin</Sidebar.GroupLabel>
+			<Sidebar.Menu>
+				<Sidebar.MenuItem>
+					<Sidebar.MenuButton
+						tooltipContent="Admin dashboard"
+						aria-disabled={goingToAdmin}
+						onclick={async () => {
+							if (goingToAdmin) return;
+							sidebar.setOpenMobile(false);
+							goingToAdmin = true;
+							try {
+								const result = await goToAdminDashboard();
+								await goto(resolve('/dashboard/[orgSlug]', { orgSlug: result.slug }));
+							} finally {
+								goingToAdmin = false;
+							}
+						}}
+					>
+						<ShieldIcon />
+						<span>{goingToAdmin ? 'Opening…' : 'Admin dashboard'}</span>
+					</Sidebar.MenuButton>
+				</Sidebar.MenuItem>
+				<NavItem
+					label="Import Spreadsheet"
+					href={resolve('/dashboard/[orgSlug]/import', { orgSlug })}
+				>
+					{#snippet icon()}
+						<UploadIcon />
+					{/snippet}
+				</NavItem>
+			</Sidebar.Menu>
+		</Sidebar.Group>
+	{/if}
+
 	<Sidebar.Group>
-		<Sidebar.GroupLabel>League Admin</Sidebar.GroupLabel>
+		<Sidebar.GroupLabel>League Management</Sidebar.GroupLabel>
 		<Sidebar.Menu>
 			<NavItem label="Overview" href={resolve('/dashboard/[orgSlug]', { orgSlug })}>
 				{#snippet icon()}
 					<HouseIcon />
 				{/snippet}
 			</NavItem>
-		</Sidebar.Menu>
-	</Sidebar.Group>
-
-	<Sidebar.Group>
-		<Sidebar.GroupLabel>League Management</Sidebar.GroupLabel>
-		<Sidebar.Menu>
 			<NavItem label="Seasons" href={resolve('/dashboard/[orgSlug]/seasons', { orgSlug })}>
 				{#snippet icon()}
 					<CalendarDaysIcon />
@@ -134,16 +166,6 @@
 	<Sidebar.Group>
 		<Sidebar.GroupLabel>Stats & Data</Sidebar.GroupLabel>
 		<Sidebar.Menu>
-			{#if canImport}
-				<NavItem
-					label="Import Spreadsheet"
-					href={resolve('/dashboard/[orgSlug]/import', { orgSlug })}
-				>
-					{#snippet icon()}
-						<UploadIcon />
-					{/snippet}
-				</NavItem>
-			{/if}
 			<NavItem label="Stats Website" href={statsHref}>
 				{#snippet icon()}
 					<ExternalLinkIcon />

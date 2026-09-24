@@ -24,10 +24,21 @@
 					class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2A3038] bg-[#0D1117]/60 px-4 py-3 text-sm"
 				>
 					<div>
-						<p class="font-medium">vs {game.opponentName}</p>
-						<p class="text-xs text-[#8B949E]">
-							{formatDate(game.scheduledAt ?? game.completedAt)}
+						<p class="font-medium">
+							vs {game.opponentName}
+							{#if game.status === 'completed'}
+								<span class="ml-2 font-normal text-[#8B949E]">
+									{formatDate(game.completedAt ?? game.scheduledAt)}
+								</span>
+							{/if}
 						</p>
+						{#if game.status === 'completed' && game.playerLine}
+							<p class="text-xs text-[#8B949E]">
+								{game.playerLine.pts} PTS · {game.playerLine.reb} REB · {game.playerLine.ast} AST
+							</p>
+						{:else if game.status !== 'completed'}
+							<p class="text-xs text-[#8B949E]">{formatDate(game.scheduledAt)}</p>
+						{/if}
 					</div>
 					<div class="text-right">
 						{#if game.result && game.teamScore != null}

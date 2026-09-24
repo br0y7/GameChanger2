@@ -11,7 +11,7 @@
 	import TeamPlayerAverages from './TeamPlayerAverages.svelte';
 	import RosterPlayerRow from './RosterPlayerRow.svelte';
 	import { getTeamOverview } from '$lib/api/team-overview.remote';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import { askAiPanel } from '$lib/ai/ask-ai-state.svelte';
 	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
 	import { getTeamCoach } from '$lib/api/coach.remote';
@@ -122,13 +122,7 @@
 <div class="min-h-full bg-[#0D1117] text-[#E6EDF3]">
 	<div class="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
 		<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-			<a
-				href={divisionTeamsHref}
-				class="inline-flex items-center gap-1 text-sm text-[#8B949E] transition-colors hover:text-[#58A6FF]"
-			>
-				<ChevronLeftIcon class="size-4" />
-				Teams / {season.name}
-			</a>
+			<BackLink fallbackHref={divisionTeamsHref} fallbackLabel={`Teams / ${season.name}`} />
 			{#if isOrganizer}
 				<p class="text-xs text-[#8B949E]">
 					Admin:

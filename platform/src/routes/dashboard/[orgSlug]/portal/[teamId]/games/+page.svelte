@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { getCoachAssignmentForTeamQuery } from '$lib/api/coach-portal.remote';
+	import { getPortalTeamContext } from '$lib/api/coach-portal.remote';
 	import { getSeasonGames } from '$lib/api/league-manage.remote';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
-	const assignment = $derived(await getCoachAssignmentForTeamQuery({ teamId: params.teamId }));
-	const seasonId = $derived(assignment?.team?.division?.season?.id);
-	const seasonSlug = $derived(assignment?.team?.division?.season?.slug);
+	const context = $derived(await getPortalTeamContext({ teamId: params.teamId }));
+	const seasonId = $derived(context?.season.id);
+	const seasonSlug = $derived(context?.season.slug);
 	const games = $derived(seasonId ? await getSeasonGames({ seasonId }) : []);
 	const teamGames = $derived(
 		games.filter((g) => g.homeTeam.id === params.teamId || g.awayTeam.id === params.teamId)
