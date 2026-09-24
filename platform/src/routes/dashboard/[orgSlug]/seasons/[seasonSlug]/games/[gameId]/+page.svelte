@@ -139,6 +139,9 @@
 							{#if box.gameType === 'playoff'}
 								<span class="mx-1.5 text-[#2A3038]">·</span>
 								<span class="font-medium text-[#F0A020]">Playoff</span>
+							{:else if box.gameType === 'semifinal'}
+								<span class="mx-1.5 text-[#2A3038]">·</span>
+								<span class="font-medium text-[#F0883E]">Playoffs Semis</span>
 							{:else if box.gameType === 'finals'}
 								<span class="mx-1.5 text-[#2A3038]">·</span>
 								<span class="font-medium text-[#A371F7]">Finals</span>
@@ -150,13 +153,15 @@
 						{#if box.pointsOnly}
 							<p class="mt-1 text-xs text-[#8B949E]">Points only · no game rating</p>
 						{/if}
-					{:else if box.gameType === 'playoff' || box.gameType === 'finals' || box.gameType === 'third_place'}
+					{:else if box.gameType === 'playoff' || box.gameType === 'semifinal' || box.gameType === 'finals' || box.gameType === 'third_place'}
 						<p
 							class="mt-1 text-sm font-medium {box.gameType === 'finals'
 								? 'text-[#A371F7]'
 								: box.gameType === 'third_place'
 									? 'text-[#56D4DD]'
-									: 'text-[#F0A020]'}"
+									: box.gameType === 'semifinal'
+										? 'text-[#F0883E]'
+										: 'text-[#F0A020]'}"
 						>
 							{gameTypeLabel(box.gameType)}
 						</p>

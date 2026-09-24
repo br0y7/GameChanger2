@@ -37,6 +37,19 @@ export function parseGameTypeLabel(value: unknown): GameType | null {
 	if (normalized === 'playoff' || normalized === 'playoffs') return 'playoff';
 
 	if (
+		normalized === 'playoffs semis' ||
+		normalized === 'playoff semis' ||
+		normalized === 'semis' ||
+		normalized === 'semifinals' ||
+		normalized === 'semifinal' ||
+		normalized === 'semi finals' ||
+		normalized === 'semi final' ||
+		normalized === 'playoff semifinals'
+	) {
+		return 'semifinal';
+	}
+
+	if (
 		normalized === 'finals' ||
 		normalized === 'final' ||
 		normalized === 'championship' ||

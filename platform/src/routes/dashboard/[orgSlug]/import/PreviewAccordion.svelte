@@ -89,6 +89,8 @@
 				{game.name}
 				{#if game.gameType === 'playoff'}
 					<Badge variant="warning">Playoff</Badge>
+				{:else if game.gameType === 'semifinal'}
+					<Badge variant="warning">Playoffs Semis</Badge>
 				{:else if game.gameType === 'finals'}
 					<Badge variant="info">Finals</Badge>
 				{:else if game.gameType === 'third_place'}

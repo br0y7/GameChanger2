@@ -162,6 +162,11 @@
 					<span class="text-[#8B949E]">|</span>
 					{overview.record.losses} Losses
 				</p>
+				{#if overview.divisionPlace}
+					<p class="mt-2 text-sm font-medium text-[#E6EDF3]">
+						Place: {overview.divisionPlace}
+					</p>
+				{/if}
 				{#if teamAverages}
 					<p class="mt-3 text-sm text-[#8B949E]">
 						Team avg · {fmt(teamAverages.ppg)} PPG · {fmt(teamAverages.rpg)} RPG ·

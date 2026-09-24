@@ -1,6 +1,7 @@
 import { query } from '$app/server';
 import { idField } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
+import { divisionPlaceForTeam, divisionPlaceLabel } from '$lib/stats/division-place';
 import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
 import { averageBy } from '$lib/utils/collection';
 import { teamColorFromId, teamInitials } from '$lib/utils/team-identity';
@@ -168,6 +169,21 @@ export const getTeamOverview = query(
 
 		const standing = rows.find((row) => row.teamId === teamId);
 		const rank = standing ? rows.findIndex((row) => row.teamId === teamId) + 1 : null;
+		const place = divisionPlaceForTeam(
+			teamId,
+			divisionGames.map((game) => {
+				const scores = resolveScores(game);
+				return {
+					gameType: game.gameType ?? 'regular',
+					homeTeamId: game.homeTeamId,
+					awayTeamId: game.awayTeamId,
+					homeScore: scores.home,
+					awayScore: scores.away,
+					completedAt: (game.completedAt ?? game.scheduledAt ?? new Date(0)).getTime(),
+				};
+			})
+		);
+		const divisionPlace = place ? divisionPlaceLabel(place) : null;
 
 		const teamGames = divisionGames
 			.filter((g) => g.homeTeamId === teamId || g.awayTeamId === teamId)
@@ -292,6 +308,7 @@ export const getTeamOverview = query(
 			ppg: standing?.ppg ?? 0,
 			oppPpg: standing?.oppPpg ?? 0,
 			rank,
+			divisionPlace,
 			teamsInDivision: rows.length,
 			streak: streakLabel(standing?.resultsNewestFirst ?? []),
 			recentGames: teamGames.slice(0, 5).map(({ sortAt: _, ...game }) => game),

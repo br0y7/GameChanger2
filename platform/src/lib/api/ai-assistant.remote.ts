@@ -171,6 +171,7 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			parts.push(`Division: ${division.name}`);
 			parts.push(`Record: ${overview.record.wins}-${overview.record.losses}`);
 			parts.push(`Rank: ${overview.rank ? `#${overview.rank}` : 'n/a'} of ${overview.teamsInDivision}`);
+			if (overview.divisionPlace) parts.push(`Place: ${overview.divisionPlace}`);
 			parts.push(`PPG: ${overview.ppg.toFixed(1)} | Opp PPG: ${overview.oppPpg.toFixed(1)}`);
 			if (overview.streak) parts.push(`Streak: ${overview.streak}`);
 
@@ -394,6 +395,7 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 				parts.push(`Season: ${portal.season.name}`);
 				parts.push(`Division: ${portal.division.name}`);
 				parts.push(`Record: ${overview.record.wins}-${overview.record.losses}`);
+				if (overview.divisionPlace) parts.push(`Place: ${overview.divisionPlace}`);
 				parts.push(`PPG: ${overview.ppg.toFixed(1)} | Opp PPG: ${overview.oppPpg.toFixed(1)}`);
 				if (context.audience === 'coach') {
 					pushLineupRoster(parts, overview.rosterAverages);

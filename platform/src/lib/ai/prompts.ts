@@ -785,13 +785,19 @@ Import a statsheet (spreadsheet):
 2. Open Import (admin/import tools).
 3. Upload the .xlsx statsheet and preview the games.
 4. Confirm/save to create games, teams, and player stats.
-5. In the sheet, optional rows: Game Type (Regular Season / Playoff / Finals / Third Place). Beside a team name, Win or Lose means result-only (no box score stats). A sheet with only a points column is points-only: those points count, and the other stats stay blank. Points-only games do not get a game rating.
+5. In the sheet, optional rows: Game Type (Regular Season / Playoff / Playoffs Semis / Finals / Third Place). Beside a team name, Win or Lose means result-only (no box score stats). A sheet with only a points column is points-only: those points count, and the other stats stay blank. Points-only games do not get a game rating.
 
 View the team schedule:
 1. Open the team page.
 2. Click the Schedule tab.
 3. Use All / Regular / Playoffs to filter games.
 4. Click a completed score to open the box score.
+
+Division place on a team page:
+- Finals winner is the division winner. Finals loser is 2nd. Third-place winner is 3rd. Third-place loser is 4th.
+- A team that only played the first playoff round shows Place: Playoffs first round.
+- A team that lost Playoffs Semis and did not play a third-place game shows Place: Semis lost or (3rd). That covers a three-team playoff with no third-place game.
+- Teams with no playoff games do not show a place.
 
 View a player:
 1. From the team Roster or Stats tab, click the player (or open their jersey URL).

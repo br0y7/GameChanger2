@@ -56,7 +56,12 @@
 	let updateForm = $derived(updatePlayer.for(player.id));
 	const updateFormId = () => `roster-player-form-${player.id}`;
 	let updateButton: HTMLButtonElement | null = $state(null);
+	let displayName = $state(player.name);
 	let editing = $state(false);
+
+	$effect(() => {
+		displayName = player.name;
+	});
 	let notesOpen = $state(false);
 	let submitting = $derived(!!updateForm.pending);
 
@@ -86,7 +91,9 @@
 	let enhancedUpdateForm = $derived(
 		updateForm.enhance(async (form) => {
 			if (await form.submit()) {
-				await Promise.all([
+				displayName = inputs.name?.value.trim() || displayName;
+				stopEditing();
+				void Promise.all([
 					getTeam({
 						slug: teamSlug,
 						divisionId,
@@ -98,7 +105,6 @@
 						seasonId,
 					}).refresh(),
 				]);
-				stopEditing();
 			}
 		})
 	);
@@ -162,7 +168,7 @@
 			{:else}
 				<div in:fade={fadeOptions} class="truncate">
 					<a href={playerHref} class="text-[#E6EDF3] hover:text-[#58A6FF] hover:underline">
-						{player.name}
+						{displayName}
 					</a>
 				</div>
 			{/if}
@@ -222,7 +228,7 @@
 									variant="ghost"
 									size="icon"
 									class="text-[#8B949E] hover:bg-white/10 hover:text-[#E6EDF3]"
-									aria-label={`Actions for ${player.name}`}
+									aria-label={`Actions for ${displayName}`}
 								>
 									<MoreHorizontalIcon class="size-4" />
 								</Button>

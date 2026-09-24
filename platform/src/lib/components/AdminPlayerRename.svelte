@@ -16,16 +16,19 @@
 		name,
 		jerseyNumber,
 		seasonId = null,
+		onRenamed,
 	}: {
 		playerId: string;
 		name: string;
 		jerseyNumber: string;
 		seasonId?: string | null;
+		onRenamed?: (name: string) => void;
 	} = $props();
 
 	const isAdmin = $derived(await isUserAdmin());
 	const form = $derived(updatePlayer.for(playerId));
 	let editing = $state(false);
+	let nameInput: HTMLInputElement | null = $state(null);
 	let saveButton: HTMLButtonElement | null = $state(null);
 	const submitting = $derived(!!form.pending);
 
@@ -49,10 +52,12 @@
 			<form
 				class="flex flex-wrap items-center gap-2"
 				{...form.enhance(async ({ submit }) => {
+					const nextName = (nameInput?.value ?? form.fields.name.value() ?? name).trim();
 					if (await submit()) {
-						await getFamilyPlayerHome({ playerId }).refresh();
-						if (seasonId) await getSeasonPlayers({ seasonId }).refresh();
+						onRenamed?.(nextName);
 						stopEditing();
+						void getFamilyPlayerHome({ playerId }).refresh();
+						if (seasonId) void getSeasonPlayers({ seasonId }).refresh();
 					}
 				})}
 			>
@@ -63,7 +68,9 @@
 					required
 					autocomplete="off"
 					aria-label="Player name"
+					bind:ref={nameInput}
 					class="h-9 max-w-xs border-[#2A3038] bg-[#0D1117] text-[#E6EDF3]"
+					oninput={(event) => form.fields.name.set(event.currentTarget.value)}
 				/>
 				<Button
 					type="button"

@@ -1,4 +1,4 @@
-export const gameTypes = ['regular', 'playoff', 'finals', 'third_place'] as const;
+export const gameTypes = ['regular', 'playoff', 'finals', 'third_place', 'semifinal'] as const;
 
 export type GameType = (typeof gameTypes)[number];
 
@@ -8,13 +8,15 @@ export function isRegularSeasonGameType(type: GameType | string | null | undefin
 }
 
 export function isPostseasonGameType(type: GameType | string | null | undefined) {
-	return type === 'playoff' || type === 'finals' || type === 'third_place';
+	return type === 'playoff' || type === 'semifinal' || type === 'finals' || type === 'third_place';
 }
 
 export function gameTypeLabel(type: GameType | string | null | undefined): string {
 	switch (type) {
 		case 'playoff':
 			return 'Playoff';
+		case 'semifinal':
+			return 'Playoffs Semis';
 		case 'finals':
 			return 'Finals';
 		case 'third_place':
