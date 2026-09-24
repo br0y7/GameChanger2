@@ -46,7 +46,7 @@
 					</p>
 					{#if league.season}
 						<a
-							href={resolve('/leagues/[orgSlug]/[seasonSlug]', {
+							href={resolve('/(public)/leagues/[orgSlug]/[seasonSlug]', {
 								orgSlug: league.slug,
 								seasonSlug: league.season.slug,
 							})}

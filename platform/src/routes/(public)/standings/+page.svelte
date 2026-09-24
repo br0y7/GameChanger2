@@ -58,10 +58,10 @@
 		{#if selected.season}
 			<p class="mt-6 text-sm text-[#8FA398]">{selected.season.name}</p>
 			<a
-				href={resolve('/leagues/[orgSlug]/[seasonSlug]', {
+				href={resolve('/(public)/leagues/[orgSlug]/[seasonSlug]?tab=standings', {
 					orgSlug: selected.slug,
 					seasonSlug: selected.season.slug,
-				}) + '?tab=standings'}
+				})}
 				class="mt-1 inline-block text-sm font-semibold text-[#B8E05C] hover:underline"
 			>
 				Full league stats →

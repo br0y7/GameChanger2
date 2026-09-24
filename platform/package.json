@@ -63,7 +63,8 @@
 		"db:studio": "drizzle-kit studio",
 		"auth:schema-once-drizzle_v1-not-beta": "better-auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes",
 		"auth:schema": "bun x auth@latest generate",
-		"admin:promote": "vite-node --options.transformMode.ssr='/.*/' ./scripts/promote-to-admin.ts"
+		"admin:promote": "vite-node --options.transformMode.ssr='/.*/' ./scripts/promote-to-admin.ts",
+		"ratings:calibrate": "bun --env-file=.env ./scripts/calibrate-game-ratings.ts"
 	},
 	"type": "module",
 	"dependencies": {

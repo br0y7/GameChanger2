@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { getFamilyPlayerHome } from '$lib/api/family.remote';
 	import type { LayoutProps } from './$types';
 
@@ -33,6 +34,14 @@
 
 <div class="min-h-full bg-gradient-to-b from-[#0D1117] via-[#111820] to-[#0D1117] text-[#E6EDF3]">
 	<div class="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
+		<a
+			href={resolve('/dashboard/[orgSlug]/family', { orgSlug: params.orgSlug })}
+			class="inline-flex items-center gap-1 text-sm text-[#8B949E] transition-colors hover:text-[#58A6FF]"
+		>
+			<ChevronLeftIcon class="size-4" />
+			All players
+		</a>
+
 		<header class="text-center sm:text-left">
 			<p class="text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">Family Portal</p>
 			<p class="mt-1 text-sm text-[#8B949E]">{home.player.leagueName}</p>

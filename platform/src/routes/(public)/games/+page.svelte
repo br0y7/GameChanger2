@@ -72,13 +72,19 @@
 						</p>
 					</div>
 					<a
-						href={resolve('/leagues/[orgSlug]/[seasonSlug]', {
-							orgSlug: g.leagueSlug,
-							seasonSlug: g.seasonSlug,
-						}) + '?tab=games'}
+						href={g.status === 'completed' && g.playerStatsPublic
+							? resolve('/(public)/leagues/[orgSlug]/[seasonSlug]/games/[gameId]', {
+									orgSlug: g.leagueSlug,
+									seasonSlug: g.seasonSlug,
+									gameId: g.id,
+								})
+							: resolve('/(public)/leagues/[orgSlug]/[seasonSlug]', {
+									orgSlug: g.leagueSlug,
+									seasonSlug: g.seasonSlug,
+								})}
 						class="text-xs font-semibold text-[#B8E05C] hover:underline"
 					>
-						League →
+						{g.status === 'completed' && g.playerStatsPublic ? 'Box score →' : 'League →'}
 					</a>
 				</li>
 			{/each}

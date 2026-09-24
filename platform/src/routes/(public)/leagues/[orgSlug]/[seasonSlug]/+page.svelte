@@ -94,11 +94,12 @@
 		if (div) sp.set('division', div);
 		if (team) sp.set('team', team);
 		const q = sp.toString();
-		const base = resolve('/leagues/[orgSlug]/[seasonSlug]', {
+		const route = {
 			orgSlug: params.orgSlug,
 			seasonSlug: params.seasonSlug,
-		});
-		return q ? `${base}?${q}` : base;
+		};
+		if (!q) return resolve('/(public)/leagues/[orgSlug]/[seasonSlug]', route);
+		return resolve(`/(public)/leagues/[orgSlug]/[seasonSlug]?${q}`, route);
 	}
 </script>
 
@@ -295,6 +296,19 @@
 							<p class="mt-0.5 text-xs text-[#8FA398]">
 								{g.status}
 								{#if g.at}· {formatDate(g.at)}{/if}
+								{#if g.status === 'completed' && filters.visibility.publishPlayerStats}
+									·
+									<a
+										href={resolve('/(public)/leagues/[orgSlug]/[seasonSlug]/games/[gameId]', {
+											orgSlug: params.orgSlug,
+											seasonSlug: params.seasonSlug,
+											gameId: g.id,
+										})}
+										class="font-semibold text-[#B8E05C] hover:underline"
+									>
+										Box score
+									</a>
+								{/if}
 							</p>
 						</li>
 					{/each}

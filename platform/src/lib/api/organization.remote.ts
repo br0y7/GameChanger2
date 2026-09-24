@@ -5,7 +5,7 @@ import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
-import { getUser, requireAdmin, requireSession } from './auth.remote';
+import { getUser, isUserAdmin, requireAdmin, requireSession } from './auth.remote';
 import * as table from '$lib/server/db/schema';
 import { count, countDistinct, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -54,11 +54,6 @@ export const getOrganization = query(
 
 export const ensureAdminSystemOrganization = query(async () => {
 	const user = await requireAdmin();
-	const session = await requireSession();
-
-	if (session.activeOrganizationId) {
-		return;
-	}
 
 	let adminOrg = await db.query.organization.findFirst({
 		where: {
@@ -92,24 +87,80 @@ export const ensureAdminSystemOrganization = query(async () => {
 		serverLogger.info('created admin org', { orgId: adminOrg.id, adminId: user.id });
 	}
 
+	const membership = await db.query.member.findFirst({
+		where: { organizationId: adminOrg.id, userId: user.id },
+		columns: { id: true },
+	});
+
+	if (!membership) {
+		await db.insert(table.member).values({
+			organizationId: adminOrg.id,
+			userId: user.id,
+			role: 'owner',
+		});
+		serverLogger.info('admin joined system org', { orgId: adminOrg.id, userId: user.id });
+	}
+
+	const session = await requireSession();
+	if (!session.activeOrganizationId) {
+		await auth.api.setActiveOrganization({
+			headers,
+			body: { organizationId: adminOrg.id },
+		});
+		void requireSession().refresh();
+	}
+
+	return adminOrg;
+});
+
+/** Platform admin: switch active org back to the system admin dashboard. */
+export const goToAdminDashboard = command(async () => {
+	const user = await requireAdmin();
+	const adminOrg = await ensureAdminSystemOrganization();
+	if (!adminOrg) {
+		notFound({ resource: 'organization' }, { message: 'Admin organization not found' });
+	}
+
+	const {
+		request: { headers },
+	} = getRequestEvent();
+
 	await auth.api.setActiveOrganization({
 		headers,
 		body: { organizationId: adminOrg.id },
 	});
-
 	void requireSession().refresh();
+	void getOrganizations({ userId: user.id }).refresh();
 
-	return adminOrg;
+	return { slug: adminOrg.slug };
 });
 
 export const getOrganizations = query(
 	z.object({
 		userId: idField,
 	}),
-	async ({ userId }) =>
-		(await db.query.member.findMany({ where: { userId }, with: { organization: true } }))
+	async ({ userId }) => {
+		const orgs = (await db.query.member.findMany({ where: { userId }, with: { organization: true } }))
 			.map((m) => m.organization)
-			.filter((o) => o !== null)
+			.filter((o) => o !== null);
+
+		// Platform admins should always see the system org for switching back.
+		const user = await getUser();
+		if (user?.id === userId && (await isUserAdmin())) {
+			const systemOrg = await db.query.organization.findFirst({
+				where: { type: 'system' },
+			});
+			if (systemOrg && !orgs.some((o) => o.id === systemOrg.id)) {
+				orgs.unshift(systemOrg);
+			}
+		}
+
+		return orgs.sort((a, b) => {
+			if (a.type === 'system' && b.type !== 'system') return -1;
+			if (b.type === 'system' && a.type !== 'system') return 1;
+			return a.name.localeCompare(b.name);
+		});
+	}
 );
 
 /** Featured league used on the public homepage (platform admin branding target). */

@@ -66,7 +66,6 @@
 			<label class="flex items-center justify-between gap-4 border-b border-[#2A3038]/80 py-2.5">
 				<span class="text-sm">{toggle.label}</span>
 				<input
-					type="checkbox"
 					class="size-4 accent-[#58A6FF]"
 					{...field.as('checkbox')}
 					checked={settings[toggle.key]}

@@ -3,9 +3,13 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
-	import { getOrganization, getOrganizations } from '$lib/api/organization.remote';
+	import {
+		ensureAdminSystemOrganization,
+		getOrganization,
+		getOrganizations,
+	} from '$lib/api/organization.remote';
 	import { resolve } from '$app/paths';
-	import { getUser } from '$lib/api/auth.remote';
+	import { getUser, isUserAdmin } from '$lib/api/auth.remote';
 	import TrophyIcon from '@lucide/svelte/icons/trophy';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
@@ -26,6 +30,10 @@
 	};
 
 	const user = await getUser();
+	if (user && (await isUserAdmin())) {
+		await ensureAdminSystemOrganization();
+		await getOrganizations({ userId: user.id }).refresh();
+	}
 	const userOrganizations = user ? await getOrganizations({ userId: user.id }) : [];
 	const org = $derived(await getOrganization({ slug: orgSlug }));
 </script>

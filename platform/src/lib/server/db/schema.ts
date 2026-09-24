@@ -10,7 +10,9 @@ import {
 	snakeCase,
 	unique,
 	varchar,
+	jsonb,
 } from 'drizzle-orm/pg-core';
+import type { RatingBreakdown, RatingScaleDistribution } from '$lib/stats/game-rating';
 import { invitation, organization, user } from './auth-schema.ts';
 import { baseFields, creationFields, nameSlugFields } from './base-schema.ts';
 import { ONBOARDING_DEFAULT_STEP } from '$lib/onboarding/steps';
@@ -266,14 +268,50 @@ export const playerGameStat = snakeCase.table(
 		blk: integer().default(0).notNull(),
 		// personal fouls
 		pf: integer().default(0).notNull(),
+
+		// GC-v1 game rating. Null until a scale exists or the line is empty.
+		gameRating: real(),
+		ratingVersion: text(),
+		impactScore: real(),
+		ratingPercentile: real(),
+		contextBonus: real(),
+		ratingScaleScope: text({ enum: ['division', 'league'] }),
+		ratingBreakdown: jsonb().$type<RatingBreakdown>(),
 	},
 	(table) => [
 		index('playerGameStat_playerId_idx').on(table.playerId),
 		index('playerGameStat_gameId_idx').on(table.gameId),
+		index('playerGameStat_gameRating_idx').on(table.gameRating),
 	]
 );
 
 export type RawPlayerGameStats = typeof playerGameStat.$inferSelect;
+
+/** Frozen percentile reference for a rating version. Empty division slug is the league-wide fallback. */
+export const gameRatingScale = snakeCase.table(
+	'game_rating_scale',
+	{
+		...baseFields,
+		version: text().notNull(),
+		organizationId: uuid()
+			.notNull()
+			.references(() => organization.id, { onDelete: 'cascade' }),
+		divisionSlug: text().notNull().default(''),
+		scope: text({ enum: ['division', 'league'] }).notNull(),
+		sampleSize: integer().notNull(),
+		distribution: jsonb().$type<RatingScaleDistribution>().notNull(),
+	},
+	(table) => [
+		unique('game_rating_scale_org_version_slug_uq').on(
+			table.organizationId,
+			table.version,
+			table.divisionSlug
+		),
+		index('gameRatingScale_organizationId_idx').on(table.organizationId),
+	]
+);
+
+export type GameRatingScale = typeof gameRatingScale.$inferSelect;
 
 export const onboardingRole = pgEnum('onboarding_role', [
 	'organizer',

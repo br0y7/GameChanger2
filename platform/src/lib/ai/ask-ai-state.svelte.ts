@@ -1,12 +1,22 @@
 import type { AskAiContext } from './context';
 
-export { resolveAskAiContext, type AskAiContext, type AskAiContextType } from './context';
+export {
+	resolveAskAiContext,
+	type AskAiAudience,
+	type AskAiContext,
+	type AskAiContextType,
+} from './context';
+
+export type AskAiChatMessage = { role: 'user' | 'assistant'; content: string };
 
 /** Shared open/close state for the persistent Ask AI panel. */
 export const askAiState = $state({
 	open: false,
 	draftPrompt: '',
 });
+
+/** Chat memory keyed by the page, so follow-ups stay on that player. */
+export const askAiThreads = $state<Record<string, AskAiChatMessage[]>>({});
 
 export function openAskAi(prompt?: string) {
 	if (prompt) askAiState.draftPrompt = prompt;
@@ -44,6 +54,8 @@ export function contextTitle(ctx: AskAiContext) {
 		case 'team':
 			return `Ask about ${ctx.label}`;
 		case 'player':
+			return `Ask about ${ctx.label}`;
+		case 'family':
 			return `Ask about ${ctx.label}`;
 		case 'game':
 			return 'Analyze this game';

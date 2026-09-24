@@ -14,6 +14,13 @@ export function averageBy<T>(items: T[], selector: (item: T) => number) {
 	return sumBy(items, selector) / items.length;
 }
 
+/** True shooting %: PTS / (2 × (FGA + 0.44 × FTA)). Per-game rates match season totals. */
+export function trueShootingPercentage(points: number, fieldGoalAttempts: number, freeThrowAttempts: number) {
+	const attempts = fieldGoalAttempts + 0.44 * freeThrowAttempts;
+	if (attempts <= 0) return 0;
+	return points / (2 * attempts);
+}
+
 /** Accurate shooting %: total makes / total attempts (not an average of per-game %). */
 export function percentageBy<T>(
 	items: T[],

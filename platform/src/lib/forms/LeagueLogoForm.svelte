@@ -67,7 +67,6 @@
 		<label class="block text-sm text-[#8B949E]">
 			Logo file
 			<input
-				type="file"
 				accept="image/png,image/webp,image/jpeg"
 				class="mt-1 block w-full text-sm text-[#E6EDF3] file:mr-3 file:rounded-md file:border-0 file:bg-[#B8E05C] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[#0C1210]"
 				{...uploadLeagueLogo.fields.logo.as('file')}

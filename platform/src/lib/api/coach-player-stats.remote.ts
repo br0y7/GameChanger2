@@ -2,6 +2,12 @@ import { query } from '$app/server';
 import { idField } from '$lib/schemas/common';
 import { COACH_STATUS } from '$lib/schemas/coach';
 import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import {
+	averageGameRating,
+	ratingMeaning,
+	trendDelta,
+	trendVersusAverage,
+} from '$lib/stats/game-rating';
 import { derivePlayerStats } from '$lib/stats/player-stats';
 import { derivePlayerStrengths } from '$lib/player-analysis/player-strengths';
 import { derivePlayerWeaknesses } from '$lib/player-analysis/player-weaknesses';
@@ -133,7 +139,14 @@ function formatGameLog(teamId: string, stats: GameLogStat[]) {
 				stl: stat.stl,
 				blk: stat.blk,
 				tov: stat.tov,
+				oreb: stat.oreb,
 				fgPct: stat.fgPct,
+				gameRating: stat.gameRating,
+				meaning: stat.gameRating == null ? null : ratingMeaning(stat.gameRating),
+				breakdown: stat.ratingBreakdown,
+				impactScore: stat.impactScore,
+				percentile: stat.ratingPercentile,
+				contextBonus: stat.contextBonus,
 			};
 		})
 		.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
@@ -217,6 +230,9 @@ export const getCoachPlayerDetail = query(
 
 		const summary = buildRow(player, derived);
 		const gameLog = formatGameLog(teamId, derived);
+		const seasonAverageRating = averageGameRating(
+			derived.flatMap((stat) => (stat.gameRating == null ? [] : [stat.gameRating]))
+		);
 
 		const teamPlayers = await db.query.player.findMany({
 			where: { teamId },
@@ -290,7 +306,7 @@ export const getCoachPlayerDetail = query(
 							jerseyNumber: player.jerseyNumber,
 						}
 					: null,
-			summary,
+			summary: { ...summary, averageGameRating: seasonAverageRating },
 			gameLog,
 			ranks,
 			recentForm,
@@ -344,4 +360,91 @@ export const getCoachTeamDevelopment = query(z.object({ teamId: idField }), asyn
 		})
 		.filter((p) => p.gp > 0)
 		.sort((a, b) => b.ppg - a.ppg);
+});
+
+export const getCoachLatestGameRatings = query(z.object({ teamId: idField }), async ({ teamId }) => {
+	await assertCoachTeamView(teamId);
+
+	const players = await db.query.player.findMany({
+		where: { teamId },
+		with: {
+			gameStats: {
+				with: {
+					game: {
+						with: {
+							homeTeam: { columns: { id: true, name: true } },
+							awayTeam: { columns: { id: true, name: true } },
+						},
+					},
+				},
+			},
+		},
+		orderBy: { name: 'asc' },
+	});
+
+	let latestGame: {
+		id: string;
+		at: number;
+		opponentName: string;
+		teamScore: number;
+		oppScore: number;
+	} | null = null;
+
+	for (const player of players) {
+		for (const stat of player.gameStats) {
+			const game = stat.game;
+			if (!game || game.status !== 'completed') continue;
+			const at = (game.completedAt ?? game.scheduledAt)?.getTime() ?? 0;
+			if (latestGame && at <= latestGame.at) continue;
+			const isHome = game.homeTeamId === teamId;
+			latestGame = {
+				id: game.id,
+				at,
+				opponentName: (isHome ? game.awayTeam?.name : game.homeTeam?.name) ?? 'Opponent',
+				teamScore: isHome ? (game.homeTeamScore ?? 0) : (game.awayTeamScore ?? 0),
+				oppScore: isHome ? (game.awayTeamScore ?? 0) : (game.homeTeamScore ?? 0),
+			};
+		}
+	}
+
+	if (!latestGame) return null;
+
+	const roster = players
+		.map((player) => {
+			const derived = player.gameStats.filter((stat) => stat.game).map(derivePlayerGameStats);
+			const seasonAverage = averageGameRating(
+				derived.flatMap((stat) => (stat.gameRating == null ? [] : [stat.gameRating]))
+			);
+			const gameStat = derived.find((stat) => stat.game?.id === latestGame!.id);
+			if (!gameStat || gameStat.gameRating == null) return null;
+			const delta = trendDelta(gameStat.gameRating, seasonAverage);
+			return {
+				playerId: player.id,
+				name: player.name,
+				jerseyNumber: player.jerseyNumber,
+				pts: gameStat.pts,
+				reb: gameStat.reb,
+				ast: gameStat.ast,
+				stl: gameStat.stl,
+				blk: gameStat.blk,
+				tov: gameStat.tov,
+				oreb: gameStat.oreb,
+				gameRating: gameStat.gameRating,
+				meaning: ratingMeaning(gameStat.gameRating),
+				breakdown: gameStat.ratingBreakdown,
+				seasonAverage,
+				trend: trendVersusAverage(gameStat.gameRating, seasonAverage),
+				delta,
+			};
+		})
+		.filter((row) => row != null)
+		.sort((a, b) => b.gameRating - a.gameRating);
+
+	return {
+		gameId: latestGame.id,
+		opponentName: latestGame.opponentName,
+		teamScore: latestGame.teamScore,
+		oppScore: latestGame.oppScore,
+		players: roster,
+	};
 });

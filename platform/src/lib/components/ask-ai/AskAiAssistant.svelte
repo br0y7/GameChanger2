@@ -1,34 +1,59 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		askAiState,
+		askAiThreads,
 		closeAskAi,
 		contextTitle,
 		openAskAi,
 		resolveAskAiContext,
+		type AskAiAudience,
+		type AskAiChatMessage,
 	} from '$lib/ai/ask-ai-state.svelte';
 	import { askAi, getAskAiContextLabel } from '$lib/api/ai-assistant.remote';
+	import { isCoachOnlyUser } from '$lib/api/coach-nav.remote';
+	import { isFamilyOnlyUser } from '$lib/api/family-nav.remote';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import XIcon from '@lucide/svelte/icons/x';
 
-	type ChatMessage = { role: 'user' | 'assistant'; content: string };
-
-	let messages = $state<ChatMessage[]>([]);
 	let input = $state('');
 	let submitting = $state(false);
 	let resolvedLabel = $state<string | null>(null);
 	let messagesEl: HTMLDivElement | null = $state(null);
 	let lastContextKey = '';
+	let audience = $state<AskAiAudience>('organizer');
+
+	$effect(() => {
+		let cancelled = false;
+		void (async () => {
+			try {
+				const family = await isFamilyOnlyUser();
+				if (cancelled) return;
+				if (family) {
+					audience = 'player';
+					return;
+				}
+				const coach = await isCoachOnlyUser();
+				if (cancelled) return;
+				audience = coach ? 'coach' : 'organizer';
+			} catch {
+				/* keep organizer suggestions */
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	const routeContext = $derived(
 		resolveAskAiContext(
 			Object.fromEntries(
 				Object.entries(page.params).filter((entry): entry is [string, string] => !!entry[1])
 			),
-			page.url.pathname
+			page.url.pathname,
+			audience
 		)
 	);
 
@@ -39,8 +64,12 @@
 			routeContext.jerseyNumber ?? '',
 			routeContext.gameId ?? '',
 			routeContext.seasonSlug ?? '',
+			routeContext.playerId ?? '',
+			routeContext.teamId ?? '',
 		].join('|')
 	);
+
+	const messages = $derived(askAiThreads[contextKey] ?? []);
 
 	const displayContext = $derived({
 		...routeContext,
@@ -52,7 +81,6 @@
 		const ctx = routeContext;
 		if (key === lastContextKey) return;
 		lastContextKey = key;
-		messages = [];
 		resolvedLabel = null;
 
 		let cancelled = false;
@@ -66,6 +94,8 @@
 					teamSlug: ctx.teamSlug,
 					jerseyNumber: ctx.jerseyNumber,
 					gameId: ctx.gameId,
+					playerId: ctx.playerId,
+					teamId: ctx.teamId,
 				});
 				if (!cancelled && result.label) resolvedLabel = result.label;
 			} catch {
@@ -94,18 +124,33 @@
 		});
 	});
 
+	function clipHistory(turns: AskAiChatMessage[]) {
+		return turns.slice(-8).map((turn) => ({
+			role: turn.role,
+			content: turn.content.length > 1500 ? `${turn.content.slice(0, 1500)}…` : turn.content,
+		}));
+	}
+
+	function clearChat() {
+		if (submitting) return;
+		askAiThreads[contextKey] = [];
+		input = '';
+	}
+
 	async function sendMessage(text: string) {
 		const message = text.trim();
 		if (!message || submitting) return;
 
-		messages = [...messages, { role: 'user', content: message }];
+		const key = contextKey;
+		const history: AskAiChatMessage[] = [...(askAiThreads[key] ?? [])];
+		askAiThreads[key] = [...history, { role: 'user', content: message }];
 		input = '';
 		submitting = true;
 
 		try {
 			const result = await askAi({
 				message,
-				history: messages.slice(0, -1),
+				history: clipHistory(history),
 				context: {
 					type: routeContext.type,
 					orgSlug: routeContext.orgSlug,
@@ -114,12 +159,15 @@
 					teamSlug: routeContext.teamSlug,
 					jerseyNumber: routeContext.jerseyNumber,
 					gameId: routeContext.gameId,
+					playerId: routeContext.playerId,
+					teamId: routeContext.teamId,
+					audience,
 				},
 			});
-			messages = [...messages, { role: 'assistant', content: result.reply }];
+			askAiThreads[key] = [...(askAiThreads[key] ?? []), { role: 'assistant', content: result.reply }];
 		} catch {
-			messages = [
-				...messages,
+			askAiThreads[key] = [
+				...(askAiThreads[key] ?? []),
 				{
 					role: 'assistant',
 					content: "Something went wrong talking to the assistant. Let's try that again.",
@@ -176,28 +224,30 @@
 	}
 </script>
 
-<button
-	type="button"
-	class="fixed right-5 bottom-5 z-50 flex items-center gap-2 rounded-full bg-[#58A6FF] px-4 py-3 text-sm font-semibold text-[#0D1117] shadow-lg transition hover:bg-[#79b8ff] focus-visible:ring-2 focus-visible:ring-[#58A6FF] focus-visible:outline-none"
-	onclick={() => openAskAi()}
-	aria-label="Ask AI"
->
-	<span aria-hidden="true">✦</span>
-	Ask AI
-</button>
-
-<Sheet.Root
-	open={askAiState.open}
-	onOpenChange={(open) => {
-		askAiState.open = open;
-	}}
->
-	<Sheet.Content
-		side="right"
-		showCloseButton={false}
-		class="w-full gap-0 border-[#2A3038] bg-[#161B22] p-0 text-[#E6EDF3] sm:max-w-[400px]"
+{#if !askAiState.open}
+	<button
+		type="button"
+		class="pointer-events-auto fixed right-5 bottom-5 z-[80] flex items-center gap-2 rounded-full bg-[#58A6FF] px-4 py-3 text-sm font-semibold text-[#0D1117] shadow-lg transition hover:bg-[#79b8ff] focus-visible:ring-2 focus-visible:ring-[#58A6FF] focus-visible:outline-none"
+		onclick={() => openAskAi()}
+		aria-label="Ask AI"
 	>
-		<div class="flex h-full flex-col">
+		<span aria-hidden="true">✦</span>
+		Ask AI
+	</button>
+{/if}
+
+{#if askAiState.open}
+	<button
+		type="button"
+		class="fixed inset-0 z-[80] bg-black/10"
+		aria-label="Close AI assistant"
+		onclick={() => closeAskAi()}
+	></button>
+	<div
+		class="fixed inset-y-0 right-0 z-[90] flex h-full w-full flex-col border-l border-[#2A3038] bg-[#161B22] text-[#E6EDF3] shadow-lg sm:max-w-[400px]"
+		role="dialog"
+		aria-label="AI Assistant"
+	>
 			<header class="flex items-start justify-between border-b border-[#2A3038] px-5 py-4">
 				<div>
 					<p class="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
@@ -206,15 +256,27 @@
 					</p>
 					<p class="mt-1 text-sm text-[#8B949E]">{contextTitle(displayContext)}</p>
 				</div>
-				<Button
-					variant="ghost"
-					size="icon"
-					class="text-[#8B949E] hover:bg-white/10 hover:text-[#E6EDF3]"
-					onclick={() => closeAskAi()}
-					aria-label="Close AI assistant"
-				>
-					<XIcon class="size-4" />
-				</Button>
+				<div class="flex items-center gap-1">
+					{#if messages.length > 0}
+						<Button
+							variant="ghost"
+							class="text-xs text-[#8B949E] hover:bg-white/10 hover:text-[#E6EDF3]"
+							disabled={submitting}
+							onclick={clearChat}
+						>
+							Clear
+						</Button>
+					{/if}
+					<Button
+						variant="ghost"
+						size="icon"
+						class="text-[#8B949E] hover:bg-white/10 hover:text-[#E6EDF3]"
+						onclick={() => closeAskAi()}
+						aria-label="Close AI assistant"
+					>
+						<XIcon class="size-4" />
+					</Button>
+				</div>
 			</header>
 
 			<div bind:this={messagesEl} class="flex-1 space-y-4 overflow-y-auto px-5 py-4">
@@ -228,7 +290,7 @@
 								<li>
 									<button
 										type="button"
-										class="w-full rounded-xl border border-[#2A3038] bg-[#0D1117] px-3 py-2.5 text-left text-sm text-[#E6EDF3] transition hover:border-[#58A6FF]/hover:text-[#58A6FF] disabled:opacity-50"
+										class="w-full rounded-xl border border-[#2A3038] bg-[#0D1117] px-3 py-2.5 text-left text-sm text-[#E6EDF3] transition hover:border-[#58A6FF] hover:text-[#58A6FF] disabled:opacity-50"
 										disabled={submitting}
 										onclick={() => sendMessage(suggestion)}
 									>
@@ -290,6 +352,11 @@
 					</Button>
 				</div>
 			</form>
-		</div>
-	</Sheet.Content>
-</Sheet.Root>
+	</div>
+{/if}
+
+<svelte:window
+	onkeydown={(event) => {
+		if (event.key === 'Escape' && askAiState.open) closeAskAi();
+	}}
+/>

@@ -6,7 +6,7 @@
 	import { getSeasonTeams, getSeasonGames } from '$lib/api/league-manage.remote';
 	import AnimatedNumber from '$lib/components/AnimatedNumber.svelte';
 	import type { PageProps } from './$types';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import BackLink from '$lib/components/BackLink.svelte';
 
 	let { params }: PageProps = $props();
 
@@ -87,13 +87,7 @@
 
 <div class="min-h-full bg-[#0D1117] text-[#E6EDF3]">
 	<div class="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 sm:px-6">
-		<a
-			href={adminHref}
-			class="inline-flex items-center gap-1 text-sm text-[#8B949E] transition-colors hover:text-[#58A6FF]"
-		>
-			<ChevronLeftIcon class="size-4" />
-			Admin Dashboard
-		</a>
+		<BackLink fallbackHref={adminHref} fallbackLabel="Admin Dashboard" />
 
 		<header class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
 			<p class="text-xs font-semibold tracking-wide text-[#8B949E] uppercase">Stats</p>

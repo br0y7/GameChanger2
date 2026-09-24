@@ -9,6 +9,7 @@ import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { forbidden, notFound } from '$lib/server/fail';
 import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import { loadBoxScore } from '$lib/server/game-box-score.server';
 import { countDistinct, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { isUserAdmin, requireUser } from './auth.remote';
@@ -163,6 +164,36 @@ export const getPublicSeasonFilters = query(
 	}
 );
 
+type PublicPlayerLeader = {
+	playerId: string;
+	name: string;
+	jerseyNumber: string;
+	teamName: string;
+	teamSlug: string;
+	divisionName: string;
+	divisionSlug: string;
+	gp: number;
+	ppg: number;
+	rpg: number;
+	apg: number;
+	spg: number;
+};
+
+type PublicStandingRow = {
+	teamId: string;
+	name: string;
+	slug: string;
+	wins: number;
+	losses: number;
+};
+
+type PublicStandingDivision = {
+	id: string;
+	name: string;
+	slug: string;
+	rows: PublicStandingRow[];
+};
+
 export const getPublicPlayerLeaders = query(
 	z.object({
 		orgSlug: z.string(),
@@ -174,7 +205,7 @@ export const getPublicPlayerLeaders = query(
 	async ({ orgSlug, seasonSlug, divisionSlug, teamSlug, limit }) => {
 		const filters = await getPublicSeasonFilters({ orgSlug, seasonSlug });
 		if (!filters.visibility.publishPlayerStats) {
-			return { players: [] as Array<Record<string, unknown>>, visibility: filters.visibility };
+			return { players: [] as PublicPlayerLeader[], visibility: filters.visibility };
 		}
 
 		let divisionIds = filters.divisions.map((d) => d.id);
@@ -244,7 +275,7 @@ export const getPublicStandings = query(
 	async ({ orgSlug, seasonSlug, divisionSlug }) => {
 		const filters = await getPublicSeasonFilters({ orgSlug, seasonSlug });
 		if (!filters.visibility.publishStandings) {
-			return { divisions: [] as Array<{ name: string; rows: unknown[] }>, visibility: filters.visibility };
+			return { divisions: [] as PublicStandingDivision[], visibility: filters.visibility };
 		}
 
 		const divisions = divisionSlug
@@ -290,6 +321,62 @@ export const getPublicStandings = query(
 	}
 );
 
+export const getPublicGameBoxScore = query(
+	z.object({
+		orgSlug: z.string(),
+		seasonSlug: z.string(),
+		gameId: idField,
+	}),
+	async ({ orgSlug, seasonSlug, gameId }) => {
+		const filters = await getPublicSeasonFilters({ orgSlug, seasonSlug });
+		if (!filters.visibility.publishGameScores || !filters.visibility.publishPlayerStats) {
+			notFound({ resource: 'game', id: gameId });
+		}
+
+		const box = await loadBoxScore(gameId);
+		if (box.seasonId !== filters.season.id) {
+			notFound({ resource: 'game', id: gameId });
+		}
+
+		const showFull = filters.visibility.showPlayerFullNames;
+		const publishPlayers = (side: typeof box.homeTeam) => ({
+			id: side.id,
+			name: side.name,
+			score: side.score,
+			players: side.players.map((player) => ({
+				playerId: player.playerId,
+				name: displayName(player.name, showFull),
+				jerseyNumber: player.jerseyNumber,
+				pts: player.pts,
+				reb: player.reb,
+				ast: player.ast,
+				stl: player.stl,
+				blk: player.blk,
+				tov: player.tov,
+				oreb: player.oreb,
+				fgm: player.fgm,
+				fga: player.fga,
+				fg3m: player.fg3m,
+				fg3a: player.fg3a,
+				ftm: player.ftm,
+				fta: player.fta,
+				gameRating: player.gameRating,
+				ratingMeaning: player.ratingMeaning,
+			})),
+		});
+
+		return {
+			id: box.id,
+			name: box.name,
+			status: box.status,
+			statsAvailable: box.statsAvailable,
+			completedAt: box.completedAt,
+			awayTeam: publishPlayers(box.awayTeam),
+			homeTeam: publishPlayers(box.homeTeam),
+		};
+	}
+);
+
 export const getPublicGames = query(
 	z.object({
 		orgSlug: z.string().optional(),
@@ -311,6 +398,7 @@ export const getPublicGames = query(
 			homeScore: number | null;
 			status: string;
 			at: Date | null;
+			playerStatsPublic: boolean;
 		}> = [];
 
 		for (const league of scoped) {
@@ -343,6 +431,7 @@ export const getPublicGames = query(
 					homeScore: league.visibility.publishGameScores ? g.homeTeamScore : null,
 					status: g.status,
 					at: g.completedAt ?? g.scheduledAt,
+					playerStatsPublic: league.visibility.publishPlayerStats,
 				});
 			}
 		}

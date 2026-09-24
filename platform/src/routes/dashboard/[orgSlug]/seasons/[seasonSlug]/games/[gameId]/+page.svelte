@@ -5,10 +5,13 @@
 	import { getGameBoxScore } from '$lib/api/game.remote';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
 	import { resolve } from '$app/paths';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import { teamColorFromId, teamInitials } from '$lib/utils/team-identity';
 	import { askAiPanel } from '$lib/ai/ask-ai-state.svelte';
 	import { gameTypeLabel } from '$lib/schemas/game';
+	import GameRatingDetail, {
+		type GameRatingDetailModel,
+	} from '$lib/components/GameRatingDetail.svelte';
 
 	let { params }: PageProps = $props();
 
@@ -36,6 +39,31 @@
 	const dateLabel = $derived(formatDate(box.completedAt ?? box.scheduledAt));
 	const potg = $derived(box.playerOfTheGame);
 
+	let ratingOpen = $state(false);
+	let ratingDetail = $state<GameRatingDetailModel | null>(null);
+
+	function openRating(
+		player: (typeof box.homeTeam.players)[number],
+		opponentName: string
+	) {
+		if (player.gameRating == null || !player.ratingMeaning) return;
+		ratingDetail = {
+			playerName: player.name,
+			opponentName,
+			rating: player.gameRating,
+			meaning: player.ratingMeaning,
+			points: player.pts,
+			rebounds: player.reb,
+			offensiveRebounds: player.oreb,
+			assists: player.ast,
+			steals: player.stl,
+			blocks: player.blk,
+			turnovers: player.tov,
+			breakdown: player.ratingBreakdown,
+		};
+		ratingOpen = true;
+	}
+
 	const potgHref = $derived.by(() => {
 		if (!potg?.jerseyNumber || !potg.teamSlug || !potg.divisionSlug) return null;
 		return resolve(
@@ -59,13 +87,7 @@
 
 <div class="min-h-full bg-[#0D1117] text-[#E6EDF3]">
 	<div class="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
-		<a
-			href={backHref}
-			class="mb-4 inline-flex items-center gap-1 text-sm text-[#8B949E] transition-colors hover:text-[#58A6FF]"
-		>
-			<ChevronLeftIcon class="size-4" />
-			{season.name}
-		</a>
+		<BackLink class="mb-4" fallbackHref={backHref} fallbackLabel={season.name} />
 
 		<header class="mb-6 rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
 			<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -219,6 +241,7 @@
 										<th class="py-2 text-center font-medium">STL</th>
 										<th class="py-2 text-center font-medium">BLK</th>
 										<th class="py-2 text-center font-medium">TO</th>
+										<th class="py-2 text-center font-medium">Rating</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -245,6 +268,25 @@
 											<td class="py-2.5 text-center tabular-nums">{player.stl}</td>
 											<td class="py-2.5 text-center tabular-nums">{player.blk}</td>
 											<td class="py-2.5 text-center tabular-nums">{player.tov}</td>
+											<td class="py-2.5 text-center tabular-nums">
+												{#if player.gameRating != null}
+													<button
+														type="button"
+														class="font-semibold text-[#58A6FF] hover:underline"
+														onclick={() =>
+															openRating(
+																player,
+																side.id === box.homeTeam.id
+																	? box.awayTeam.name
+																	: box.homeTeam.name
+															)}
+													>
+														{player.gameRating.toFixed(1)}
+													</button>
+												{:else}
+													<span class="text-[#8B949E]">—</span>
+												{/if}
+											</td>
 										</tr>
 									{/each}
 								</tbody>
@@ -256,3 +298,5 @@
 		{/if}
 	</div>
 </div>
+
+<GameRatingDetail bind:open={ratingOpen} detail={ratingDetail} mode="development" askAs="player" />

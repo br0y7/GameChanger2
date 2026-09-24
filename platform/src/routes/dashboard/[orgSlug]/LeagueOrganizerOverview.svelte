@@ -9,12 +9,15 @@
 		setActiveSeason,
 	} from '$lib/api/season.remote';
 	import { listLeagueCoaches } from '$lib/api/coach.remote';
+	import { getTopGamePerformances } from '$lib/api/game.remote';
+	import { isUserAdmin } from '$lib/api/auth.remote';
 	import type { Organization } from '$lib/server/db/auth-schema';
 	import AnimatedNumber from '$lib/components/AnimatedNumber.svelte';
 
 	let { org }: { org: Organization } = $props();
 
 	const orgSlug = $derived(page.params.orgSlug!);
+	const isAdmin = $derived(await isUserAdmin());
 	const currentSeason = $derived(await getCurrentSeason({ organizationId: org.id }));
 	const seasons = $derived(await getSeasons({ organizationId: org.id }));
 	const seasonStats = $derived(
@@ -26,6 +29,9 @@
 			: []
 	);
 	const activity = $derived(await getLeagueRecentActivity({ organizationId: org.id, limit: 8 }));
+	const topPerformances = $derived(
+		currentSeason ? await getTopGamePerformances({ seasonId: currentSeason.id, limit: 5 }) : []
+	);
 
 	const suggestedSeason = $derived(
 		[...seasons].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
@@ -140,7 +146,6 @@
 
 	const gameManagement = $derived([
 		{ label: 'View / manage games', href: gamesHref, hint: 'Scores, status, results' },
-		{ label: 'Import game stats', href: importHref, hint: 'Spreadsheet upload' },
 		{
 			label: 'Review missing stats',
 			href: gamesHref,
@@ -156,7 +161,6 @@
 			href: statsHref ?? seasonManageHref,
 			hint: 'Standings, leaders, results',
 		},
-		{ label: 'Import / correct stats', href: importHref, hint: 'Bulk update from sheets' },
 		{ label: 'Team & player pages', href: teamsHref, hint: 'Drill into any team' },
 	]);
 </script>
@@ -164,7 +168,7 @@
 <div class="min-h-full bg-[#0D1117] text-[#E6EDF3]">
 	<div class="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 sm:px-6">
 		<header>
-			<p class="text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">Admin Portal</p>
+			<p class="text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">League Management</p>
 			<h1 class="mt-1 text-2xl font-extrabold tracking-tight uppercase sm:text-3xl">{org.name}</h1>
 			<p class="mt-1 text-sm text-[#8B949E]">
 				How is the whole league running? Operations, oversight, and season performance.
@@ -236,12 +240,6 @@
 						</a>
 					{/if}
 					<a
-						href={importHref}
-						class="inline-flex items-center rounded-md border border-[#2A3038] bg-[#0D1117] px-3 py-2 text-sm font-medium hover:border-[#58A6FF]"
-					>
-						Import Stats
-					</a>
-					<a
 						href={seasonManageHref}
 						class="inline-flex items-center rounded-md border border-[#2A3038] bg-[#0D1117] px-3 py-2 text-sm font-medium hover:border-[#58A6FF]"
 					>
@@ -298,6 +296,22 @@
 			</section>
 		{/if}
 
+		{#if isAdmin}
+			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
+				<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Admin</h2>
+				<p class="mt-1 text-sm text-[#8B949E]">Changes only a platform admin can make.</p>
+				<div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+					<a
+						href={importHref}
+						class="rounded-xl border border-[#2A3038] bg-[#0D1117] px-3 py-3 hover:border-[#58A6FF]"
+					>
+						<p class="text-sm font-medium">Import spreadsheet</p>
+						<p class="mt-1 text-xs text-[#8B949E]">Bulk update stats from a sheet</p>
+					</a>
+				</div>
+			</section>
+		{/if}
+
 		<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
 			<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">League Management</h2>
 			<p class="mt-1 text-sm text-[#8B949E]">Seasons, structure, people, and access.</p>
@@ -345,6 +359,40 @@
 				{/each}
 			</div>
 		</section>
+
+		{#if currentSeason}
+			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
+				<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
+					Top Game Performances
+				</h2>
+				{#if topPerformances.length === 0}
+					<p class="mt-3 text-sm text-[#8B949E]">
+						Ratings appear here after games are calibrated.
+					</p>
+				{:else}
+					<ul class="mt-3 space-y-2">
+						{#each topPerformances as row (`${row.gameId}-${row.playerId}`)}
+							<li>
+								<a
+									href={resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]/games/[gameId]', {
+										orgSlug,
+										seasonSlug: currentSeason.slug,
+										gameId: row.gameId,
+									})}
+									class="flex items-baseline justify-between gap-3 text-sm hover:text-[#58A6FF]"
+								>
+									<span>
+										{row.playerName}
+										<span class="text-[#8B949E]">vs {row.opponentName}</span>
+									</span>
+									<span class="font-semibold tabular-nums">{row.rating.toFixed(1)}</span>
+								</a>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		{/if}
 
 		<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
 			<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Recent Activity</h2>

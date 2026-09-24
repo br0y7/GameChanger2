@@ -96,4 +96,10 @@ export const columns: ColumnDef<WithGame<PlayerGameStats>>[] = [
 		accessorKey: 'eff',
 		header: ({ column }) => sortableHeader('EFF', column),
 	},
+	{
+		accessorKey: 'gameRating',
+		header: ({ column }) => sortableHeader('Rating', column),
+		cell: ({ row }) =>
+			row.original.gameRating == null ? '—' : row.original.gameRating.toFixed(1),
+	},
 ];

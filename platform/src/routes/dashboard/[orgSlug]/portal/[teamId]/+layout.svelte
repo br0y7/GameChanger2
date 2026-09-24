@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { getOrganization } from '$lib/api/organization.remote';
 	import { getTeam } from '$lib/api/team.remote';
-	import { getCoachAssignmentForTeamQuery } from '$lib/api/coach-portal.remote';
+	import { getCoachAssignmentForTeamQuery, getPortalTeamContext } from '$lib/api/coach-portal.remote';
 	import { coachRoleLabels } from '$lib/schemas/coach';
 	import type { LayoutProps } from './$types';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
@@ -12,9 +12,10 @@
 
 	const org = $derived(await getOrganization({ slug: params.orgSlug }));
 	const assignment = $derived(await getCoachAssignmentForTeamQuery({ teamId: params.teamId }));
+	const context = $derived(await getPortalTeamContext({ teamId: params.teamId }));
 	const team = $derived(await getTeam({ id: params.teamId }));
-	const season = $derived(assignment?.team?.division?.season);
-	const division = $derived(assignment?.team?.division);
+	const season = $derived(context?.season);
+	const division = $derived(context?.division);
 
 	const publicTeamHref = $derived(
 		season && division
@@ -59,7 +60,7 @@
 			<p class="text-sm text-[#8B949E]">
 				How is my team doing? {season?.name ?? 'Season'} · {assignment
 					? coachRoleLabels[assignment.assignmentRole]
-					: 'Coach'} · Read-only for now
+					: 'Admin'} · Read-only for now
 			</p>
 			{#if publicTeamHref}
 				<a

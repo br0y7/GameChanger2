@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { getCoachTeamPlayerStats } from '$lib/api/coach-player-stats.remote';
-	import { getCoachAssignmentForTeamQuery } from '$lib/api/coach-portal.remote';
+	import { getPortalTeamContext } from '$lib/api/coach-portal.remote';
 	import { getTeam } from '$lib/api/team.remote';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
 
 	const team = $derived(await getTeam({ id: params.teamId }));
-	const assignment = $derived(await getCoachAssignmentForTeamQuery({ teamId: params.teamId }));
-	const season = $derived(assignment?.team?.division?.season);
+	const context = $derived(await getPortalTeamContext({ teamId: params.teamId }));
+	const season = $derived(context?.season);
 	const data = $derived(await getCoachTeamPlayerStats({ teamId: params.teamId }));
 
 	let search = $state('');
@@ -91,7 +91,6 @@
 					<tr>
 						<th class="px-4 py-3 font-medium">Player</th>
 						<th class="px-3 py-3 font-medium tabular-nums">GP</th>
-						<th class="px-3 py-3 font-medium tabular-nums">PTS</th>
 						<th class="px-3 py-3 font-medium tabular-nums">PPG</th>
 						<th class="px-3 py-3 font-medium tabular-nums">REB</th>
 						<th class="px-3 py-3 font-medium tabular-nums">RPG</th>
@@ -117,7 +116,6 @@
 								<span class="ml-2 text-xs text-[#8B949E]">#{row.jerseyNumber}</span>
 							</td>
 							<td class="px-3 py-3 tabular-nums">{row.gp}</td>
-							<td class="px-3 py-3 tabular-nums">{row.pts}</td>
 							<td class="px-3 py-3 tabular-nums">{fmt(row.ppg)}</td>
 							<td class="px-3 py-3 tabular-nums">{row.reb}</td>
 							<td class="px-3 py-3 tabular-nums">{fmt(row.rpg)}</td>
