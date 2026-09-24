@@ -9,6 +9,12 @@
 	let { children, params }: LayoutProps = $props();
 
 	const home = $derived(await getFamilyPlayerHome({ playerId: params.playerId }));
+	let renamed = $state<string | null>(null);
+	const playerName = $derived(renamed ?? home.player.name);
+
+	$effect(() => {
+		if (renamed && home.player.name === renamed) renamed = null;
+	});
 	const base = $derived(
 		resolve('/dashboard/[orgSlug]/family/[playerId]', {
 			orgSlug: params.orgSlug,
@@ -46,12 +52,13 @@
 		<header class="text-center sm:text-left">
 			<p class="text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">Family Portal</p>
 			<p class="mt-1 text-sm text-[#8B949E]">{home.player.leagueName}</p>
-			<h1 class="mt-1 text-3xl font-extrabold tracking-tight">{home.player.name}</h1>
+			<h1 class="mt-1 text-3xl font-extrabold tracking-tight">{playerName}</h1>
 			<AdminPlayerRename
 				playerId={home.player.id}
-				name={home.player.name}
+				name={playerName}
 				jerseyNumber={home.player.jerseyNumber}
 				seasonId={home.player.seasonId}
+				onRenamed={(next) => (renamed = next)}
 			/>
 			<p class="mt-1 text-sm text-[#8B949E]">
 				#{home.player.jerseyNumber}

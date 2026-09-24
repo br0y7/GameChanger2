@@ -8,6 +8,12 @@ describe('parseGameTypeLabel', () => {
 		expect(parseGameTypeLabel('third-place')).toBe('third_place');
 	});
 
+	test('reads playoffs semis labels', () => {
+		expect(parseGameTypeLabel('Playoffs Semis')).toBe('semifinal');
+		expect(parseGameTypeLabel('Semis')).toBe('semifinal');
+		expect(parseGameTypeLabel('semi-finals')).toBe('semifinal');
+	});
+
 	test('keeps the existing game types', () => {
 		expect(parseGameTypeLabel('Playoff')).toBe('playoff');
 		expect(parseGameTypeLabel('Finals')).toBe('finals');

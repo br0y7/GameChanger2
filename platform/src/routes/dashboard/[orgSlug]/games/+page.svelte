@@ -34,6 +34,7 @@
 
 	const gameTypeLabel = (type: string | null | undefined) => {
 		if (type === 'playoff') return 'Playoff';
+		if (type === 'semifinal') return 'Playoffs Semis';
 		if (type === 'finals') return 'Finals';
 		if (type === 'third_place') return 'Third Place';
 		return 'Regular Season';

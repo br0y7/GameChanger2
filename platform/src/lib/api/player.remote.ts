@@ -141,6 +141,9 @@ export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 		const user = await requireUser();
 		serverLogger.info('updated player', { id, userId: user.id, name: updated?.name });
 
+		void getFamilyPlayerHome({ playerId: id }).refresh();
+		void getPlayer({ id }).refresh();
+
 		if (updated?.teamId) {
 			const team = await db.query.team.findFirst({
 				where: { id: updated.teamId },

@@ -171,6 +171,10 @@
 					<span>
 						Rank: {overview.rank ? `#${overview.rank}` : '—'}
 					</span>
+					{#if overview.divisionPlace}
+						<span class="text-[#2A3038]">|</span>
+						<span>Place: {overview.divisionPlace}</span>
+					{/if}
 					{#if overview.streak}
 						<span class="text-[#2A3038]">|</span>
 						<span>Streak: {overview.streak}</span>
@@ -289,6 +293,12 @@
 								{overview.rank ? `#${overview.rank}` : '—'}
 							</p>
 						</div>
+						{#if overview.divisionPlace}
+							<div class="rounded-xl border border-[#2A3038] bg-[#0D1117] p-4">
+								<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">Place</p>
+								<p class="mt-2 text-lg font-bold leading-snug">{overview.divisionPlace}</p>
+							</div>
+						{/if}
 					</div>
 				</section>
 
@@ -326,6 +336,8 @@
 											<span class="text-[#8B949E]"> vs {game.opponentName}</span>
 											{#if game.gameType === 'playoff'}
 												<span class="ml-1 text-[#F0A020]">· Playoff</span>
+											{:else if game.gameType === 'semifinal'}
+												<span class="ml-1 text-[#F0883E]">· Playoffs Semis</span>
 											{:else if game.gameType === 'finals'}
 												<span class="ml-1 text-[#A371F7]">· Finals</span>
 											{:else if game.gameType === 'third_place'}

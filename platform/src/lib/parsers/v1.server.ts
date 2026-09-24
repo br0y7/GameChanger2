@@ -41,7 +41,7 @@ function parseGameType(value: RowValue, gameName: string, excelRow: number): Gam
 	throw gameError(
 		gameName,
 		`Game Type row (Excel row ${excelRow})`,
-		`Unknown Game Type "${value}". Use Regular Season, Playoff, Finals, or Third Place.`
+		`Unknown Game Type "${value}". Use Regular Season, Playoff, Playoffs Semis, Finals, or Third Place.`
 	);
 }
 
