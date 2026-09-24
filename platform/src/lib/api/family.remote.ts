@@ -400,8 +400,10 @@ export const getFamilyPlayerHome = query(
 		const late = chronological.slice(Math.max(split, gp - split));
 
 		const progressMetric = (key: 'pts' | 'reb' | 'ast') => {
-			const beginning = avg(early, key);
-			const current = avg(late.length ? late : chronological, key);
+			const sample = (games: typeof chronological) =>
+				key === 'pts' ? games : games.filter((game) => !game.pointsOnly);
+			const beginning = avg(sample(early), key);
+			const current = avg(sample(late.length ? late : chronological), key);
 			const improvementPct =
 				beginning > 0.05 ? Math.round(((current - beginning) / beginning) * 100) : null;
 			return { beginning, current, improvementPct };
@@ -413,7 +415,10 @@ export const getFamilyPlayerHome = query(
 				.filter((stat) => stat.game)
 				.map((raw) => {
 					const stat = derivePlayerGameStats(raw);
-					return [raw.game!.id, { pts: stat.pts, reb: stat.reb, ast: stat.ast }] as const;
+					return [
+						raw.game!.id,
+						{ pts: stat.pts, reb: stat.reb, ast: stat.ast, pointsOnly: stat.pointsOnly },
+					] as const;
 				})
 		);
 		const gameLog = [...player.gameStats]
@@ -433,6 +438,7 @@ export const getFamilyPlayerHome = query(
 				date: game.completedAt ?? game.scheduledAt,
 				opponentName: opponent?.name ?? 'Opponent',
 				pts: stat.pts,
+				pointsOnly: stat.pointsOnly,
 				reb: stat.reb,
 				ast: stat.ast,
 				stl: stat.stl,
@@ -515,6 +521,12 @@ export const getFamilyPlayerHome = query(
 
 		const ranks = divisionId ? ranksForPlayer(rankRows, player.id, divisionId) : {};
 
+		const [coachNote] = await db
+			.select({ body: table.playerCoachNote.body })
+			.from(table.playerCoachNote)
+			.where(eq(table.playerCoachNote.playerId, playerId))
+			.limit(1);
+
 		const strengths = derivePlayerStrengths(analysisStats)
 			.slice(0, 3)
 			.map((s) => s.description);
@@ -546,7 +558,7 @@ export const getFamilyPlayerHome = query(
 			ranks,
 			strengths,
 			focusAreas,
-			coachFeedback: null as string | null,
+			coachFeedback: coachNote?.body ?? null,
 		};
 	}
 );

@@ -12,7 +12,9 @@
 	import RosterPlayerRow from './RosterPlayerRow.svelte';
 	import { getTeamOverview } from '$lib/api/team-overview.remote';
 	import BackLink from '$lib/components/BackLink.svelte';
+	import { isPostseasonGameType } from '$lib/schemas/game';
 	import { askAiPanel } from '$lib/ai/ask-ai-state.svelte';
+	import { isUserAdmin } from '$lib/api/auth.remote';
 	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
 	import { getTeamCoach } from '$lib/api/coach.remote';
 	import { getMyTeamCoachAssignment } from '$lib/api/coach-portal.remote';
@@ -32,6 +34,8 @@
 		})
 	);
 	const isOrganizer = $derived(await isUserLeagueOrganizer());
+	const isAdmin = $derived(await isUserAdmin());
+	const canManagePlayers = $derived(isOrganizer || isAdmin);
 	const teamCoach = $derived(await getTeamCoach({ teamId: team.id }));
 	const myAssignment = $derived(await getMyTeamCoachAssignment({ teamId: team.id }));
 	let inviteCopied = $state(false);
@@ -69,7 +73,7 @@
 		overview.schedule.filter((game) => {
 			if (scheduleFilter === 'regular') return game.gameType === 'regular';
 			if (scheduleFilter === 'playoffs') {
-				return game.gameType === 'playoff' || game.gameType === 'finals';
+				return isPostseasonGameType(game.gameType);
 			}
 			return true;
 		})
@@ -324,6 +328,8 @@
 												<span class="ml-1 text-[#F0A020]">· Playoff</span>
 											{:else if game.gameType === 'finals'}
 												<span class="ml-1 text-[#A371F7]">· Finals</span>
+											{:else if game.gameType === 'third_place'}
+												<span class="ml-1 text-[#56D4DD]">· Third Place</span>
 											{/if}
 										</a>
 										<span class="shrink-0 text-[#8B949E]">{formatDate(game.completedAt)}</span>
@@ -565,7 +571,9 @@
 									<Table.Head class="text-center text-[#8B949E]">PPG</Table.Head>
 									<Table.Head class="text-center text-[#8B949E]">RPG</Table.Head>
 									<Table.Head class="text-center text-[#8B949E]">APG</Table.Head>
-									<Table.Head class="w-12 text-end text-[#8B949E]"></Table.Head>
+									{#if canManagePlayers}
+										<Table.Head class="w-12 text-end text-[#8B949E]"></Table.Head>
+									{/if}
 								</Table.Row>
 							</Table.Header>
 							<Table.Body>
@@ -573,6 +581,7 @@
 									<RosterPlayerRow
 										player={row.player}
 										averages={row.averages}
+										canManage={canManagePlayers}
 										teamSlug={team.slug}
 										divisionId={division.id}
 										seasonId={season.id}

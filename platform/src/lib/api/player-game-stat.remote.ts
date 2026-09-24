@@ -9,27 +9,29 @@ import { averageBy, percentageBy } from '$lib/utils/collection';
 import type { PlayerGameStats } from '$lib/schemas/player-game-stat';
 
 function seasonAveragesFromGames(stats: PlayerGameStats[]) {
+	const box = stats.filter((stat) => !stat.pointsOnly);
 	const fgPct = percentageBy(
-		stats,
+		box,
 		(stat) => stat.fgm,
 		(stat) => stat.fga
 	);
 	const fg3Pct = percentageBy(
-		stats,
+		box,
 		(stat) => stat.fg3m,
 		(stat) => stat.fg3a
 	);
 	const ftPct = percentageBy(
-		stats,
+		box,
 		(stat) => stat.ftm,
 		(stat) => stat.fta
 	);
 
-	const avg = (pick: (stat: PlayerGameStats) => number) => averageBy(stats, pick) ?? 0;
+	const avg = (pick: (stat: PlayerGameStats) => number) => averageBy(box, pick) ?? 0;
+	const points = averageBy(stats, (stat) => stat.pts) ?? 0;
 
 	return {
 		gamesPlayed: stats.length,
-		points: avg((stat) => stat.pts),
+		points,
 		rebounds: avg((stat) => stat.reb),
 		assists: avg((stat) => stat.ast),
 		steals: avg((stat) => stat.stl),

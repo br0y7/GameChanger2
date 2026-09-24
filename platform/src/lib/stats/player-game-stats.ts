@@ -6,7 +6,8 @@ export function derivePlayerGameStats(
 ): WithGame<PlayerGameStats> {
 	const { fgm, fga, fg3m, fg3a, ftm, fta, oreb, dreb, ast, stl, blk, tov, pf } = rawStats;
 
-	const pts = (fgm - fg3m) * 2 + fg3m * 3 + ftm;
+	const pointsOnly = rawStats.recordedPts != null;
+	const pts = pointsOnly ? rawStats.recordedPts! : (fgm - fg3m) * 2 + fg3m * 3 + ftm;
 	const fgPct = fga > 0 ? fgm / fga : 0;
 	const fg3Pct = fg3a > 0 ? fg3m / fg3a : 0;
 	const ftPct = fta > 0 ? ftm / fta : 0;
@@ -21,5 +22,6 @@ export function derivePlayerGameStats(
 		ftPct,
 		reb,
 		eff,
+		pointsOnly,
 	};
 }

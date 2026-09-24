@@ -260,8 +260,8 @@
 							<tr class="border-t border-[#2A3038]/60">
 								<td class="py-2.5">{game.opponentName}</td>
 								<td class="py-2.5 tabular-nums font-medium">{game.pts}</td>
-								<td class="py-2.5 tabular-nums">{game.reb}</td>
-								<td class="py-2.5 tabular-nums">{game.ast}</td>
+								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.reb}</td>
+								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.ast}</td>
 								<td class="py-2.5 tabular-nums">
 									{#if game.gameRating != null}
 										<button
@@ -319,8 +319,7 @@
 			<p class="mt-3 text-sm leading-relaxed text-[#E6EDF3]">“{home.coachFeedback}”</p>
 		{:else}
 			<p class="mt-3 text-sm text-[#8B949E]">
-				Private coach notes for your family will appear here in a future update. Only you and league
-				staff can see this section — never other families.
+				No coach notes yet. When league staff add one, only your family can see it.
 			</p>
 		{/if}
 	</section>

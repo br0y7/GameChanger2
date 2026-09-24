@@ -27,6 +27,7 @@ import { and, eq } from 'drizzle-orm';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
 import { RATING_VERSION, type CountingLine } from '$lib/stats/game-rating';
 import { loadApplicableScale, ratingPatch, type ApplicableScale } from '$lib/server/game-rating.server';
+import { clearedRating } from '$lib/stats/game-rating';
 import { idField } from '$lib/schemas/common';
 import { z } from 'zod';
 
@@ -140,9 +141,11 @@ async function saveGame(
 	if (game) {
 		const nextType = gamePreview.gameType ?? 'regular';
 		const nextStatsAvailable = gamePreview.statsAvailable ?? true;
+		const nextPointsOnly = gamePreview.pointsOnly ?? false;
 		const patch: {
 			gameType?: typeof nextType;
 			statsAvailable?: boolean;
+			pointsOnly?: boolean;
 			homeTeamScore?: number;
 			awayTeamScore?: number;
 			completedAt?: Date;
@@ -150,7 +153,8 @@ async function saveGame(
 
 		if (game.gameType !== nextType) patch.gameType = nextType;
 		if (game.statsAvailable !== nextStatsAvailable) patch.statsAvailable = nextStatsAvailable;
-		if (!nextStatsAvailable) {
+		if (game.pointsOnly !== nextPointsOnly) patch.pointsOnly = nextPointsOnly;
+		if (!nextStatsAvailable || nextPointsOnly) {
 			patch.homeTeamScore = gamePreview.homeTeam.score;
 			patch.awayTeamScore = gamePreview.awayTeam.score;
 			patch.completedAt = gamePreview.completedAt;
@@ -175,6 +179,7 @@ async function saveGame(
 			status: 'completed',
 			gameType: gamePreview.gameType ?? 'regular',
 			statsAvailable: gamePreview.statsAvailable ?? true,
+			pointsOnly: gamePreview.pointsOnly ?? false,
 		})
 		.returning({ id: table.game.id });
 
@@ -190,7 +195,8 @@ async function saveStats(
 	scale: ApplicableScale | null
 ) {
 	for (const playerPreview of data.playerStats) {
-		const { jerseyNumber, stats: rawStats } = playerPreview;
+		const { jerseyNumber, stats: rawStats, recordedPts } = playerPreview;
+		const pointsOnly = recordedPts != null;
 
 		if (!jerseyNumber) {
 			notFound({ resource: 'player' }, { message: 'No jersey number while trying to save stats.' });
@@ -201,7 +207,7 @@ async function saveStats(
 		) as typeof rawStats;
 
 		// Skip players who appear with no recorded stats (not actually on the sheet box score)
-		const hasAnyStat = rawStatKeys.some((key) => Number(stats?.[key]) > 0);
+		const hasAnyStat = pointsOnly || rawStatKeys.some((key) => Number(stats?.[key]) > 0);
 		if (!hasAnyStat) {
 			continue;
 		}
@@ -239,17 +245,25 @@ async function saveStats(
 			gameStats?.ratingVersion != null && gameStats.ratingVersion !== RATING_VERSION;
 		const rated = preserveExistingVersion
 			? {}
-			: ratingPatch(stats as CountingLine, teamPoints, scale);
+			: pointsOnly
+				? clearedRating()
+				: ratingPatch(stats as CountingLine, teamPoints, scale);
 
 		if (gameStats) {
 			await tx
 				.update(table.playerGameStat)
-				.set({ ...stats, ...rated })
+				.set({ ...stats, recordedPts: pointsOnly ? recordedPts : null, ...rated })
 				.where(
 					and(eq(table.playerGameStat.gameId, gameId), eq(table.playerGameStat.playerId, playerId))
 				);
 		} else {
-			await tx.insert(table.playerGameStat).values({ ...stats, ...rated, gameId, playerId });
+			await tx.insert(table.playerGameStat).values({
+				...stats,
+				recordedPts: pointsOnly ? recordedPts : null,
+				...rated,
+				gameId,
+				playerId,
+			});
 		}
 	}
 }

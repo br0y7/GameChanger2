@@ -245,13 +245,14 @@ export const getTeamOverview = query(
 			.map((player) => {
 				const derived = player.gameStats.map(derivePlayerGameStats);
 				if (!derived.length) return null;
+				const box = derived.filter((stat) => !stat.pointsOnly);
 				return {
 					playerId: player.id,
 					name: player.name,
 					jerseyNumber: player.jerseyNumber,
 					points: averageBy(derived, (s) => s.pts) ?? 0,
-					rebounds: averageBy(derived, (s) => s.reb) ?? 0,
-					assists: averageBy(derived, (s) => s.ast) ?? 0,
+					rebounds: averageBy(box, (s) => s.reb) ?? 0,
+					assists: averageBy(box, (s) => s.ast) ?? 0,
 					gamesPlayed: derived.length,
 				};
 			})

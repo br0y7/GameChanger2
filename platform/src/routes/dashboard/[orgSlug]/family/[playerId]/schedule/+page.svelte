@@ -34,7 +34,8 @@
 						</p>
 						{#if game.status === 'completed' && game.playerLine}
 							<p class="text-xs text-[#8B949E]">
-								{game.playerLine.pts} PTS · {game.playerLine.reb} REB · {game.playerLine.ast} AST
+								{game.playerLine.pts} PTS{#if !game.playerLine.pointsOnly}
+									· {game.playerLine.reb} REB · {game.playerLine.ast} AST{/if}
 							</p>
 						{:else if game.status !== 'completed'}
 							<p class="text-xs text-[#8B949E]">{formatDate(game.scheduledAt)}</p>

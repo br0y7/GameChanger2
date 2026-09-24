@@ -35,6 +35,7 @@ type Row = {
 	blk: number;
 	tov: number;
 	pf: number;
+	recorded_pts: number | null;
 	rating_version: string | null;
 	team_id: string;
 	division_slug: string;
@@ -56,6 +57,7 @@ const rows = await db<Row[]>`
 		pgs.id,
 		pgs.fgm, pgs.fga, pgs.fg3m, pgs.fg3a, pgs.ftm, pgs.fta,
 		pgs.oreb, pgs.dreb, pgs.ast, pgs.stl, pgs.blk, pgs.tov, pgs.pf,
+		pgs.recorded_pts,
 		pgs.rating_version,
 		p.team_id,
 		d.slug as division_slug,
@@ -116,11 +118,11 @@ for (const row of rows) {
 		divisionSlug: row.division_slug,
 		line,
 		teamPoints,
-		empty: isEmptyLine(line),
+		empty: isEmptyLine(line) || row.recorded_pts != null,
 		ratingVersion: row.rating_version,
 	});
 
-	if (isEmptyLine(line)) continue;
+	if (isEmptyLine(line) || row.recorded_pts != null) continue;
 	const parts = impactParts(line);
 	const key = `${row.organization_id}::${row.division_slug}`;
 	const group = byDivision.get(key) ?? {

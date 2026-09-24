@@ -134,6 +134,7 @@ function formatGameLog(teamId: string, stats: GameLogStat[]) {
 				teamScore,
 				oppScore,
 				pts: stat.pts,
+				pointsOnly: stat.pointsOnly,
 				reb: stat.reb,
 				ast: stat.ast,
 				stl: stat.stl,

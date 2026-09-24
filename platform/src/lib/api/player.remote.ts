@@ -1,7 +1,7 @@
 import { form, query } from '$app/server';
 import type { CrudAction, ResourceTarget } from '$lib/forms/types';
 import { idField, idOnlySchema } from '$lib/schemas/common';
-import { createPlayerSchema, playerSchema, updatePlayerSchema } from '$lib/schemas/player';
+import { coachNoteSchema, createPlayerSchema, playerSchema, updatePlayerSchema } from '$lib/schemas/player';
 import { db } from '$lib/server/db';
 import { PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT } from '$lib/server/db/schema';
 import { forbidden, internal, internalNoId, notFound } from '$lib/server/fail';
@@ -12,8 +12,10 @@ import { isConstraintError } from './errors.server';
 import { eq } from 'drizzle-orm';
 import { isUserAdmin, requireUser } from './auth.remote';
 import { getCoach } from './coach.remote';
+import { getFamilyPlayerHome } from './family.remote';
 import { isUserLeagueOrganizer } from './league.remote';
 import { getTeam } from './team.remote';
+import { requireFamilyPlayerAccess } from '$lib/server/family-access.server';
 import { z } from 'zod';
 
 export const getPlayer = query(
@@ -180,4 +182,48 @@ export const deletePlayer = form(idOnlySchema, async ({ id }) => {
 	if (deleted?.teamId) {
 		void getTeam({ id: deleted.teamId, include: { players: true } }).refresh();
 	}
+});
+
+async function requireOrganizerOrAdmin() {
+	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) return;
+	forbidden({ resource: 'player' });
+}
+
+export const getCoachNote = query(z.object({ playerId: idField }), async ({ playerId }) => {
+	await requireFamilyPlayerAccess(playerId);
+
+	const [row] = await db
+		.select({ body: table.playerCoachNote.body })
+		.from(table.playerCoachNote)
+		.where(eq(table.playerCoachNote.playerId, playerId))
+		.limit(1);
+
+	return { body: row?.body ?? null };
+});
+
+export const saveCoachNote = form(coachNoteSchema, async ({ playerId, body }) => {
+	await requireOrganizerOrAdmin();
+	await getPlayer({ id: playerId });
+
+	const trimmed = body.trim();
+
+	if (!trimmed) {
+		await db.delete(table.playerCoachNote).where(eq(table.playerCoachNote.playerId, playerId));
+	} else {
+		await db
+			.insert(table.playerCoachNote)
+			.values({ playerId, body: trimmed, updatedAt: new Date() })
+			.onConflictDoUpdate({
+				target: table.playerCoachNote.playerId,
+				set: { body: trimmed, updatedAt: new Date() },
+			});
+	}
+
+	const user = await requireUser();
+	serverLogger.info('saved coach note', { playerId, userId: user.id, cleared: !trimmed });
+
+	void getCoachNote({ playerId }).refresh();
+	void getFamilyPlayerHome({ playerId }).refresh();
+
+	return { success: true };
 });

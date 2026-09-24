@@ -23,6 +23,9 @@
 	import { getStatDefinition } from '$lib/stats/stat-definitions';
 	import { resolve } from '$app/paths';
 	import BackLink from '$lib/components/BackLink.svelte';
+	import CoachNoteEditor from '$lib/components/CoachNoteEditor.svelte';
+	import { isUserAdmin } from '$lib/api/auth.remote';
+	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
 
 	let { params }: PageProps = $props();
 
@@ -31,6 +34,9 @@
 	const division = $derived(await getDivision({ slug: params.divisionSlug, seasonId: season.id }));
 	const team = $derived(await getTeam({ slug: params.teamSlug, divisionId: division.id }));
 	const player = $derived(await getPlayer({ teamId: team.id, jerseyNumber: params.jerseyNumber }));
+	const isOrganizer = $derived(await isUserLeagueOrganizer());
+	const isAdmin = $derived(await isUserAdmin());
+	const canManagePlayers = $derived(isOrganizer || isAdmin);
 
 	const seasonAverages = $derived(await getPlayerSeasonAverages({ playerId: player.id }));
 	const gameCount = $derived(await getPlayerGameCount({ playerId: player.id }));
@@ -133,6 +139,16 @@
 				{/if}
 			</p>
 		</header>
+
+		{#if canManagePlayers}
+			<section class="mb-6 rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
+				<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Coach notes</h2>
+				<p class="mt-1 mb-4 text-sm text-[#8B949E]">
+					Rename this player from the team roster menu. Notes here are private to {player.name}'s family.
+				</p>
+				<CoachNoteEditor playerId={player.id} />
+			</section>
+		{/if}
 
 		<div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
 			<section class="flex flex-col gap-4 rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
