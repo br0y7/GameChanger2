@@ -14,4 +14,12 @@ export interface SpreadsheetParser {
 	parse: (workbook: WorkBook, options: SpreadsheetParseOptions) => SpreadsheetPreview;
 }
 
-export class SpreadsheetParserError extends Error {}
+export class SpreadsheetParserError extends Error {
+	readonly issues: string[];
+
+	constructor(message: string, options?: ErrorOptions & { issues?: string[] }) {
+		super(message, options);
+		this.name = 'SpreadsheetParserError';
+		this.issues = options?.issues?.length ? options.issues : [message];
+	}
+}

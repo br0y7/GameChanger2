@@ -13,7 +13,6 @@
 	import { tick } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { deletePlayer, updatePlayer } from '$lib/api/player.remote';
-	import type { UpdatePlayerInput } from '$lib/schemas/player';
 	import FieldErrorTooltip from '$lib/components/FieldErrorTooltip.svelte';
 	import ErrorPopover from '$lib/components/ErrorPopover.svelte';
 	import ExpandTransition from '$lib/components/transitions/ExpandTransition.svelte';
@@ -33,10 +32,7 @@
 
 	let editing = $state(false);
 
-	let inputs: Record<keyof Omit<UpdatePlayerInput, 'id'>, HTMLInputElement | null> = $state({
-		name: null,
-		jerseyNumber: null,
-	});
+	let inputs: { jerseyNumber: HTMLInputElement | null } = $state({ jerseyNumber: null });
 
 	$effect(() => {
 		submitting = !!updateForm.pending;
@@ -50,7 +46,7 @@
 
 		await tick();
 
-		inputs.name?.focus();
+		inputs.jerseyNumber?.focus();
 	}
 
 	let updateFormElement: HTMLFormElement | null = $state(null);
@@ -76,25 +72,8 @@
 	})}
 >
 	<Table.Cell class="font-medium">
-		<ExpandTransition>
-			{#if editing}
-				<div in:fade={fadeOptions}>
-					<FieldErrorTooltip remoteField={updateForm.fields.name} anchor={inputs.name}>
-						<Input
-							{...updateForm.fields.name.as('text')}
-							required
-							form={updateFormId()}
-							bind:ref={inputs.name}
-							autocomplete="off"
-						/>
-					</FieldErrorTooltip>
-				</div>
-			{:else}
-				<div in:fade={fadeOptions}>
-					{player.name}
-				</div>
-			{/if}
-		</ExpandTransition>
+		<!-- Names are admin-only to change; remove and re-add the player to fix a typo. -->
+		<div>{player.name}</div>
 	</Table.Cell>
 	<Table.Cell class="text-center">
 		<ExpandTransition>
@@ -138,7 +117,7 @@
 						aria-label="Cancel edit"
 					>
 						<CloseIcon
-							class="stroke-muted-foreground group-hover:stroke-foreground transition-colors duration-200"
+							class="stroke-muted-foreground transition-colors duration-200 group-hover:stroke-foreground"
 						/>
 					</Button>
 					<form
@@ -151,6 +130,7 @@
 						bind:this={updateFormElement}
 					>
 						<input {...updateForm.fields.id.as('hidden', player.id)} />
+						<input {...updateForm.fields.name.as('hidden', player.name)} />
 						<SubmitButton
 							bind:ref={updateButton}
 							class="group"
@@ -161,7 +141,7 @@
 						>
 							{#snippet icon()}
 								<CheckIcon
-									class="stroke-success-foreground group-hover:stroke-success group-hover:scale-120 transition-all duration-200"
+									class="stroke-success-foreground transition-all duration-200 group-hover:scale-120 group-hover:stroke-success"
 								/>
 							{/snippet}
 						</SubmitButton>
@@ -171,7 +151,7 @@
 			{:else}
 				<div in:fade={fadeOptions} class="flex justify-end">
 					<Button onclick={startEditing} class="group" variant="ghost" size="icon">
-						<PencilIcon class="group-hover:stroke-info transition-colors duration-200" />
+						<PencilIcon class="transition-colors duration-200 group-hover:stroke-info" />
 					</Button>
 					<form {...deletePlayer.for(player.id)}>
 						<input {...deletePlayer.for(player.id).fields.id.as('hidden', player.id)} />
@@ -184,7 +164,7 @@
 							aria-label="Delete a player"
 						>
 							{#snippet icon()}
-								<TrashIcon class="group-hover:stroke-destructive transition-colors duration-200" />
+								<TrashIcon class="transition-colors duration-200 group-hover:stroke-destructive" />
 							{/snippet}
 						</SubmitButton>
 					</form>

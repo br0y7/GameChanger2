@@ -11,6 +11,8 @@
 	import HouseIcon from '@lucide/svelte/icons/house';
 	import AskAiAssistant from '$lib/components/ask-ai/AskAiAssistant.svelte';
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
+	import { getAdminViewAs, setAdminViewAs } from '$lib/api/view-as.remote';
 
 	// import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 
@@ -34,6 +36,21 @@
 			appHistory.canGoBack &&
 			page.url.pathname.split('/').filter(Boolean).length > 2
 	);
+
+	const viewAs = $derived(await getAdminViewAs());
+	let leavingPreview = $state(false);
+
+	async function leavePreview() {
+		if (leavingPreview) return;
+		leavingPreview = true;
+		try {
+			await setAdminViewAs({ mode: 'admin' });
+			await getAdminViewAs().refresh();
+			await goto(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
+		} finally {
+			leavingPreview = false;
+		}
+	}
 </script>
 
 <Sidebar.Provider>
@@ -64,6 +81,20 @@
 				{/if}
 			</div>
 		</header>
+		{#if viewAs !== 'admin'}
+			<div
+				class="flex flex-wrap items-center justify-between gap-2 border-y border-[#F0A020]/40 bg-[#F0A020]/10 px-4 py-2"
+			>
+				<p class="text-sm text-[#E6EDF3]">
+					<span class="font-semibold text-[#F0A020]">Admin preview</span>
+					· You are seeing the {viewAs === 'coach' ? 'coach' : 'player'} dashboard as they see it. Your
+					admin access has not changed.
+				</p>
+				<Button variant="outline" size="sm" onclick={leavePreview} disabled={leavingPreview}>
+					{leavingPreview ? 'Leaving…' : 'Back to admin view'}
+				</Button>
+			</div>
+		{/if}
 		<main class="min-h-[calc(100svh-4rem)] bg-[#0D1117] text-[#E6EDF3]">
 			{@render children()}
 		</main>

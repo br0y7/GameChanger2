@@ -56,8 +56,6 @@
 			<AdminPlayerRename
 				playerId={home.player.id}
 				name={playerName}
-				jerseyNumber={home.player.jerseyNumber}
-				seasonId={home.player.seasonId}
 				onRenamed={(next) => (renamed = next)}
 			/>
 			<p class="mt-1 text-sm text-[#8B949E]">

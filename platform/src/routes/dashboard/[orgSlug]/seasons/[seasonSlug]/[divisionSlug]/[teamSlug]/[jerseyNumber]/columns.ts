@@ -19,6 +19,11 @@ function percentCell(value: number, fractionDigits = 0) {
 	return `${numberFormatter.format(value * 100)}%`;
 }
 
+/** Points-only sheets record the point total and leave the rest of the box blank. */
+function boxCell(stats: WithGame<PlayerGameStats>, value: string | number) {
+	return stats.pointsOnly ? '—' : value;
+}
+
 function sortableHeader(header: string, column: Column<WithGame<PlayerGameStats>, unknown>) {
 	return renderComponent(SortableStatHeader, {
 		header,
@@ -41,65 +46,71 @@ export const columns: ColumnDef<WithGame<PlayerGameStats>>[] = [
 	{
 		accessorKey: 'reb',
 		header: ({ column }) => sortableHeader('REB', column),
+		cell: ({ row }) => boxCell(row.original, row.original.reb),
 	},
 	{
 		accessorKey: 'ast',
 		header: ({ column }) => sortableHeader('AST', column),
+		cell: ({ row }) => boxCell(row.original, row.original.ast),
 	},
 	{
 		id: 'fg',
 		accessorFn: (stats) => stats.fgm,
 		header: ({ column }) => sortableHeader('FG', column),
-		cell: ({ row }) => `${row.original.fgm}-${row.original.fga}`,
+		cell: ({ row }) => boxCell(row.original, `${row.original.fgm}-${row.original.fga}`),
 	},
 	{
 		id: 'fg3',
 		accessorFn: (stats) => stats.fg3m,
 		header: ({ column }) => sortableHeader('3P', column),
-		cell: ({ row }) => `${row.original.fg3m}-${row.original.fg3a}`,
+		cell: ({ row }) => boxCell(row.original, `${row.original.fg3m}-${row.original.fg3a}`),
 	},
 	{
 		id: 'ft',
 		accessorFn: (stats) => stats.ftm,
 		header: ({ column }) => sortableHeader('FT', column),
-		cell: ({ row }) => `${row.original.ftm}-${row.original.fta}`,
+		cell: ({ row }) => boxCell(row.original, `${row.original.ftm}-${row.original.fta}`),
 	},
 	{
 		accessorKey: 'fgPct',
 		header: ({ column }) => sortableHeader('FG%', column),
-		cell: ({ row }) => percentCell(row.original.fgPct),
+		cell: ({ row }) => boxCell(row.original, percentCell(row.original.fgPct)),
 	},
 	{
 		accessorKey: 'fg3Pct',
 		header: ({ column }) => sortableHeader('3P%', column),
-		cell: ({ row }) => percentCell(row.original.fg3Pct, 1),
+		cell: ({ row }) => boxCell(row.original, percentCell(row.original.fg3Pct, 1)),
 	},
 	{
 		accessorKey: 'ftPct',
 		header: ({ column }) => sortableHeader('FT%', column),
-		cell: ({ row }) => percentCell(row.original.ftPct),
+		cell: ({ row }) => boxCell(row.original, percentCell(row.original.ftPct)),
 	},
 	...someStatKeys.map((key) => ({
 		accessorKey: key,
 		header: ({ column }: { column: Column<WithGame<PlayerGameStats>, unknown> }) =>
 			sortableHeader(key.toUpperCase(), column),
+		cell: ({ row }: { row: { original: WithGame<PlayerGameStats> } }) =>
+			boxCell(row.original, row.original[key]),
 	})),
 	{
 		accessorKey: 'oreb',
 		header: ({ column }) => sortableHeader('OREB', column),
+		cell: ({ row }) => boxCell(row.original, row.original.oreb),
 	},
 	{
 		accessorKey: 'dreb',
 		header: ({ column }) => sortableHeader('DREB', column),
+		cell: ({ row }) => boxCell(row.original, row.original.dreb),
 	},
 	{
 		accessorKey: 'eff',
 		header: ({ column }) => sortableHeader('EFF', column),
+		cell: ({ row }) => boxCell(row.original, row.original.eff),
 	},
 	{
 		accessorKey: 'gameRating',
 		header: ({ column }) => sortableHeader('Rating', column),
-		cell: ({ row }) =>
-			row.original.gameRating == null ? '—' : row.original.gameRating.toFixed(1),
+		cell: ({ row }) => (row.original.gameRating == null ? '—' : row.original.gameRating.toFixed(1)),
 	},
 ];

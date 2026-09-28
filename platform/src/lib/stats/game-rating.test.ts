@@ -104,7 +104,9 @@ describe('percentile bands', () => {
 describe('computeGameRating', () => {
 	test('rates a dominant low-scoring game from the division scale', () => {
 		const samples = Array.from({ length: 100 }, (_, index) =>
-			impactParts(line({ fgm: index % 8, fga: 10, ftm: index % 3, dreb: index % 5, ast: index % 4 }))
+			impactParts(
+				line({ fgm: index % 8, fga: 10, ftm: index % 3, dreb: index % 5, ast: index % 4 })
+			)
 		);
 		const standout = line({
 			fgm: 14,
@@ -136,6 +138,13 @@ describe('computeGameRating', () => {
 	test('returns null without a scale or without a stat line', () => {
 		const scale = buildRatingScale([]);
 		expect(computeGameRating({ line: line({ fgm: 4, fga: 8 }), teamPoints: 40, scale })).toBeNull();
+		expect(
+			computeGameRating({
+				line: line({ fgm: 4, fga: 8 }),
+				teamPoints: 40,
+				scale: undefined as unknown as typeof scale,
+			})
+		).toBeNull();
 		const populated = buildRatingScale([impactParts(line({ fgm: 4, fga: 8 }))]);
 		expect(computeGameRating({ line: line(), teamPoints: 40, scale: populated })).toBeNull();
 	});

@@ -4,6 +4,7 @@
 	import { getOrganization } from '$lib/api/organization.remote';
 	import { getTeam } from '$lib/api/team.remote';
 	import { getCoachAssignmentForTeamQuery, getPortalTeamContext } from '$lib/api/coach-portal.remote';
+	import { getAdminViewAs } from '$lib/api/view-as.remote';
 	import { coachRoleLabels } from '$lib/schemas/coach';
 	import type { LayoutProps } from './$types';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
@@ -12,6 +13,14 @@
 
 	const org = $derived(await getOrganization({ slug: params.orgSlug }));
 	const assignment = $derived(await getCoachAssignmentForTeamQuery({ teamId: params.teamId }));
+	const viewAs = $derived(await getAdminViewAs());
+	const roleLabel = $derived(
+		assignment
+			? coachRoleLabels[assignment.assignmentRole]
+			: viewAs === 'coach'
+				? 'Coach'
+				: 'Admin'
+	);
 	const context = $derived(await getPortalTeamContext({ teamId: params.teamId }));
 	const team = $derived(await getTeam({ id: params.teamId }));
 	const season = $derived(context?.season);
@@ -58,9 +67,7 @@
 			<p class="text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">Coach Portal</p>
 			<h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{team.name}</h1>
 			<p class="text-sm text-[#8B949E]">
-				How is my team doing? {season?.name ?? 'Season'} · {assignment
-					? coachRoleLabels[assignment.assignmentRole]
-					: 'Admin'} · Read-only for now
+				How is my team doing? {season?.name ?? 'Season'} · {roleLabel} · Read-only for now
 			</p>
 			{#if publicTeamHref}
 				<a

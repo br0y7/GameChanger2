@@ -1,6 +1,12 @@
 import { query } from '$app/server';
+import {
+	isPlayerIdentityChange,
+	isScheduleChange,
+	relayDashboard,
+} from '$lib/server/dashboard-sync.server';
 import { idField } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
+import { dedupeMatchups } from '$lib/stats/matchup';
 import { z } from 'zod';
 
 export const getSeasonTeams = query(z.object({ seasonId: idField }), async ({ seasonId }) => {
@@ -30,95 +36,112 @@ export const getSeasonTeams = query(z.object({ seasonId: idField }), async ({ se
 	);
 });
 
-export const getSeasonPlayers = query(z.object({ seasonId: idField }), async ({ seasonId }) => {
-	const divisions = await db.query.division.findMany({
-		where: { seasonId },
-		with: {
-			teams: {
+export const getSeasonPlayers = query.live(z.object({ seasonId: idField }), ({ seasonId }) =>
+	relayDashboard(
+		async () => {
+			const divisions = await db.query.division.findMany({
+				where: { seasonId },
 				with: {
-					players: {
+					teams: {
 						with: {
-							followers: { columns: { status: true } },
+							players: {
+								with: {
+									followers: { columns: { status: true } },
+								},
+							},
 						},
 					},
 				},
-			},
+			});
+
+			const players = divisions.flatMap((division) =>
+				division.teams.flatMap((team) =>
+					team.players.map((player) => {
+						const hasAccount =
+							!!player.userId || player.followers.some((follower) => follower.status === 'active');
+						const accountStatus = hasAccount
+							? ('account' as const)
+							: player.followers.some((follower) => follower.status === 'invited')
+								? ('invited' as const)
+								: ('none' as const);
+
+						return {
+							id: player.id,
+							name: player.name,
+							jerseyNumber: player.jerseyNumber,
+							teamId: team.id,
+							teamName: team.name,
+							teamSlug: team.slug,
+							divisionId: division.id,
+							divisionName: division.name,
+							divisionSlug: division.slug,
+							updatedAt: player.updatedAt,
+							accountStatus,
+						};
+					})
+				)
+			);
+
+			return players.sort((a, b) => a.name.localeCompare(b.name));
 		},
-	});
+		(_players, change) => isPlayerIdentityChange(change, { seasonId })
+	)
+);
 
-	const players = divisions.flatMap((division) =>
-		division.teams.flatMap((team) =>
-			team.players.map((player) => {
-				const hasAccount =
-					!!player.userId || player.followers.some((follower) => follower.status === 'active');
-				const accountStatus = hasAccount
-					? ('account' as const)
-					: player.followers.some((follower) => follower.status === 'invited')
-						? ('invited' as const)
-						: ('none' as const);
+export const getSeasonGames = query.live(z.object({ seasonId: idField }), ({ seasonId }) =>
+	relayDashboard(
+		async () => {
+			const games = dedupeMatchups(
+				await db.query.game.findMany({
+					where: { seasonId },
+					with: {
+						homeTeam: {
+							columns: { id: true, name: true, slug: true, divisionId: true },
+							with: { division: { columns: { slug: true, name: true } } },
+						},
+						awayTeam: {
+							columns: { id: true, name: true, slug: true, divisionId: true },
+							with: { division: { columns: { slug: true, name: true } } },
+						},
+					},
+					orderBy: { completedAt: 'desc' },
+				})
+			);
 
-				return {
-					id: player.id,
-					name: player.name,
-					jerseyNumber: player.jerseyNumber,
-					teamId: team.id,
-					teamName: team.name,
-					teamSlug: team.slug,
-					divisionId: division.id,
-					divisionName: division.name,
-					divisionSlug: division.slug,
-					updatedAt: player.updatedAt,
-					accountStatus,
-				};
-			})
-		)
-	);
-
-	return players.sort((a, b) => a.name.localeCompare(b.name));
-});
-
-export const getSeasonGames = query(z.object({ seasonId: idField }), async ({ seasonId }) => {
-	const games = await db.query.game.findMany({
-		where: { seasonId },
-		with: {
-			homeTeam: {
-				columns: { id: true, name: true, slug: true, divisionId: true },
-				with: { division: { columns: { slug: true, name: true } } },
-			},
-			awayTeam: {
-				columns: { id: true, name: true, slug: true, divisionId: true },
-				with: { division: { columns: { slug: true, name: true } } },
-			},
+			return games.flatMap((game) => {
+				if (!game.homeTeam || !game.awayTeam) return [];
+				const base = `${game.homeTeam.name} vs ${game.awayTeam.name}`;
+				const suffix = game.name.match(/\s*\([^)]*\)\s*$/)?.[0] ?? '';
+				return [
+					{
+						id: game.id,
+						name: suffix ? `${base}${suffix.startsWith(' ') ? suffix : ` ${suffix}`}` : base,
+						status: game.status,
+						gameType: game.gameType,
+						statsAvailable: game.statsAvailable,
+						pointsOnly: game.pointsOnly,
+						defaultLossSide: game.defaultLossSide,
+						homeTeamScore: game.homeTeamScore ?? 0,
+						awayTeamScore: game.awayTeamScore ?? 0,
+						completedAt: game.completedAt,
+						scheduledAt: game.scheduledAt,
+						homeTeam: {
+							id: game.homeTeam.id,
+							name: game.homeTeam.name,
+							slug: game.homeTeam.slug,
+							divisionSlug: game.homeTeam.division?.slug ?? '',
+						},
+						awayTeam: {
+							id: game.awayTeam.id,
+							name: game.awayTeam.name,
+							slug: game.awayTeam.slug,
+							divisionSlug: game.awayTeam.division?.slug ?? '',
+						},
+					},
+				];
+			});
 		},
-		orderBy: { completedAt: 'desc' },
-	});
-
-	return games.flatMap((game) => {
-		if (!game.homeTeam || !game.awayTeam) return [];
-		return [
-			{
-				id: game.id,
-				name: game.name,
-				status: game.status,
-				gameType: game.gameType,
-				statsAvailable: game.statsAvailable,
-				homeTeamScore: game.homeTeamScore ?? 0,
-				awayTeamScore: game.awayTeamScore ?? 0,
-				completedAt: game.completedAt,
-				scheduledAt: game.scheduledAt,
-				homeTeam: {
-					id: game.homeTeam.id,
-					name: game.homeTeam.name,
-					slug: game.homeTeam.slug,
-					divisionSlug: game.homeTeam.division?.slug ?? '',
-				},
-				awayTeam: {
-					id: game.awayTeam.id,
-					name: game.awayTeam.name,
-					slug: game.awayTeam.slug,
-					divisionSlug: game.awayTeam.division?.slug ?? '',
-				},
-			},
-		];
-	});
-});
+		(_games, change) =>
+			isScheduleChange(change, { seasonId }) || isPlayerIdentityChange(change, { seasonId })
+	)
+);

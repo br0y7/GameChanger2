@@ -11,6 +11,7 @@
 	import GameRatingDetail, {
 		type GameRatingDetailModel,
 	} from '$lib/components/GameRatingDetail.svelte';
+	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -70,12 +71,14 @@
 
 	const nextGame = $derived(overview?.nextGame ?? null);
 
-	const games = $derived(
-		[...(overview?.schedule ?? [])].sort((a, b) => {
-			const aAt = (a.scheduledAt ?? a.completedAt)?.getTime() ?? 0;
-			const bAt = (b.scheduledAt ?? b.completedAt)?.getTime() ?? 0;
-			return aAt - bAt;
-		})
+	const recentGames = $derived(
+		(overview?.schedule ?? [])
+			.filter((game) => game.status === 'completed')
+			.sort((a, b) => {
+				const aAt = (a.completedAt ?? a.scheduledAt)?.getTime() ?? 0;
+				const bAt = (b.completedAt ?? b.scheduledAt)?.getTime() ?? 0;
+				return bAt - aAt;
+			})
 	);
 
 	const teamAverages = $derived.by(() => {
@@ -141,6 +144,9 @@
 				{#if nextGame}
 					<p class="mt-3 text-lg font-bold">{formatGameDate(nextGame.scheduledAt)}</p>
 					<p class="mt-1 text-base text-[#E6EDF3]">vs. {nextGame.opponentName}</p>
+					<p class="mt-1 text-sm {gameTypeClass(nextGame.gameType)}">
+						{gameTypeLabel(nextGame.gameType)}
+					</p>
 					{#if formatGameTime(nextGame.scheduledAt)}
 						<p class="mt-1 text-sm text-[#8B949E]">{formatGameTime(nextGame.scheduledAt)}</p>
 					{/if}
@@ -183,12 +189,10 @@
 
 		{#if latestRatings && latestRatings.players.length > 0}
 			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5">
-				<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
-					Latest game
-				</h3>
+				<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Latest game</h3>
 				<p class="mt-1 text-sm text-[#E6EDF3]">
 					vs {latestRatings.opponentName}
-					<span class="tabular-nums text-[#8B949E]">
+					<span class="text-[#8B949E] tabular-nums">
 						· {latestRatings.teamScore}–{latestRatings.oppScore}
 					</span>
 				</p>
@@ -214,8 +218,8 @@
 											{player.name}
 										</button>
 									</td>
-									<td class="py-2.5 tabular-nums font-semibold">{player.gameRating.toFixed(1)}</td>
-									<td class="py-2.5 tabular-nums text-[#8B949E]">
+									<td class="py-2.5 font-semibold tabular-nums">{player.gameRating.toFixed(1)}</td>
+									<td class="py-2.5 text-[#8B949E] tabular-nums">
 										{player.seasonAverage == null ? '—' : player.seasonAverage.toFixed(1)}
 									</td>
 									<td class="py-2.5 tabular-nums">{trendLabel(player.trend, player.delta)}</td>
@@ -231,9 +235,7 @@
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<div>
 					<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">My Team</h3>
-					<p class="mt-1 text-sm text-[#8B949E]">
-						Roster, jersey numbers, and season averages
-					</p>
+					<p class="mt-1 text-sm text-[#8B949E]">Roster, jersey numbers, and season averages</p>
 				</div>
 				<a href={`${base}/player-stats`} class="text-sm text-[#58A6FF] hover:underline">
 					Full player stats →
@@ -266,7 +268,7 @@
 											{row.name}
 										</a>
 									</td>
-									<td class="py-2.5 tabular-nums text-[#8B949E]">{row.jerseyNumber}</td>
+									<td class="py-2.5 text-[#8B949E] tabular-nums">{row.jerseyNumber}</td>
 									<td class="py-2.5 tabular-nums">{row.gp}</td>
 									<td class="py-2.5 tabular-nums">{fmt(row.ppg)}</td>
 									<td class="py-2.5 tabular-nums">{fmt(row.rpg)}</td>
@@ -282,34 +284,37 @@
 		<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5">
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<div>
-					<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Games</h3>
-					<p class="mt-1 text-sm text-[#8B949E]">Your team schedule only</p>
+					<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Recent games</h3>
+					<p class="mt-1 text-sm text-[#8B949E]">Regular season, playoffs, semis, and finals</p>
 				</div>
 				<a href={`${base}/games`} class="text-sm text-[#58A6FF] hover:underline">All games →</a>
 			</div>
 
-			{#if games.length === 0}
-				<p class="mt-4 text-sm text-[#8B949E]">No games for this team yet.</p>
+			{#if recentGames.length === 0}
+				<p class="mt-4 text-sm text-[#8B949E]">No games yet.</p>
 			{:else}
 				<div class="mt-4 overflow-x-auto">
-					<table class="w-full min-w-[520px] text-left text-sm">
+					<table class="w-full min-w-[640px] text-left text-sm">
 						<thead class="border-b border-[#2A3038] text-xs tracking-wide text-[#8B949E] uppercase">
 							<tr>
 								<th class="pb-2 font-medium">Date</th>
 								<th class="pb-2 font-medium">Opponent</th>
+								<th class="pb-2 font-medium">Type</th>
 								<th class="pb-2 font-medium">Result</th>
-								<th class="pb-2 font-medium">Status</th>
 							</tr>
 						</thead>
 						<tbody>
-							{#each games as game (game.id)}
+							{#each recentGames as game (game.id)}
 								<tr class="border-b border-[#2A3038]/50">
 									<td class="py-2.5 text-[#8B949E]">
-										{formatShortDate(game.scheduledAt ?? game.completedAt)}
+										{formatShortDate(game.completedAt ?? game.scheduledAt)}
 									</td>
 									<td class="py-2.5">{game.opponentName}</td>
+									<td class="py-2.5 {gameTypeClass(game.gameType)}">
+										{gameTypeLabel(game.gameType)}
+									</td>
 									<td class="py-2.5">
-										{#if game.result && game.teamScore != null && game.oppScore != null}
+										{#if (game.pointsOnly || game.statsAvailable !== false) && game.result && game.teamScore != null && game.oppScore != null}
 											<span
 												class={game.result === 'W'
 													? 'text-[#3FB950]'
@@ -320,16 +325,23 @@
 												{game.result}
 												{game.teamScore}–{game.oppScore}
 											</span>
+										{:else if game.defaultResult}
+											<span class={game.result === 'W' ? 'text-[#3FB950]' : 'text-[#F85149]'}>
+												{game.defaultResult}
+											</span>
+										{:else if game.result}
+											<span
+												class={game.result === 'W'
+													? 'text-[#3FB950]'
+													: game.result === 'L'
+														? 'text-[#F85149]'
+														: 'text-[#8B949E]'}
+											>
+												{game.result}
+											</span>
 										{:else}
 											<span class="text-[#8B949E]">—</span>
 										{/if}
-									</td>
-									<td class="py-2.5 text-[#8B949E]">
-										{game.status === 'upcoming'
-											? 'Upcoming'
-											: game.status === 'completed'
-												? 'Complete'
-												: 'Cancelled'}
 									</td>
 								</tr>
 							{/each}
@@ -348,9 +360,7 @@
 					<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
 						Player Development
 					</h3>
-					<p class="mt-1 text-sm text-[#8B949E]">
-						Strengths and focus areas from game performance
-					</p>
+					<p class="mt-1 text-sm text-[#8B949E]">Strengths and focus areas from game performance</p>
 				</div>
 			</div>
 

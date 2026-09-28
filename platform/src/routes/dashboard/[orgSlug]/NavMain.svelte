@@ -9,13 +9,17 @@
 	import TrophyIcon from '@lucide/svelte/icons/trophy';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
+	import EyeIcon from '@lucide/svelte/icons/eye';
 	import { resolve } from '$app/paths';
+	import type { ResolvedPathname } from '$app/types';
 	import { goto } from '$app/navigation';
 	import { isAuthenticated, isUserAdmin } from '$lib/api/auth.remote';
 	import { isCoachOnlyUser } from '$lib/api/coach-nav.remote';
 	import { isFamilyOnlyUser } from '$lib/api/family-nav.remote';
 	import { getOrganization, goToAdminDashboard } from '$lib/api/organization.remote';
 	import { getCurrentSeason } from '$lib/api/season.remote';
+	import { getAdminViewAs, setAdminViewAs } from '$lib/api/view-as.remote';
+	import type { AdminViewMode } from '$lib/api/view-as';
 	import NavItem from './NavItem.svelte';
 
 	let { orgSlug }: { orgSlug: string } = $props();
@@ -24,10 +28,27 @@
 	const currentSeason = $derived(
 		org.type === 'league' ? await getCurrentSeason({ organizationId: org.id }) : null
 	);
-	const coachOnly = $derived(await isCoachOnlyUser());
-	const familyOnly = $derived(await isFamilyOnlyUser());
+	const isAdmin = $derived(await isUserAdmin());
+	const viewAs = $derived(await getAdminViewAs());
+	/** An admin previewing a dashboard gets that dashboard's menu instead of their own. */
+	const coachOnly = $derived((await isCoachOnlyUser()) || viewAs === 'coach');
+	const familyOnly = $derived((await isFamilyOnlyUser()) || viewAs === 'family');
 	const sidebar = Sidebar.useSidebar();
 	let goingToAdmin = $state(false);
+	let switchingView = $state(false);
+
+	async function switchView(mode: AdminViewMode, href: ResolvedPathname) {
+		if (switchingView) return;
+		sidebar.setOpenMobile(false);
+		switchingView = true;
+		try {
+			await setAdminViewAs({ mode });
+			await getAdminViewAs().refresh();
+			await goto(href);
+		} finally {
+			switchingView = false;
+		}
+	}
 
 	const statsHref = $derived(
 		currentSeason
@@ -39,7 +60,28 @@
 	);
 </script>
 
+{#snippet backToAdmin()}
+	<Sidebar.Group>
+		<Sidebar.GroupLabel>Admin preview</Sidebar.GroupLabel>
+		<Sidebar.Menu>
+			<Sidebar.MenuItem>
+				<Sidebar.MenuButton
+					tooltipContent="Back to admin view"
+					aria-disabled={switchingView}
+					onclick={() => switchView('admin', resolve('/dashboard/[orgSlug]', { orgSlug }))}
+				>
+					<ShieldIcon />
+					<span>{switchingView ? 'Switching…' : 'Back to admin view'}</span>
+				</Sidebar.MenuButton>
+			</Sidebar.MenuItem>
+		</Sidebar.Menu>
+	</Sidebar.Group>
+{/snippet}
+
 {#if org.type === 'league' && familyOnly}
+	{#if viewAs === 'family'}
+		{@render backToAdmin()}
+	{/if}
 	<Sidebar.Group>
 		<Sidebar.GroupLabel>Family Portal</Sidebar.GroupLabel>
 		<Sidebar.Menu>
@@ -68,6 +110,9 @@
 		</Sidebar.Group>
 	{/if}
 {:else if org.type === 'league' && coachOnly}
+	{#if viewAs === 'coach'}
+		{@render backToAdmin()}
+	{/if}
 	<Sidebar.Group>
 		<Sidebar.GroupLabel>Coach Portal</Sidebar.GroupLabel>
 		<Sidebar.Menu>
@@ -91,7 +136,7 @@
 		</Sidebar.Group>
 	{/if}
 {:else if org.type === 'league'}
-	{#if await isUserAdmin()}
+	{#if isAdmin}
 		<Sidebar.Group>
 			<Sidebar.GroupLabel>Admin</Sidebar.GroupLabel>
 			<Sidebar.Menu>
@@ -105,6 +150,7 @@
 							goingToAdmin = true;
 							try {
 								const result = await goToAdminDashboard();
+								await getAdminViewAs().refresh();
 								await goto(resolve('/dashboard/[orgSlug]', { orgSlug: result.slug }));
 							} finally {
 								goingToAdmin = false;
@@ -123,6 +169,28 @@
 						<UploadIcon />
 					{/snippet}
 				</NavItem>
+				<Sidebar.MenuItem>
+					<Sidebar.MenuButton
+						tooltipContent="See the coach dashboard as a coach sees it"
+						aria-disabled={switchingView}
+						onclick={() =>
+							switchView('coach', resolve('/dashboard/[orgSlug]/portal', { orgSlug }))}
+					>
+						<EyeIcon />
+						<span>View as coach</span>
+					</Sidebar.MenuButton>
+				</Sidebar.MenuItem>
+				<Sidebar.MenuItem>
+					<Sidebar.MenuButton
+						tooltipContent="See the player dashboard as a player sees it"
+						aria-disabled={switchingView}
+						onclick={() =>
+							switchView('family', resolve('/dashboard/[orgSlug]/family', { orgSlug }))}
+					>
+						<EyeIcon />
+						<span>View as player</span>
+					</Sidebar.MenuButton>
+				</Sidebar.MenuItem>
 			</Sidebar.Menu>
 		</Sidebar.Group>
 	{/if}
@@ -194,7 +262,7 @@
 				{/snippet}
 			</NavItem>
 
-			{#if await isUserAdmin()}
+			{#if isAdmin}
 				<NavItem label="Invites" href={resolve('/dashboard/[orgSlug]/invites', { orgSlug })}>
 					{#snippet icon()}
 						<UsersIcon />

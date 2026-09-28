@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getDivision } from '$lib/api/division.remote';
 	import { getSeason } from '$lib/api/season.remote';
-	import { getTeam } from '$lib/api/team.remote';
+	import { getTeam, getTeams } from '$lib/api/team.remote';
 	import type { PageProps } from './$types';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { resolve } from '$app/paths';
@@ -12,10 +12,13 @@
 	import RosterPlayerRow from './RosterPlayerRow.svelte';
 	import { getTeamOverview } from '$lib/api/team-overview.remote';
 	import BackLink from '$lib/components/BackLink.svelte';
-	import { isPostseasonGameType } from '$lib/schemas/game';
+	import { gameTypeClass, gameTypeLabel, isPostseasonGameType } from '$lib/schemas/game';
 	import { askAiPanel } from '$lib/ai/ask-ai-state.svelte';
 	import { isUserAdmin } from '$lib/api/auth.remote';
 	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
+	import { getSeasonTeams } from '$lib/api/league-manage.remote';
+	import AdminTeamRename from '$lib/components/AdminTeamRename.svelte';
+	import { goto } from '$app/navigation';
 	import { getTeamCoach } from '$lib/api/coach.remote';
 	import { getMyTeamCoachAssignment } from '$lib/api/coach-portal.remote';
 	import { coachRoleLabels, coachStatusLabels } from '$lib/schemas/coach';
@@ -48,9 +51,7 @@
 			teamId: team.id,
 		})
 	);
-	const adminOverviewHref = $derived(
-		resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug })
-	);
+	const adminOverviewHref = $derived(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
 	const manageTeamsHref = $derived(
 		resolve('/dashboard/[orgSlug]/teams', { orgSlug: params.orgSlug })
 	);
@@ -59,6 +60,7 @@
 			teamId: team.id,
 			divisionId: division.id,
 			seasonId: season.id,
+			teamSlug: params.teamSlug,
 		})
 	);
 
@@ -68,6 +70,10 @@
 
 	let activeTab = $state<Tab>('Overview');
 	let scheduleFilter = $state<ScheduleFilter>('all');
+	let renamed = $state<{ forSlug: string; name: string } | null>(null);
+	const teamName = $derived(
+		renamed && renamed.forSlug === params.teamSlug ? renamed.name : team.name
+	);
 
 	const filteredSchedule = $derived(
 		overview.schedule.filter((game) => {
@@ -90,9 +96,7 @@
 		});
 	};
 
-	const averagesByPlayerId = $derived(
-		new Map(overview.rosterAverages.map((p) => [p.playerId, p]))
-	);
+	const averagesByPlayerId = $derived(new Map(overview.rosterAverages.map((p) => [p.playerId, p])));
 
 	const rosterPreview = $derived(
 		[...team.players]
@@ -120,7 +124,7 @@
 </script>
 
 <svelte:head>
-	<title>{team.name} | {PUBLIC_APP_NAME}</title>
+	<title>{teamName} | {PUBLIC_APP_NAME}</title>
 </svelte:head>
 
 <div class="min-h-full bg-[#0D1117] text-[#E6EDF3]">
@@ -137,7 +141,9 @@
 			{/if}
 		</div>
 
-		<header class="mb-5 flex items-start gap-4 rounded-2xl border border-[#2A3038] bg-[#161B22] p-4 sm:p-5">
+		<header
+			class="mb-5 flex items-start gap-4 rounded-2xl border border-[#2A3038] bg-[#161B22] p-4 sm:p-5"
+		>
 			<div
 				class="flex size-14 shrink-0 items-center justify-center rounded-full text-base font-black tracking-tight text-white sm:size-16 sm:text-lg"
 				style="background-color: {overview.color}"
@@ -148,11 +154,11 @@
 
 			<div class="min-w-0 flex-1">
 				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-					<h1 class="text-2xl font-extrabold tracking-tight uppercase sm:text-3xl">{team.name}</h1>
+					<h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">{teamName}</h1>
 					<button
 						type="button"
 						class="text-sm font-medium text-[#58A6FF] hover:underline"
-						onclick={() => askAiPanel.openPanel(`Summarize ${team.name}`)}
+						onclick={() => askAiPanel.openPanel(`Summarize ${teamName}`)}
 					>
 						✦ Ask AI about this team
 					</button>
@@ -163,13 +169,34 @@
 						· {division.name}
 					{/if}
 				</p>
-				<p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-[#E6EDF3]">
+				<AdminTeamRename
+					teamId={team.id}
+					name={teamName}
+					class="mt-2"
+					onRenamed={async (name, slug) => {
+						renamed = { forSlug: slug, name };
+						void getTeams({ divisionId: division.id }).refresh();
+						void getSeasonTeams({ seasonId: season.id }).refresh();
+						if (slug === params.teamSlug) return;
+						await goto(
+							resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]', {
+								orgSlug: params.orgSlug,
+								seasonSlug: params.seasonSlug,
+								divisionSlug: params.divisionSlug,
+								teamSlug: slug,
+							})
+						);
+					}}
+				/>
+				<p
+					class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-[#E6EDF3]"
+				>
 					<span>
-						Record: {overview.record.wins}–{overview.record.losses}
+						Regular season: {overview.record.wins}–{overview.record.losses}
 					</span>
 					<span class="text-[#2A3038]">|</span>
 					<span>
-						Rank: {overview.rank ? `#${overview.rank}` : '—'}
+						Rank before playoffs: {overview.rank ? `#${overview.rank}` : '—'}
 					</span>
 					{#if overview.divisionPlace}
 						<span class="text-[#2A3038]">|</span>
@@ -196,7 +223,9 @@
 					<p class="text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">
 						You manage this team
 					</p>
-					<p class="mt-1 text-sm text-[#8B949E]">Open your Coach Portal to view roster and games.</p>
+					<p class="mt-1 text-sm text-[#8B949E]">
+						Open your Coach Portal to view roster and games.
+					</p>
 				</div>
 				<a
 					href={coachPortalHref}
@@ -252,7 +281,10 @@
 			</section>
 		{/if}
 
-		<nav class="mb-6 flex gap-5 overflow-x-auto border-b border-[#2A3038]" aria-label="Team sections">
+		<nav
+			class="mb-6 flex gap-5 overflow-x-auto border-b border-[#2A3038]"
+			aria-label="Team sections"
+		>
 			{#each tabs as tab (tab)}
 				<button
 					type="button"
@@ -274,7 +306,9 @@
 					</h2>
 					<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 						<div class="rounded-xl border border-[#2A3038] bg-[#0D1117] p-4">
-							<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">Record</p>
+							<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">
+								Regular season
+							</p>
 							<p class="mt-2 text-2xl font-bold tabular-nums">
 								{overview.record.wins}–{overview.record.losses}
 							</p>
@@ -288,7 +322,9 @@
 							<p class="mt-2 text-2xl font-bold tabular-nums">{formatAvg(overview.oppPpg)}</p>
 						</div>
 						<div class="rounded-xl border border-[#2A3038] bg-[#0D1117] p-4">
-							<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">Rank</p>
+							<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">
+								Rank before playoffs
+							</p>
 							<p class="mt-2 text-2xl font-bold tabular-nums">
 								{overview.rank ? `#${overview.rank}` : '—'}
 							</p>
@@ -296,7 +332,7 @@
 						{#if overview.divisionPlace}
 							<div class="rounded-xl border border-[#2A3038] bg-[#0D1117] p-4">
 								<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">Place</p>
-								<p class="mt-2 text-lg font-bold leading-snug">{overview.divisionPlace}</p>
+								<p class="mt-2 text-lg leading-snug font-bold">{overview.divisionPlace}</p>
 							</div>
 						{/if}
 					</div>
@@ -305,14 +341,14 @@
 				<div class="grid gap-5 lg:grid-cols-2">
 					<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
 						<h2 class="mb-4 text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
-							Recent Games
+							Games
 						</h2>
 						{#if overview.recentGames.length === 0}
-							<p class="text-sm text-[#8B949E]">No completed games yet.</p>
+							<p class="text-sm text-[#8B949E]">No games yet.</p>
 						{:else}
 							<ul class="space-y-3">
 								{#each overview.recentGames as game (game.id)}
-									<li class="flex items-center justify-between gap-3 text-sm">
+									<li class="flex items-start justify-between gap-3 text-sm">
 										<span
 											class="w-6 shrink-0 font-bold {game.result === 'W'
 												? 'text-[#3FB950]'
@@ -322,28 +358,26 @@
 										>
 											{game.result}
 										</span>
-										<a
-											href={gameBoxHref(game.id)}
-											class="min-w-0 flex-1 truncate text-[#E6EDF3] hover:text-[#58A6FF]"
-										>
-											<span class="font-semibold tabular-nums underline-offset-2 hover:underline">
-												{#if game.statsAvailable === false}
-													{game.result}
-												{:else}
-													{game.teamScore}–{game.oppScore}
-												{/if}
-											</span>
-											<span class="text-[#8B949E]"> vs {game.opponentName}</span>
-											{#if game.gameType === 'playoff'}
-												<span class="ml-1 text-[#F0A020]">· Playoff</span>
-											{:else if game.gameType === 'semifinal'}
-												<span class="ml-1 text-[#F0883E]">· Playoffs Semis</span>
-											{:else if game.gameType === 'finals'}
-												<span class="ml-1 text-[#A371F7]">· Finals</span>
-											{:else if game.gameType === 'third_place'}
-												<span class="ml-1 text-[#56D4DD]">· Third Place</span>
-											{/if}
-										</a>
+										<div class="min-w-0 flex-1">
+											<a
+												href={gameBoxHref(game.id)}
+												class="block truncate text-[#E6EDF3] hover:text-[#58A6FF]"
+											>
+												<span class="font-semibold tabular-nums underline-offset-2 hover:underline">
+													{#if game.pointsOnly || game.statsAvailable !== false}
+														{game.teamScore}–{game.oppScore}
+													{:else if game.defaultResult}
+														{game.defaultResult}
+													{:else}
+														{game.result}
+													{/if}
+												</span>
+												<span class="text-[#8B949E]"> vs {game.opponentName}</span>
+											</a>
+											<p class="mt-0.5 {gameTypeClass(game.gameType)}">
+												{gameTypeLabel(game.gameType)}
+											</p>
+										</div>
 										<span class="shrink-0 text-[#8B949E]">{formatDate(game.completedAt)}</span>
 									</li>
 								{/each}
@@ -361,6 +395,9 @@
 							</p>
 							<p class="mt-1 text-sm text-[#8B949E]">
 								{formatDate(overview.nextGame.scheduledAt)}
+								<span class={gameTypeClass(overview.nextGame.gameType)}>
+									· {gameTypeLabel(overview.nextGame.gameType)}
+								</span>
 							</p>
 						{:else}
 							<p class="text-sm text-[#8B949E]">No upcoming game scheduled.</p>
@@ -436,8 +473,8 @@
 								</thead>
 								<tbody>
 									{#each rosterPreview.slice(0, 8) as row (row.player.id)}
-										<tr class="border-b border-[#2A3038]/last:border-0">
-											<td class="py-2.5 tabular-nums text-[#8B949E]">{row.player.jerseyNumber}</td>
+										<tr class="border-[#2A3038]/last:border-0 border-b">
+											<td class="py-2.5 text-[#8B949E] tabular-nums">{row.player.jerseyNumber}</td>
 											<td class="py-2.5">
 												<a
 													href={resolve(
@@ -515,7 +552,7 @@
 					<p class="text-sm text-[#8B949E]">No games on the schedule yet.</p>
 				{:else if filteredSchedule.length === 0}
 					<p class="text-sm text-[#8B949E]">
-						No {scheduleFilter === 'regular' ? 'regular season' : 'playoff'} games to show.
+						No {scheduleFilter === 'all' ? '' : scheduleFilter === 'regular' ? 'regular season ' : 'playoff '}games to show.
 					</p>
 				{:else}
 					<ul class="space-y-3">
@@ -524,7 +561,9 @@
 								class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#2A3038] bg-[#0D1117] px-4 py-3 text-sm"
 							>
 								{#if game.status === 'upcoming'}
-									<span class="w-8 shrink-0 text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">
+									<span
+										class="w-8 shrink-0 text-xs font-semibold tracking-wide text-[#58A6FF] uppercase"
+									>
 										TBD
 									</span>
 								{:else}
@@ -545,17 +584,33 @@
 										class="min-w-0 flex-1 truncate hover:text-[#58A6FF]"
 									>
 										<span class="font-semibold tabular-nums underline-offset-2 hover:underline">
-											{#if game.statsAvailable === false}
-												{game.result}
-											{:else}
+											{#if game.pointsOnly || game.statsAvailable !== false}
 												{game.teamScore}–{game.oppScore}
+											{:else if game.defaultResult}
+												{game.defaultResult}
+											{:else}
+												{game.result}
 											{/if}
 										</span>
 										<span class="text-[#8B949E]"> vs {game.opponentName}</span>
+										{#if isPostseasonGameType(game.gameType)}
+											<span
+												class="ml-1 {game.gameType === 'finals'
+													? 'text-[#A371F7]'
+													: game.gameType === 'third_place'
+														? 'text-[#56D4DD]'
+														: game.gameType === 'semifinal'
+															? 'text-[#F0883E]'
+															: 'text-[#F0A020]'}">· {gameTypeLabel(game.gameType)}</span
+											>
+										{/if}
 									</a>
 								{:else}
 									<div class="min-w-0 flex-1 truncate">
 										<span class="font-semibold">vs {game.opponentName}</span>
+										{#if isPostseasonGameType(game.gameType)}
+											<span class="ml-1 text-[#F0A020]">· {gameTypeLabel(game.gameType)}</span>
+										{/if}
 									</div>
 								{/if}
 
@@ -594,9 +649,7 @@
 										player={row.player}
 										averages={row.averages}
 										canManage={canManagePlayers}
-										teamSlug={team.slug}
-										divisionId={division.id}
-										seasonId={season.id}
+										canRename={isAdmin}
 										playerHref={resolve(
 											'/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]/[jerseyNumber]',
 											{

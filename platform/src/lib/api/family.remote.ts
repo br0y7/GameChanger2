@@ -1,25 +1,22 @@
 import { form, getRequestEvent, query } from '$app/server';
+import { relayDashboard } from '$lib/server/dashboard-sync.server';
 import { resolve } from '$app/paths';
 import { idField, idOnlySchema } from '$lib/schemas/common';
 import { FAMILY_ACCESS_STATUS, inviteFamilySchema } from '$lib/schemas/family';
+import { completedGameLabel, defaultResultLabel, isDefaultGame } from '$lib/schemas/game';
 import { auth } from '$lib/server/auth';
-import {
-	getActiveFamilyLinks,
-	requireFamilyPlayerAccess,
-} from '$lib/server/family-access.server';
+import { getActiveFamilyLinks, requireFamilyPlayerAccess } from '$lib/server/family-access.server';
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { forbidden, notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { ONBOARDING_DONE_STEP } from '$lib/onboarding/steps';
 import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import { dedupeByMatchup, dedupeMatchups } from '$lib/stats/matchup';
 import { derivePlayerStats } from '$lib/stats/player-stats';
 import { ranksForPlayer, type RankRow } from '$lib/stats/stat-ranks';
-import {
-	averageGameRating,
-	ratingMeaning,
-	trendVersusAverage,
-} from '$lib/stats/game-rating';
+import { averageGameRating, ratingMeaning, trendVersusAverage } from '$lib/stats/game-rating';
+import { ensurePlayerGameRatings } from '$lib/server/game-rating.server';
 import { loadSeasonPlayerLines } from '$lib/server/season-player-directory.server';
 import { derivePlayerStrengths } from '$lib/player-analysis/player-strengths';
 import { derivePlayerWeaknesses } from '$lib/player-analysis/player-weaknesses';
@@ -320,247 +317,331 @@ export const acceptFamilyInvite = form(z.object({ token: z.uuid() }), async ({ t
 	}
 });
 
-function avg(stats: { pts: number; reb: number; ast: number; stl: number }[], key: 'pts' | 'reb' | 'ast' | 'stl') {
+function avg(
+	stats: { pts: number; reb: number; ast: number; stl: number }[],
+	key: 'pts' | 'reb' | 'ast' | 'stl'
+) {
 	if (!stats.length) return 0;
 	return stats.reduce((s, g) => s + g[key], 0) / stats.length;
 }
 
-export const getFamilyPlayerHome = query(
-	z.object({ playerId: idField }),
-	async ({ playerId }) => {
-		await requireFamilyPlayerAccess(playerId);
+export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), ({ playerId }) =>
+	relayDashboard(
+		async () => {
+			await requireFamilyPlayerAccess(playerId);
+			await ensurePlayerGameRatings(playerId);
 
-		const player = await db.query.player.findFirst({
-			where: { id: playerId },
-			with: {
-				team: {
-					with: {
-						division: {
-							with: {
-								season: { with: { organization: true } },
+			const player = await db.query.player.findFirst({
+				where: { id: playerId },
+				with: {
+					team: {
+						with: {
+							division: {
+								with: {
+									season: { with: { organization: true } },
+								},
+							},
+						},
+					},
+					gameStats: {
+						with: {
+							game: {
+								with: {
+									homeTeam: { columns: { id: true, name: true } },
+									awayTeam: { columns: { id: true, name: true } },
+								},
 							},
 						},
 					},
 				},
-				gameStats: {
-					with: {
-						game: {
-							with: {
-								homeTeam: { columns: { id: true, name: true } },
-								awayTeam: { columns: { id: true, name: true } },
-							},
-						},
-					},
-				},
-			},
-		});
-
-		if (!player) notFound({ resource: 'player' });
-
-		const derived = player.gameStats
-			.filter((s) => s.game)
-			.map(derivePlayerGameStats);
-
-		// chronological oldest → newest
-		const chronological = [...derived].sort((a, b) => {
-			const aAt = (a.game?.completedAt ?? a.game?.scheduledAt)?.getTime() ?? 0;
-			const bAt = (b.game?.completedAt ?? b.game?.scheduledAt)?.getTime() ?? 0;
-			return aAt - bAt;
-		});
-
-		const gp = chronological.length;
-		const analysisStats = derivePlayerStats(chronological);
-		const rawAvg = (key: keyof typeof analysisStats.raw) => analysisStats.raw[key].average ?? 0;
-		const derivedAvg = (key: keyof typeof analysisStats.derived) =>
-			analysisStats.derived[key].average ?? 0;
-		const season = {
-			gp,
-			ppg: derivedAvg('pts'),
-			rpg: derivedAvg('reb'),
-			apg: rawAvg('ast'),
-			spg: rawAvg('stl'),
-			bpg: rawAvg('blk'),
-			topg: rawAvg('tov'),
-			orpg: rawAvg('oreb'),
-			drpg: rawAvg('dreb'),
-			pf: rawAvg('pf'),
-			fgm: rawAvg('fgm'),
-			fga: rawAvg('fga'),
-			fg3m: rawAvg('fg3m'),
-			fg3a: rawAvg('fg3a'),
-			ftm: rawAvg('ftm'),
-			fta: rawAvg('fta'),
-			fgPct: derivedAvg('fgPct'),
-			fg3Pct: derivedAvg('fg3Pct'),
-			ftPct: derivedAvg('ftPct'),
-		};
-
-		const split = Math.max(1, Math.floor(gp / 2));
-		const early = chronological.slice(0, split);
-		const late = chronological.slice(Math.max(split, gp - split));
-
-		const progressMetric = (key: 'pts' | 'reb' | 'ast') => {
-			const sample = (games: typeof chronological) =>
-				key === 'pts' ? games : games.filter((game) => !game.pointsOnly);
-			const beginning = avg(sample(early), key);
-			const current = avg(sample(late.length ? late : chronological), key);
-			const improvementPct =
-				beginning > 0.05 ? Math.round(((current - beginning) / beginning) * 100) : null;
-			return { beginning, current, improvementPct };
-		};
-
-		const teamId = player.teamId;
-		const lineByGameId = new Map(
-			player.gameStats
-				.filter((stat) => stat.game)
-				.map((raw) => {
-					const stat = derivePlayerGameStats(raw);
-					return [
-						raw.game!.id,
-						{ pts: stat.pts, reb: stat.reb, ast: stat.ast, pointsOnly: stat.pointsOnly },
-					] as const;
-				})
-		);
-		const gameLog = [...player.gameStats]
-			.filter((stat) => stat.game)
-			.sort((a, b) => {
-				const aAt = (a.game?.completedAt ?? a.game?.scheduledAt)?.getTime() ?? 0;
-				const bAt = (b.game?.completedAt ?? b.game?.scheduledAt)?.getTime() ?? 0;
-				return bAt - aAt;
-			})
-			.map((raw) => {
-			const stat = derivePlayerGameStats(raw);
-			const game = raw.game!;
-			const isHome = game.homeTeamId === teamId;
-			const opponent = isHome ? game.awayTeam : game.homeTeam;
-			return {
-				gameId: game.id,
-				date: game.completedAt ?? game.scheduledAt,
-				opponentName: opponent?.name ?? 'Opponent',
-				pts: stat.pts,
-				pointsOnly: stat.pointsOnly,
-				reb: stat.reb,
-				ast: stat.ast,
-				stl: stat.stl,
-				blk: stat.blk,
-				tov: stat.tov,
-				oreb: stat.oreb,
-				gameRating: stat.gameRating,
-				meaning: stat.gameRating == null ? null : ratingMeaning(stat.gameRating),
-				breakdown: stat.ratingBreakdown,
-				impactScore: stat.impactScore,
-				percentile: stat.ratingPercentile,
-				contextBonus: stat.contextBonus,
-			};
-		});
-		const recentGames = gameLog.slice(0, 5);
-		const ratedChronological = chronological.filter((stat) => stat.gameRating != null);
-		const seasonRatings = ratedChronological.map((stat) => stat.gameRating!);
-		const lastFiveRatings = seasonRatings.slice(-5);
-		const seasonAverageRating = averageGameRating(seasonRatings);
-		const lastFiveAverage = averageGameRating(lastFiveRatings);
-		const ratingSummary = {
-			average: seasonAverageRating,
-			lastFive: lastFiveRatings,
-			lastFiveAverage,
-			trend:
-				lastFiveAverage == null
-					? ('flat' as const)
-					: trendVersusAverage(lastFiveAverage, seasonAverageRating),
-		};
-
-		const seasonId = player.team?.division?.seasonId;
-		const scheduleGames = seasonId
-			? await db.query.game.findMany({
-					where: { seasonId },
-					with: {
-						homeTeam: { columns: { id: true, name: true } },
-						awayTeam: { columns: { id: true, name: true } },
-					},
-					orderBy: { scheduledAt: 'asc' },
-				})
-			: [];
-
-		const schedule = scheduleGames
-			.filter((g) => g.homeTeamId === teamId || g.awayTeamId === teamId)
-			.map((game) => {
-				const isHome = game.homeTeamId === teamId;
-				const opponent = isHome ? game.awayTeam : game.homeTeam;
-				const teamScore = isHome ? (game.homeTeamScore ?? 0) : (game.awayTeamScore ?? 0);
-				const oppScore = isHome ? (game.awayTeamScore ?? 0) : (game.homeTeamScore ?? 0);
-				const result =
-					game.status === 'completed'
-						? teamScore > oppScore
-							? ('W' as const)
-							: teamScore < oppScore
-								? ('L' as const)
-								: ('T' as const)
-						: null;
-				return {
-					id: game.id,
-					status: game.status,
-					scheduledAt: game.scheduledAt,
-					completedAt: game.completedAt,
-					opponentName: opponent?.name ?? 'TBD',
-					result,
-					teamScore: game.status === 'completed' ? teamScore : null,
-					oppScore: game.status === 'completed' ? oppScore : null,
-					playerLine: game.status === 'completed' ? (lineByGameId.get(game.id) ?? null) : null,
-				};
 			});
 
-		const divisionId = player.team?.division?.id ?? '';
-		const rankRows: RankRow[] =
-			seasonId && divisionId
-				? (await loadSeasonPlayerLines(seasonId)).map((line) => ({
-						id: line.id,
-						divisionId: line.divisionId,
-						values: line.values,
-					}))
+			if (!player) notFound({ resource: 'player' });
+
+			const derived = dedupeByMatchup(
+				player.gameStats.filter((s) => s.game).map(derivePlayerGameStats),
+				(stat) => stat.game
+			);
+
+			// chronological oldest → newest
+			const chronological = [...derived].sort((a, b) => {
+				const aAt = (a.game?.completedAt ?? a.game?.scheduledAt)?.getTime() ?? 0;
+				const bAt = (b.game?.completedAt ?? b.game?.scheduledAt)?.getTime() ?? 0;
+				return aAt - bAt;
+			});
+
+			const gp = chronological.length;
+			const analysisStats = derivePlayerStats(chronological);
+			const rawAvg = (key: keyof typeof analysisStats.raw) => analysisStats.raw[key].average ?? 0;
+			const derivedAvg = (key: keyof typeof analysisStats.derived) =>
+				analysisStats.derived[key].average ?? 0;
+			const season = {
+				gp,
+				ppg: derivedAvg('pts'),
+				rpg: derivedAvg('reb'),
+				apg: rawAvg('ast'),
+				spg: rawAvg('stl'),
+				bpg: rawAvg('blk'),
+				topg: rawAvg('tov'),
+				orpg: rawAvg('oreb'),
+				drpg: rawAvg('dreb'),
+				pf: rawAvg('pf'),
+				fgm: rawAvg('fgm'),
+				fga: rawAvg('fga'),
+				fg3m: rawAvg('fg3m'),
+				fg3a: rawAvg('fg3a'),
+				ftm: rawAvg('ftm'),
+				fta: rawAvg('fta'),
+				fgPct: derivedAvg('fgPct'),
+				fg3Pct: derivedAvg('fg3Pct'),
+				ftPct: derivedAvg('ftPct'),
+			};
+
+			const split = Math.max(1, Math.floor(gp / 2));
+			const early = chronological.slice(0, split);
+			const late = chronological.slice(Math.max(split, gp - split));
+
+			const progressMetric = (key: 'pts' | 'reb' | 'ast') => {
+				const sample = (games: typeof chronological) =>
+					key === 'pts' ? games : games.filter((game) => !game.pointsOnly);
+				const beginning = avg(sample(early), key);
+				const current = avg(sample(late.length ? late : chronological), key);
+				const improvementPct =
+					beginning > 0.05 ? Math.round(((current - beginning) / beginning) * 100) : null;
+				return { beginning, current, improvementPct };
+			};
+
+			const teamId = player.teamId;
+			const lineByGameId = new Map(
+				player.gameStats
+					.filter((stat) => stat.game)
+					.map((raw) => {
+						const stat = derivePlayerGameStats(raw);
+						return [
+							raw.game!.id,
+							{ pts: stat.pts, reb: stat.reb, ast: stat.ast, pointsOnly: stat.pointsOnly },
+						] as const;
+					})
+			);
+			const gameLog = [...player.gameStats]
+				.filter((stat) => stat.game)
+				.sort((a, b) => {
+					const aAt = (a.game?.completedAt ?? a.game?.scheduledAt)?.getTime() ?? 0;
+					const bAt = (b.game?.completedAt ?? b.game?.scheduledAt)?.getTime() ?? 0;
+					return bAt - aAt;
+				})
+				.map((raw) => {
+					const stat = derivePlayerGameStats(raw);
+					const game = raw.game!;
+					const isHome = game.homeTeamId === teamId;
+					const opponent = isHome ? game.awayTeam : game.homeTeam;
+					const teamScore = isHome ? (game.homeTeamScore ?? 0) : (game.awayTeamScore ?? 0);
+					const oppScore = isHome ? (game.awayTeamScore ?? 0) : (game.homeTeamScore ?? 0);
+					const result =
+						game.status === 'completed'
+							? teamScore > oppScore
+								? ('W' as const)
+								: teamScore < oppScore
+									? ('L' as const)
+									: ('T' as const)
+							: null;
+					return {
+						gameId: game.id,
+						date: game.completedAt ?? game.scheduledAt,
+						opponentName: opponent?.name ?? 'Opponent',
+						result,
+						defaultResult: isDefaultGame(game)
+							? defaultResultLabel(game.defaultLossSide, isHome)
+							: null,
+						teamScore: game.status === 'completed' ? teamScore : null,
+						oppScore: game.status === 'completed' ? oppScore : null,
+						scoreLabel: completedGameLabel({
+							statsAvailable: game.statsAvailable,
+							defaultLossSide: game.defaultLossSide,
+							pointsOnly: game.pointsOnly || stat.pointsOnly,
+							isHome,
+							result,
+							teamScore: game.status === 'completed' ? teamScore : null,
+							oppScore: game.status === 'completed' ? oppScore : null,
+						}),
+						pts: stat.pts,
+						pointsOnly: stat.pointsOnly,
+						reb: stat.reb,
+						ast: stat.ast,
+						stl: stat.stl,
+						blk: stat.blk,
+						tov: stat.tov,
+						oreb: stat.oreb,
+						gameRating: stat.gameRating,
+						meaning: stat.gameRating == null ? null : ratingMeaning(stat.gameRating),
+						breakdown: stat.ratingBreakdown,
+						impactScore: stat.impactScore,
+						percentile: stat.ratingPercentile,
+						contextBonus: stat.contextBonus,
+					};
+				});
+			const ratedChronological = chronological.filter((stat) => stat.gameRating != null);
+			const seasonRatings = ratedChronological.map((stat) => stat.gameRating!);
+			const lastFiveRatings = seasonRatings.slice(-5);
+			const seasonAverageRating = averageGameRating(seasonRatings);
+			const lastFiveAverage = averageGameRating(lastFiveRatings);
+			const ratingSummary = {
+				average: seasonAverageRating,
+				lastFive: lastFiveRatings,
+				lastFiveAverage,
+				trend:
+					lastFiveAverage == null
+						? ('flat' as const)
+						: trendVersusAverage(lastFiveAverage, seasonAverageRating),
+			};
+
+			const seasonId = player.team?.division?.seasonId;
+			const scheduleGames = seasonId
+				? await db.query.game.findMany({
+						where: { seasonId },
+						with: {
+							homeTeam: { columns: { id: true, name: true } },
+							awayTeam: { columns: { id: true, name: true } },
+						},
+						orderBy: { scheduledAt: 'asc' },
+					})
 				: [];
 
-		const ranks = divisionId ? ranksForPlayer(rankRows, player.id, divisionId) : {};
+			const schedule = dedupeMatchups(scheduleGames)
+				.filter((g) => g.homeTeamId === teamId || g.awayTeamId === teamId)
+				.map((game) => {
+					const isHome = game.homeTeamId === teamId;
+					const opponent = isHome ? game.awayTeam : game.homeTeam;
+					const teamScore = isHome ? (game.homeTeamScore ?? 0) : (game.awayTeamScore ?? 0);
+					const oppScore = isHome ? (game.awayTeamScore ?? 0) : (game.homeTeamScore ?? 0);
+					const result =
+						game.status === 'completed'
+							? teamScore > oppScore
+								? ('W' as const)
+								: teamScore < oppScore
+									? ('L' as const)
+									: ('T' as const)
+							: null;
+					return {
+						id: game.id,
+						status: game.status,
+						scheduledAt: game.scheduledAt,
+						completedAt: game.completedAt,
+						opponentName: opponent?.name ?? 'TBD',
+						result,
+						defaultResult: isDefaultGame(game)
+							? defaultResultLabel(game.defaultLossSide, isHome)
+							: null,
+						pointsOnly: game.pointsOnly,
+						scoreLabel:
+							game.status === 'completed'
+								? completedGameLabel({
+										statsAvailable: game.statsAvailable,
+										defaultLossSide: game.defaultLossSide,
+										pointsOnly: game.pointsOnly,
+										isHome,
+										result,
+										teamScore,
+										oppScore,
+									})
+								: null,
+						teamScore: game.status === 'completed' ? teamScore : null,
+						oppScore: game.status === 'completed' ? oppScore : null,
+						playerLine: game.status === 'completed' ? (lineByGameId.get(game.id) ?? null) : null,
+					};
+				});
 
-		const [coachNote] = await db
-			.select({ body: table.playerCoachNote.body })
-			.from(table.playerCoachNote)
-			.where(eq(table.playerCoachNote.playerId, playerId))
-			.limit(1);
+			// A forfeit has no box score, so the player has no stat line to log it against.
+			// Pull it from the team schedule so the game still shows up in their recent games.
+			const loggedGameIds = new Set(gameLog.map((entry) => entry.gameId));
+			const forfeits: (typeof gameLog)[number][] = schedule
+				.filter(
+					(game) =>
+						game.defaultResult && game.status === 'completed' && !loggedGameIds.has(game.id)
+				)
+				.map((game) => ({
+					gameId: game.id,
+					date: game.completedAt ?? game.scheduledAt,
+					opponentName: game.opponentName,
+					result: game.result,
+					defaultResult: game.defaultResult,
+					teamScore: game.teamScore,
+					oppScore: game.oppScore,
+					scoreLabel: game.scoreLabel,
+					pts: 0,
+					pointsOnly: false,
+					reb: 0,
+					ast: 0,
+					stl: 0,
+					blk: 0,
+					tov: 0,
+					oreb: 0,
+					gameRating: null,
+					meaning: null,
+					breakdown: null,
+					impactScore: null,
+					percentile: null,
+					contextBonus: null,
+				}));
 
-		const strengths = derivePlayerStrengths(analysisStats)
-			.slice(0, 3)
-			.map((s) => s.description);
-		const focusAreas = derivePlayerWeaknesses(analysisStats)
-			.slice(0, 3)
-			.map((w) => w.description);
+			const recentGames = [...gameLog, ...forfeits]
+				.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0))
+				.slice(0, 5);
 
-		return {
-			player: {
-				id: player.id,
-				name: player.name,
-				jerseyNumber: player.jerseyNumber,
-				teamName: player.team?.name ?? 'Team',
-				divisionName: player.team?.division?.name ?? '',
-				seasonName: player.team?.division?.season?.name ?? '',
-				leagueName: player.team?.division?.season?.organization?.name ?? '',
-				seasonId: player.team?.division?.seasonId ?? null,
-			},
-			season,
-			ratingSummary,
-			gameLog,
-			progress: {
-				points: progressMetric('pts'),
-				rebounds: progressMetric('reb'),
-				assists: progressMetric('ast'),
-			},
-			recentGames,
-			schedule,
-			ranks,
-			strengths,
-			focusAreas,
-			coachFeedback: coachNote?.body ?? null,
-		};
-	}
+			const divisionId = player.team?.division?.id ?? '';
+			const rankRows: RankRow[] =
+				seasonId && divisionId
+					? (await loadSeasonPlayerLines(seasonId)).map((line) => ({
+							id: line.id,
+							divisionId: line.divisionId,
+							values: line.values,
+						}))
+					: [];
+
+			const ranks = divisionId ? ranksForPlayer(rankRows, player.id, divisionId) : {};
+
+			const [coachNote] = await db
+				.select({ body: table.playerCoachNote.body })
+				.from(table.playerCoachNote)
+				.where(eq(table.playerCoachNote.playerId, playerId))
+				.limit(1);
+
+			const strengths = derivePlayerStrengths(analysisStats)
+				.slice(0, 3)
+				.map((s) => s.description);
+			const focusAreas = derivePlayerWeaknesses(analysisStats)
+				.slice(0, 3)
+				.map((w) => w.description);
+
+			return {
+				player: {
+					id: player.id,
+					name: player.name,
+					jerseyNumber: player.jerseyNumber,
+					teamName: player.team?.name ?? 'Team',
+					divisionName: player.team?.division?.name ?? '',
+					seasonName: player.team?.division?.season?.name ?? '',
+					leagueName: player.team?.division?.season?.organization?.name ?? '',
+					seasonId: player.team?.division?.seasonId ?? null,
+				},
+				season,
+				ratingSummary,
+				gameLog,
+				progress: {
+					points: progressMetric('pts'),
+					rebounds: progressMetric('reb'),
+					assists: progressMetric('ast'),
+				},
+				recentGames,
+				schedule,
+				ranks,
+				strengths,
+				focusAreas,
+				coachFeedback: coachNote?.body ?? null,
+			};
+		},
+		(_home, change) => change.playerId === playerId
+	)
 );
 
 export const cancelFamilyInvite = form(idOnlySchema, async ({ id }) => {
@@ -569,7 +650,10 @@ export const cancelFamilyInvite = form(idOnlySchema, async ({ id }) => {
 		.update(table.playerFollower)
 		.set({ status: FAMILY_ACCESS_STATUS.removed, inviteToken: null })
 		.where(
-			and(eq(table.playerFollower.id, id), eq(table.playerFollower.status, FAMILY_ACCESS_STATUS.invited))
+			and(
+				eq(table.playerFollower.id, id),
+				eq(table.playerFollower.status, FAMILY_ACCESS_STATUS.invited)
+			)
 		);
 	return { success: true };
 });

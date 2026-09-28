@@ -2,6 +2,7 @@ import { db } from '$lib/server/db';
 import { notFound } from '$lib/server/fail';
 import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
 import { ratingMeaning } from '$lib/stats/game-rating';
+import { ensureGameBoxRatings } from '$lib/server/game-rating.server';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
 import type { RawPlayerGameStats } from '$lib/server/db/schema';
 
@@ -85,6 +86,7 @@ function pickPlayerOfTheGame(players: BoxPlayer[]) {
 }
 
 export async function loadBoxScore(gameId: string) {
+	await ensureGameBoxRatings(gameId);
 	const game = await db.query.game.findFirst({
 		where: { id: gameId },
 		with: {
@@ -142,6 +144,7 @@ export async function loadBoxScore(gameId: string) {
 		gameType: game.gameType,
 		statsAvailable: game.statsAvailable,
 		pointsOnly: game.pointsOnly,
+		defaultLossSide: game.defaultLossSide,
 		completedAt: game.completedAt,
 		scheduledAt: game.scheduledAt,
 		playerOfTheGame: playerOfTheGame

@@ -71,9 +71,15 @@ export type TeamPreview = z.infer<typeof teamPreviewSchema>;
 export const gamePreviewSchema = z.object({
 	...requiredName('Game Name'),
 	completedAt: z.date(),
+	/** Calendar date from the sheet, such as "Aug 23, 2026". Empty when the sheet has no date. */
+	playedOn: z.string().optional(),
 	gameType: z.enum(gameTypes).default('regular'),
+	/** True when a Game Type row stated the type, rather than it being guessed from the sheet name. */
+	gameTypeExplicit: z.boolean().default(false),
 	/** False when scores were Win/Lose/Default Lose and no box score stats exist. */
 	statsAvailable: z.boolean().default(true),
+	/** Set when one team forfeited. That side is Default lose; the other is Default win. */
+	defaultLossSide: z.enum(['home', 'away']).nullable().optional(),
 	/** True when every player row recorded points only. */
 	pointsOnly: z.boolean().default(false),
 	homeTeam: teamPreviewSchema,

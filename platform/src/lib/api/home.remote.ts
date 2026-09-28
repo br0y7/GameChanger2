@@ -2,15 +2,19 @@ import { query } from '$app/server';
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { and, countDistinct, eq, gte } from 'drizzle-orm';
+import { regularSeasonStandings } from '$lib/stats/standings';
 
 function pointsFromRaw(stat: { fgm: number; fg3m: number; ftm: number }) {
 	return (stat.fgm - stat.fg3m) * 2 + stat.fg3m * 3 + stat.ftm;
 }
 
 type RisingStar = {
+	playerId: string;
 	name: string;
 	teamName: string;
+	teamSlug: string;
 	divisionName: string;
+	divisionSlug: string;
 	pts: number;
 	reb: number;
 	ast: number;
@@ -21,7 +25,9 @@ function aggregateRising(
 		playerId: string;
 		name: string;
 		teamName: string;
+		teamSlug: string;
 		divisionName: string;
+		divisionSlug: string;
 		fgm: number;
 		fg3m: number;
 		ftm: number;
@@ -33,9 +39,12 @@ function aggregateRising(
 	const map = new Map<
 		string,
 		{
+			playerId: string;
 			name: string;
 			teamName: string;
+			teamSlug: string;
 			divisionName: string;
+			divisionSlug: string;
 			pts: number;
 			reb: number;
 			ast: number;
@@ -44,9 +53,12 @@ function aggregateRising(
 	>();
 	for (const row of rows) {
 		const cur = map.get(row.playerId) ?? {
+			playerId: row.playerId,
 			name: row.name,
 			teamName: row.teamName,
+			teamSlug: row.teamSlug,
 			divisionName: row.divisionName,
+			divisionSlug: row.divisionSlug,
 			pts: 0,
 			reb: 0,
 			ast: 0,
@@ -60,9 +72,12 @@ function aggregateRising(
 	}
 	return [...map.values()]
 		.map((p) => ({
+			playerId: p.playerId,
 			name: p.name,
 			teamName: p.teamName,
+			teamSlug: p.teamSlug,
 			divisionName: p.divisionName,
+			divisionSlug: p.divisionSlug,
 			pts: p.gp ? Math.round((p.pts / p.gp) * 10) / 10 : 0,
 			reb: p.gp ? Math.round((p.reb / p.gp) * 10) / 10 : 0,
 			ast: p.gp ? Math.round((p.ast / p.gp) * 10) / 10 : 0,
@@ -91,7 +106,14 @@ export const getPublicHomeSnapshot = query(async () => {
 			homeName: string;
 			at: Date | null;
 		}>,
-		standings: [] as Array<{ name: string; wins: number; losses: number }>,
+		standings: [] as Array<{
+			name: string;
+			slug: string;
+			divisionSlug: string;
+			wins: number;
+			losses: number;
+			rank: number;
+		}>,
 		risingStars: [] as RisingStar[],
 	};
 
@@ -154,7 +176,7 @@ export const getPublicHomeSnapshot = query(async () => {
 		}),
 		db.query.division.findMany({
 			where: { seasonId: season.id },
-			with: { teams: { columns: { id: true, name: true } } },
+			with: { teams: { columns: { id: true, name: true, slug: true } } },
 			orderBy: { name: 'asc' },
 			limit: 1,
 		}),
@@ -166,35 +188,45 @@ export const getPublicHomeSnapshot = query(async () => {
 
 	const standingsTeams = divisions[0]?.teams ?? [];
 	const completed = await db.query.game.findMany({
-		where: { seasonId: season.id, status: 'completed', gameType: 'regular' },
+		where: { seasonId: season.id, status: 'completed' },
 		columns: {
+			id: true,
 			homeTeamId: true,
 			awayTeamId: true,
 			homeTeamScore: true,
 			awayTeamScore: true,
+			gameType: true,
+			status: true,
+			statsAvailable: true,
+			completedAt: true,
+			scheduledAt: true,
 		},
 	});
-	const teamIds = new Set(standingsTeams.map((t) => t.id));
-	const standings = standingsTeams
-		.map((team) => {
-			let wins = 0;
-			let losses = 0;
-			for (const g of completed) {
-				if (!teamIds.has(g.homeTeamId) || !teamIds.has(g.awayTeamId)) continue;
-				const hs = g.homeTeamScore ?? 0;
-				const as = g.awayTeamScore ?? 0;
-				if (hs === 0 && as === 0) continue;
-				if (g.homeTeamId === team.id) {
-					if (hs > as) wins += 1;
-					else if (hs < as) losses += 1;
-				} else if (g.awayTeamId === team.id) {
-					if (as > hs) wins += 1;
-					else if (as < hs) losses += 1;
-				}
-			}
-			return { name: team.name, wins, losses };
+	const scoredGames = completed.flatMap((game) => {
+		const homeTeamScore = game.homeTeamScore ?? 0;
+		const awayTeamScore = game.awayTeamScore ?? 0;
+		if (homeTeamScore === 0 && awayTeamScore === 0) return [];
+		return [{ ...game, homeTeamScore, awayTeamScore }];
+	});
+	const teamById = new Map(standingsTeams.map((team) => [team.id, team]));
+	const standings = regularSeasonStandings(
+		standingsTeams.map((team) => team.id),
+		scoredGames
+	)
+		.flatMap((standing) => {
+			const team = teamById.get(standing.teamId);
+			if (!team) return [];
+			return [
+				{
+					name: team.name,
+					slug: team.slug,
+					divisionSlug: divisions[0]?.slug ?? '',
+					wins: standing.wins,
+					losses: standing.losses,
+					rank: standing.rank,
+				},
+			];
 		})
-		.sort((a, b) => b.wins - a.wins || a.losses - b.losses)
 		.slice(0, 5);
 
 	const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
@@ -203,7 +235,9 @@ export const getPublicHomeSnapshot = query(async () => {
 			playerId: table.playerGameStat.playerId,
 			name: table.player.name,
 			teamName: table.team.name,
+			teamSlug: table.team.slug,
 			divisionName: table.division.name,
+			divisionSlug: table.division.slug,
 			fgm: table.playerGameStat.fgm,
 			fg3m: table.playerGameStat.fg3m,
 			ftm: table.playerGameStat.ftm,
@@ -226,7 +260,9 @@ export const getPublicHomeSnapshot = query(async () => {
 				playerId: table.playerGameStat.playerId,
 				name: table.player.name,
 				teamName: table.team.name,
+				teamSlug: table.team.slug,
 				divisionName: table.division.name,
+				divisionSlug: table.division.slug,
 				fgm: table.playerGameStat.fgm,
 				fg3m: table.playerGameStat.fg3m,
 				ftm: table.playerGameStat.ftm,

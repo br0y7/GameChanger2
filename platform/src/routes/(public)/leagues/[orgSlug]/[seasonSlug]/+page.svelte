@@ -9,6 +9,7 @@
 		getPublicStandings,
 		getPublicTeamStats,
 	} from '$lib/api/public-stats.remote';
+	import { gameTypeLabel, isRegularSeasonGameType, resultOnlyOutcome } from '$lib/schemas/game';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -107,7 +108,10 @@
 	<title>{filters.league.name} Stats | {PUBLIC_APP_NAME}</title>
 </svelte:head>
 
-<div class="mx-auto max-w-6xl px-4 py-10 sm:px-6" style="font-family: Figtree, system-ui, sans-serif">
+<div
+	class="mx-auto max-w-6xl px-4 py-10 sm:px-6"
+	style="font-family: Figtree, system-ui, sans-serif"
+>
 	<a href={resolve('/leagues')} class="text-sm text-[#8FA398] hover:text-[#B8E05C]">← Leagues</a>
 	<p class="mt-4 text-xs font-semibold tracking-[0.18em] text-[#8FA398] uppercase">
 		{filters.league.name}
@@ -201,11 +205,33 @@
 						<tbody>
 							{#each leaders.players as p (p.playerId)}
 								<tr class="border-b border-white/5">
-									<td class="py-2.5 font-medium">{p.name}</td>
-									<td class="py-2.5 text-[#8FA398]">{p.teamName}</td>
+									<td class="py-2.5 font-medium">
+										<a
+											href={resolve('/(public)/leagues/[orgSlug]/[seasonSlug]/players/[playerId]', {
+												orgSlug: params.orgSlug,
+												seasonSlug: params.seasonSlug,
+												playerId: p.playerId,
+											})}
+											class="hover:text-[#B8E05C] hover:underline"
+										>
+											{p.name}
+										</a>
+									</td>
+									<td class="py-2.5 text-[#8FA398]">
+										<a
+											href={hrefFor({
+												tab: 'players',
+												division: p.divisionSlug,
+												team: p.teamSlug,
+											})}
+											class="hover:text-[#E8F0EA] hover:underline"
+										>
+											{p.teamName}
+										</a>
+									</td>
 									<td class="py-2.5 text-[#8FA398]">{p.divisionName}</td>
 									<td class="py-2.5 tabular-nums">{p.gp}</td>
-									<td class="py-2.5 tabular-nums font-semibold text-[#B8E05C]">{p.ppg}</td>
+									<td class="py-2.5 font-semibold text-[#B8E05C] tabular-nums">{p.ppg}</td>
 									<td class="py-2.5 tabular-nums">{p.rpg}</td>
 									<td class="py-2.5 tabular-nums">{p.apg}</td>
 									<td class="py-2.5 tabular-nums">{p.spg}</td>
@@ -236,10 +262,21 @@
 						<tbody>
 							{#each teamStats.teams as t (t.teamId)}
 								<tr class="border-b border-white/5">
-									<td class="py-2.5 font-medium">{t.name}</td>
+									<td class="py-2.5 font-medium">
+										<a
+											href={hrefFor({
+												tab: 'players',
+												division: t.divisionSlug,
+												team: t.slug,
+											})}
+											class="hover:text-[#B8E05C] hover:underline"
+										>
+											{t.name}
+										</a>
+									</td>
 									<td class="py-2.5 text-[#8FA398]">{t.divisionName}</td>
 									<td class="py-2.5 tabular-nums">{t.gp}</td>
-									<td class="py-2.5 tabular-nums font-semibold text-[#B8E05C]">{t.ppg}</td>
+									<td class="py-2.5 font-semibold text-[#B8E05C] tabular-nums">{t.ppg}</td>
 									<td class="py-2.5 tabular-nums">{t.oppPpg}</td>
 									<td class="py-2.5 tabular-nums">{t.diff}</td>
 								</tr>
@@ -260,13 +297,22 @@
 							{div.name}
 						</h2>
 						<ul class="mt-3 space-y-2">
-							{#each div.rows as row, i (row.teamId)}
+							{#each div.rows as row (row.teamId)}
 								<li class="flex justify-between border-b border-white/5 py-2 text-sm">
 									<span>
-										<span class="mr-2 tabular-nums text-[#8FA398]">{i + 1}.</span>
-										{row.name}
+										<span class="mr-2 text-[#8FA398] tabular-nums">{row.rank}.</span>
+										<a
+											href={hrefFor({
+												tab: 'players',
+												division: div.slug,
+												team: row.slug,
+											})}
+											class="hover:text-[#B8E05C] hover:underline"
+										>
+											{row.name}
+										</a>
 									</span>
-									<span class="tabular-nums font-medium">{row.wins}–{row.losses}</span>
+									<span class="font-medium tabular-nums">{row.wins}–{row.losses}</span>
 								</li>
 							{/each}
 						</ul>
@@ -284,8 +330,17 @@
 						<li class="border-b border-white/5 pb-3 text-sm">
 							<p class="font-medium">
 								{g.awayName}
-								{#if g.status === 'completed' && g.awayScore != null && g.homeScore != null}
-									<span class="tabular-nums text-[#B8E05C]">
+								{#if g.status === 'completed' && g.statsAvailable === false && !g.pointsOnly}
+									<span class="text-[#B8E05C]">
+										{resultOnlyOutcome(
+											g.defaultLossSide,
+											false,
+											g.awayScore,
+											g.homeScore
+										)}–{resultOnlyOutcome(g.defaultLossSide, true, g.homeScore, g.awayScore)}
+									</span>
+								{:else if g.status === 'completed' && g.awayScore != null && g.homeScore != null}
+									<span class="text-[#B8E05C] tabular-nums">
 										{g.awayScore}–{g.homeScore}
 									</span>
 								{:else}
@@ -295,6 +350,9 @@
 							</p>
 							<p class="mt-0.5 text-xs text-[#8FA398]">
 								{g.status}
+								{#if !isRegularSeasonGameType(g.gameType)}
+									· {gameTypeLabel(g.gameType)}
+								{/if}
 								{#if g.at}· {formatDate(g.at)}{/if}
 								{#if g.status === 'completed' && filters.visibility.publishPlayerStats}
 									·

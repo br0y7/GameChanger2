@@ -50,7 +50,7 @@
 										? 'text-[#F85149]'
 										: 'text-[#8B949E]'}"
 							>
-								{game.result} {game.teamScore}–{game.oppScore}
+								{game.scoreLabel}
 							</p>
 						{:else}
 							<p class="text-[#8B949E]">Upcoming</p>

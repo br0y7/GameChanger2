@@ -19,6 +19,7 @@
 	} from '$lib/api/organization.remote';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import { getAdminViewAs } from '$lib/api/view-as.remote';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 
 	let { org }: { org: Organization } = $props();
@@ -39,8 +40,9 @@
 		try {
 			const result = await enterLeagueAsAdmin({
 				organizationId: leagueId,
-				destination: destination === 'stats' ? 'stats' : 'dashboard',
+				destination,
 			});
+			await getAdminViewAs().refresh();
 			if (destination === 'stats' && result.seasonSlug) {
 				await goto(
 					resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]/stats', {
@@ -83,7 +85,8 @@
 			<div>
 				<h2 class="text-xl font-semibold">Leagues</h2>
 				<p class="mt-1 text-sm text-[#8B949E]">
-					Open a league admin, coach, or player dashboard.
+					Open a league admin, coach, or player dashboard. Coach and player views use that
+					dashboard's sidebar. Only admins can switch.
 				</p>
 			</div>
 			<a
@@ -148,7 +151,7 @@
 											disabled={openingId !== null}
 											onclick={() => openLeague(league.id, 'portal')}
 										>
-											{openingId === `${league.id}:portal` ? 'Opening…' : 'Coaches'}
+											{openingId === `${league.id}:portal` ? 'Opening…' : 'View as coach'}
 										</button>
 										<button
 											type="button"
@@ -156,7 +159,7 @@
 											disabled={openingId !== null}
 											onclick={() => openLeague(league.id, 'family')}
 										>
-											{openingId === `${league.id}:family` ? 'Opening…' : 'Players'}
+											{openingId === `${league.id}:family` ? 'Opening…' : 'View as player'}
 										</button>
 										<button
 											type="button"

@@ -11,6 +11,7 @@
 		type AskAiAudience,
 		type AskAiChatMessage,
 	} from '$lib/ai/ask-ai-state.svelte';
+	import { messageBlocks } from '$lib/ai/message-blocks';
 	import { askAi, getAskAiContextLabel } from '$lib/api/ai-assistant.remote';
 	import { isCoachOnlyUser } from '$lib/api/coach-nav.remote';
 	import { isFamilyOnlyUser } from '$lib/api/family-nav.remote';
@@ -183,45 +184,6 @@
 		void sendMessage(input);
 	}
 
-	/** Split assistant (and user) text into paragraphs for readable spacing. */
-	function messageParagraphs(content: string): string[] {
-		const trimmed = content.trim();
-		if (!trimmed) return [];
-
-		const byBlankLine = trimmed
-			.split(/\n\s*\n/)
-			.map((p) => p.trim())
-			.filter(Boolean);
-
-		if (byBlankLine.length > 1) return byBlankLine;
-
-		// Single block with hard line breaks → treat each non-empty line as a paragraph
-		const byLine = trimmed
-			.split('\n')
-			.map((p) => p.trim())
-			.filter(Boolean);
-		if (byLine.length > 1) return byLine;
-
-		// Long wall of text with no breaks → split on sentence ends into ~2–4 sentence chunks
-		if (trimmed.length > 280) {
-			const sentences = trimmed.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) ?? [trimmed];
-			const chunks: string[] = [];
-			let current = '';
-			for (const sentence of sentences) {
-				const next = (current ? `${current} ${sentence.trim()}` : sentence.trim()).trim();
-				if (current && next.length > 220) {
-					chunks.push(current);
-					current = sentence.trim();
-				} else {
-					current = next;
-				}
-			}
-			if (current) chunks.push(current);
-			if (chunks.length > 1) return chunks;
-		}
-
-		return [trimmed];
-	}
 </script>
 
 {#if !askAiState.open}
@@ -307,8 +269,18 @@
 								? 'ml-6 bg-[#58A6FF]/10 text-[#E6EDF3]'
 								: 'mr-2 border border-[#2A3038] bg-[#0D1117] text-[#E6EDF3]'}"
 						>
-							{#each messageParagraphs(message.content) as paragraph, pIndex (`${index}-p-${pIndex}`)}
-								<p class={pIndex > 0 ? 'mt-3' : ''}>{paragraph}</p>
+							{#each messageBlocks(message.content) as block, bIndex (`${index}-b-${bIndex}`)}
+								{#if block.type === 'list'}
+									<ul
+										class="list-disc space-y-3 pl-5 {bIndex > 0 ? 'my-3' : 'mb-3'}"
+									>
+										{#each block.items as item, itemIndex (`${index}-b-${bIndex}-i-${itemIndex}`)}
+											<li class="pl-1">{item}</li>
+										{/each}
+									</ul>
+								{:else}
+									<p class={bIndex > 0 ? 'mt-3' : ''}>{block.text}</p>
+								{/if}
 							{/each}
 						</div>
 					{/each}

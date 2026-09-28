@@ -149,6 +149,8 @@ export const game = snakeCase.table(
 		gameType: gameTypeEnum().notNull().default('regular'),
 		/** False when the sheet only recorded Win/Lose/Default Lose (no box-score stats). */
 		statsAvailable: boolean().notNull().default(true),
+		/** Which side forfeited. The other side won by default. */
+		defaultLossSide: text(),
 		/** True when the sheet recorded points only, with no shot or rebound columns. */
 		pointsOnly: boolean().notNull().default(false),
 		statsStatus: gameStatsStatusEnum().notNull().default('none'),

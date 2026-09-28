@@ -4,6 +4,7 @@
 	import { getOrganization } from '$lib/api/organization.remote';
 	import { getCurrentSeason } from '$lib/api/season.remote';
 	import { getSeasonTeams } from '$lib/api/league-manage.remote';
+	import AdminTeamRename from '$lib/components/AdminTeamRename.svelte';
 	import ActiveSeasonGate from '../ActiveSeasonGate.svelte';
 	import type { PageProps } from './$types';
 	import { redirect } from '@sveltejs/kit';
@@ -100,6 +101,17 @@
 								<div class="min-w-0">
 									<p class="truncate font-medium">{team.name}</p>
 									<p class="text-xs text-[#8B949E]">{team.playerCount} players</p>
+									{#if currentSeason}
+										<AdminTeamRename
+											teamId={team.id}
+											name={team.name}
+											class="mt-1"
+											onRenamed={() => {
+												if (!currentSeason) return;
+												void getSeasonTeams({ seasonId: currentSeason.id }).refresh();
+											}}
+										/>
+									{/if}
 								</div>
 								<a
 									href={teamHref(team)}

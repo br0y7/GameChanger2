@@ -12,8 +12,11 @@
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import FieldErrorList from '$lib/components/FieldErrorList.svelte';
 	import PreviewAccordion from './PreviewAccordion.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
+	import { mergeImportedGames } from '$lib/import/game-identity';
+	import type { GamePreview, SpreadsheetPreview } from '$lib/schemas/preview';
 	import { toast } from 'svelte-sonner';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { requireAdmin } from '$lib/api/auth.remote';
 	import { getOrganization } from '$lib/api/organization.remote';
 	import type { PageProps } from './$types';
@@ -38,35 +41,83 @@
 	});
 
 	let submitting = $derived(!!previewSpreadsheet.pending);
+	let saveFailures = $state<string[]>([]);
 
 	let activeItem: 'season' | 'division' | 'upload' | 'preview' = $state('season');
-	let preview = $derived(previewSpreadsheet.result);
+	let stagedGames = $state<GamePreview[]>([]);
+	let mergedResult: SpreadsheetPreview | undefined;
+	let stagedDivisionId = $state<string | null>(null);
 
 	let timeZone = $state('');
 	onMount(() => {
 		timeZone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
 	});
 
+	$effect(() => {
+		const divisionId = selected.division?.id ?? null;
+		if (divisionId === stagedDivisionId) return;
+		stagedDivisionId = divisionId;
+		stagedGames = [];
+		mergedResult = previewSpreadsheet.result;
+	});
+
+	$effect(() => {
+		const result = previewSpreadsheet.result;
+		if (!result || result === mergedResult) return;
+		mergedResult = result;
+		const incoming = result.games;
+		const kept = untrack(() => stagedGames);
+		stagedGames = mergeImportedGames(kept, incoming, timeZone);
+	});
+
+	const preview = $derived<SpreadsheetPreview | undefined>(
+		stagedGames.length > 0 ? { version: 'v1', games: stagedGames } : undefined
+	);
+
+	function clearStagedGames() {
+		stagedGames = [];
+		mergedResult = previewSpreadsheet.result;
+	}
+
+	function failureLines(err: unknown): string[] {
+		const message =
+			err && typeof err === 'object' && 'body' in err
+				? String((err as { body?: { message?: string } }).body?.message ?? '')
+				: err instanceof Error
+					? err.message
+					: String(err);
+		const lines = message
+			.split('\n')
+			.map((line) => line.trim())
+			.filter((line) => line.length > 0);
+		return lines.length > 0 ? lines : ['The statsheet could not be saved.'];
+	}
+
 	async function savePreviewToDb() {
 		try {
 			submitting = true;
+			saveFailures = [];
 			if (!preview || !selected.division) {
 				return;
 			}
 
-			await savePreview({ games: preview.games, divisionId: selected.division.id });
+			await savePreview({
+				games: preview.games,
+				divisionId: selected.division.id,
+				timeZone,
+			});
 
-			preview = undefined;
+			clearStagedGames();
 
-			toast.success('Preview saved to the database');
+			toast.success('Preview saved. Games missing from this statsheet were removed.');
 		} catch (err) {
-			const message =
-				err && typeof err === 'object' && 'body' in err
-					? String((err as { body?: { message?: string } }).body?.message ?? err)
-					: err instanceof Error
-						? err.message
-						: String(err);
-			toast.error(message, { duration: 12000 });
+			saveFailures = failureLines(err);
+			toast.error(
+				saveFailures.length === 1
+					? saveFailures[0]
+					: `Couldn't save the statsheet. ${saveFailures.length} problems.`,
+				{ duration: 12000 }
+			);
 		} finally {
 			submitting = false;
 		}
@@ -118,7 +169,7 @@
 											onclick={() => {
 												selected.season = season;
 												activeItem = 'division';
-												preview = undefined;
+												clearStagedGames();
 											}}
 											variant="outline">Select</Button
 										>
@@ -170,7 +221,7 @@
 												onclick={() => {
 													selected.division = division;
 													activeItem = 'upload';
-													preview = undefined;
+													clearStagedGames();
 												}}
 												variant="outline">Select</Button
 											>
@@ -210,6 +261,7 @@
 				{#if selected.division}
 					<form
 						{...previewSpreadsheet.enhance(async (form) => {
+							saveFailures = [];
 							if (await form.submit()) {
 								activeItem = 'preview';
 							}
@@ -260,6 +312,23 @@
 			<Accordion.Trigger class="text-lg">Preview</Accordion.Trigger>
 			<Accordion.Content>
 				{#if preview && selected.division}
+					<p class="mb-3 text-sm text-muted-foreground">
+						Games already saved stay in the league. A team that is not in this file, such as one
+						from an earlier upload, is not removed. Uploading the same teams on a new date adds
+						another game.
+					</p>
+					{#if saveFailures.length > 0}
+						<Alert.Root variant="destructive" class="mb-4">
+							<Alert.Title>Could not save this statsheet</Alert.Title>
+							<Alert.Description>
+								<ul class="list-disc space-y-1 pl-4">
+									{#each saveFailures as line, index (index)}
+										<li>{line}</li>
+									{/each}
+								</ul>
+							</Alert.Description>
+						</Alert.Root>
+					{/if}
 					<PreviewAccordion {preview} />
 					<div class="flex w-full items-center justify-center">
 						<SubmitButton onclick={savePreviewToDb} {submitting} class="min-w-xs">

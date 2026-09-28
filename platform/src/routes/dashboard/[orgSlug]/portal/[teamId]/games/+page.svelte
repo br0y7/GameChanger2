@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { getPortalTeamContext } from '$lib/api/coach-portal.remote';
 	import { getSeasonGames } from '$lib/api/league-manage.remote';
+	import { completedGameLabel, gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -9,13 +10,57 @@
 	const seasonId = $derived(context?.season.id);
 	const seasonSlug = $derived(context?.season.slug);
 	const games = $derived(seasonId ? await getSeasonGames({ seasonId }) : []);
-	const teamGames = $derived(
-		games.filter((g) => g.homeTeam.id === params.teamId || g.awayTeam.id === params.teamId)
-	);
+
+	const teamGames = $derived.by(() => {
+		const rows = games
+			.filter((g) => g.homeTeam.id === params.teamId || g.awayTeam.id === params.teamId)
+			.map((game) => {
+				const isHome = game.homeTeam.id === params.teamId;
+				const playedAt = game.completedAt ?? game.scheduledAt;
+				const teamScore = isHome ? game.homeTeamScore : game.awayTeamScore;
+				const oppScore = isHome ? game.awayTeamScore : game.homeTeamScore;
+				const result = teamScore > oppScore ? 'W' : teamScore < oppScore ? 'L' : 'T';
+
+				return {
+					id: game.id,
+					isHome,
+					opponentName: isHome ? game.awayTeam.name : game.homeTeam.name,
+					playedAt,
+					status: game.status,
+					gameType: game.gameType,
+					result,
+					scoreLabel: completedGameLabel({
+						statsAvailable: game.statsAvailable,
+						defaultLossSide: game.defaultLossSide,
+						pointsOnly: game.pointsOnly,
+						isHome,
+						result,
+						teamScore,
+						oppScore,
+					}),
+					sortAt: playedAt?.getTime() ?? null,
+				};
+			});
+
+		// Next game first, then finished games newest-first. Undated games sit at the end of their group.
+		const upcoming = rows
+			.filter((g) => g.status !== 'completed')
+			.sort((a, b) => (a.sortAt ?? Infinity) - (b.sortAt ?? Infinity));
+		const played = rows
+			.filter((g) => g.status === 'completed')
+			.sort((a, b) => (b.sortAt ?? 0) - (a.sortAt ?? 0));
+		return [...upcoming, ...played];
+	});
 
 	function formatDate(d: Date | null) {
 		if (!d) return 'TBD';
 		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+	}
+
+	function statusLabel(status: string) {
+		if (status === 'upcoming') return 'Upcoming';
+		if (status === 'cancelled') return 'Cancelled';
+		return null;
 	}
 </script>
 
@@ -32,10 +77,15 @@
 					<div class="flex flex-wrap items-start justify-between gap-2">
 						<div>
 							<p class="font-medium">
-								{game.homeTeam.name} vs {game.awayTeam.name}
+								{game.isHome ? 'vs' : '@'}
+								{game.opponentName}
 							</p>
 							<p class="mt-1 text-xs text-[#8B949E]">
-								{formatDate(game.scheduledAt ?? game.completedAt)} · {game.status}
+								{formatDate(game.playedAt)}
+								{#if statusLabel(game.status)}
+									· {statusLabel(game.status)}
+								{/if}
+								<span class={gameTypeClass(game.gameType)}> · {gameTypeLabel(game.gameType)}</span>
 							</p>
 						</div>
 						{#if seasonSlug}
@@ -51,9 +101,15 @@
 							</a>
 						{/if}
 					</div>
-					{#if game.status === 'completed'}
-						<p class="mt-2 text-sm tabular-nums text-[#E6EDF3]">
-							{game.homeTeamScore} – {game.awayTeamScore}
+					{#if game.status === 'completed' && game.scoreLabel}
+						<p
+							class="mt-2 text-sm font-medium tabular-nums {game.result === 'W'
+								? 'text-[#3FB950]'
+								: game.result === 'L'
+									? 'text-[#F85149]'
+									: 'text-[#8B949E]'}"
+						>
+							{game.scoreLabel}
 						</p>
 					{/if}
 				</li>

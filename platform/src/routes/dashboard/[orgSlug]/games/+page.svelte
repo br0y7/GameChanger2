@@ -19,9 +19,7 @@
 	validateOrg();
 
 	const currentSeason = $derived(await getCurrentSeason({ organizationId: org.id }));
-	const games = $derived(
-		currentSeason ? await getSeasonGames({ seasonId: currentSeason.id }) : []
-	);
+	const games = $derived(currentSeason ? await getSeasonGames({ seasonId: currentSeason.id }) : []);
 
 	const formatDate = (date: Date | null | undefined) => {
 		if (!date) return 'TBD';
@@ -87,7 +85,9 @@
 				</a>
 			</div>
 		{:else}
-			<ul class="divide-y divide-[#2A3038] overflow-hidden rounded-2xl border border-[#2A3038] bg-[#161B22]">
+			<ul
+				class="divide-y divide-[#2A3038] overflow-hidden rounded-2xl border border-[#2A3038] bg-[#161B22]"
+			>
 				{#each games as game (game.id)}
 					<li>
 						<a
@@ -103,12 +103,12 @@
 								<p class="text-xs text-[#8B949E]">
 									{formatDate(game.completedAt ?? game.scheduledAt)}
 									· {gameTypeLabel(game.gameType)}
-									{#if game.statsAvailable === false}
-										· Result only
+									{#if game.statsAvailable === false && !game.pointsOnly}
+										· {game.defaultLossSide ? 'Default' : 'Win / Lose only'}
 									{/if}
 								</p>
 							</div>
-							<p class="shrink-0 font-semibold tabular-nums text-[#E6EDF3]">
+							<p class="shrink-0 font-semibold text-[#E6EDF3] tabular-nums">
 								{game.awayTeamScore}–{game.homeTeamScore}
 							</p>
 						</a>

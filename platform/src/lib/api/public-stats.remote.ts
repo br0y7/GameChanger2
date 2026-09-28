@@ -8,6 +8,8 @@ import {
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { forbidden, notFound } from '$lib/server/fail';
+import { dedupeMatchups } from '$lib/stats/matchup';
+import { regularSeasonGames, regularSeasonStandings } from '$lib/stats/standings';
 import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
 import { loadBoxScore } from '$lib/server/game-box-score.server';
 import { countDistinct, eq } from 'drizzle-orm';
@@ -97,9 +99,7 @@ export const listPublishedLeagues = query(async () => {
 			id: org.id,
 			name: org.name,
 			slug: org.slug,
-			season: season
-				? { id: season.id, name: season.name, slug: season.slug }
-				: null,
+			season: season ? { id: season.id, name: season.name, slug: season.slug } : null,
 			counts,
 			visibility: vis,
 		});
@@ -107,32 +107,29 @@ export const listPublishedLeagues = query(async () => {
 	return result;
 });
 
-export const getPublicLeagueMeta = query(
-	z.object({ orgSlug: z.string() }),
-	async ({ orgSlug }) => {
-		const org = await db.query.organization.findFirst({
-			where: { slug: orgSlug, type: 'league' },
-		});
-		if (!org) notFound({ resource: 'organization' });
+export const getPublicLeagueMeta = query(z.object({ orgSlug: z.string() }), async ({ orgSlug }) => {
+	const org = await db.query.organization.findFirst({
+		where: { slug: orgSlug, type: 'league' },
+	});
+	if (!org) notFound({ resource: 'organization' });
 
-		const vis = await visibilityForOrg(org.id);
-		if (!vis.isListed) notFound({ resource: 'organization' });
+	const vis = await visibilityForOrg(org.id);
+	if (!vis.isListed) notFound({ resource: 'organization' });
 
-		const seasons = await db.query.season.findMany({
-			where: { organizationId: org.id },
-			orderBy: { createdAt: 'desc' },
-			columns: { id: true, name: true, slug: true, status: true },
-		});
+	const seasons = await db.query.season.findMany({
+		where: { organizationId: org.id },
+		orderBy: { createdAt: 'desc' },
+		columns: { id: true, name: true, slug: true, status: true },
+	});
 
-		return {
-			id: org.id,
-			name: org.name,
-			slug: org.slug,
-			visibility: vis,
-			seasons,
-		};
-	}
-);
+	return {
+		id: org.id,
+		name: org.name,
+		slug: org.slug,
+		visibility: vis,
+		seasons,
+	};
+});
 
 export const getPublicSeasonFilters = query(
 	z.object({
@@ -185,6 +182,7 @@ type PublicStandingRow = {
 	slug: string;
 	wins: number;
 	losses: number;
+	rank: number;
 };
 
 type PublicStandingDivision = {
@@ -266,6 +264,68 @@ export const getPublicPlayerLeaders = query(
 	}
 );
 
+export const getPublicPlayer = query(
+	z.object({
+		orgSlug: z.string(),
+		seasonSlug: z.string(),
+		playerId: idField,
+	}),
+	async ({ orgSlug, seasonSlug, playerId }) => {
+		const filters = await getPublicSeasonFilters({ orgSlug, seasonSlug });
+		if (!filters.visibility.publishPlayerStats) {
+			notFound({ resource: 'player', id: playerId });
+		}
+
+		const player = await db.query.player.findFirst({
+			where: { id: playerId },
+			with: {
+				team: { with: { division: true } },
+				gameStats: {
+					with: {
+						game: {
+							columns: {
+								id: true,
+								seasonId: true,
+								status: true,
+								name: true,
+								completedAt: true,
+								scheduledAt: true,
+							},
+						},
+					},
+				},
+			},
+		});
+
+		const division = player?.team?.division;
+		if (!player || !player.team || !division || division.seasonId !== filters.season.id) {
+			notFound({ resource: 'player', id: playerId });
+		}
+
+		const derived = player.gameStats
+			.filter((s) => s.game?.seasonId === filters.season.id && s.game.status === 'completed')
+			.map((s) => derivePlayerGameStats(s as Parameters<typeof derivePlayerGameStats>[0]));
+		const gp = derived.length;
+		const avg = (pick: (s: (typeof derived)[number]) => number) =>
+			gp ? Math.round((derived.reduce((a, s) => a + pick(s), 0) / gp) * 10) / 10 : 0;
+
+		return {
+			playerId: player.id,
+			name: displayName(player.name, filters.visibility.showPlayerFullNames),
+			jerseyNumber: player.jerseyNumber,
+			teamName: player.team.name,
+			teamSlug: player.team.slug,
+			divisionName: division.name,
+			divisionSlug: division.slug,
+			gp,
+			ppg: avg((s) => s.pts),
+			rpg: avg((s) => s.reb),
+			apg: avg((s) => s.ast),
+			spg: avg((s) => s.stl),
+		};
+	}
+);
+
 export const getPublicStandings = query(
 	z.object({
 		orgSlug: z.string(),
@@ -282,38 +342,48 @@ export const getPublicStandings = query(
 			? filters.divisions.filter((d) => d.slug === divisionSlug)
 			: filters.divisions;
 
-		const games = await db.query.game.findMany({
-			where: { seasonId: filters.season.id, status: 'completed', gameType: 'regular' },
+		const seasonGames = await db.query.game.findMany({
+			where: { seasonId: filters.season.id, status: 'completed' },
 			columns: {
+				id: true,
 				homeTeamId: true,
 				awayTeamId: true,
 				homeTeamScore: true,
 				awayTeamScore: true,
+				gameType: true,
+				status: true,
+				statsAvailable: true,
+				completedAt: true,
+				scheduledAt: true,
 			},
+		});
+		const scoredGames = seasonGames.flatMap((game) => {
+			const homeTeamScore = game.homeTeamScore ?? 0;
+			const awayTeamScore = game.awayTeamScore ?? 0;
+			if (homeTeamScore === 0 && awayTeamScore === 0) return [];
+			return [{ ...game, homeTeamScore, awayTeamScore }];
 		});
 
 		const result = divisions.map((div) => {
-			const teamIds = new Set(div.teams.map((t) => t.id));
-			const rows = div.teams
-				.map((team) => {
-					let wins = 0;
-					let losses = 0;
-					for (const g of games) {
-						if (!teamIds.has(g.homeTeamId) || !teamIds.has(g.awayTeamId)) continue;
-						const hs = g.homeTeamScore ?? 0;
-						const as = g.awayTeamScore ?? 0;
-						if (hs === 0 && as === 0) continue;
-						if (g.homeTeamId === team.id) {
-							if (hs > as) wins += 1;
-							else if (hs < as) losses += 1;
-						} else if (g.awayTeamId === team.id) {
-							if (as > hs) wins += 1;
-							else if (as < hs) losses += 1;
-						}
-					}
-					return { teamId: team.id, name: team.name, slug: team.slug, wins, losses };
-				})
-				.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+			const ranked = regularSeasonStandings(
+				div.teams.map((team) => team.id),
+				scoredGames
+			);
+			const teamById = new Map(div.teams.map((team) => [team.id, team]));
+			const rows = ranked.flatMap((standing) => {
+				const team = teamById.get(standing.teamId);
+				if (!team) return [];
+				return [
+					{
+						teamId: team.id,
+						name: team.name,
+						slug: team.slug,
+						wins: standing.wins,
+						losses: standing.losses,
+						rank: standing.rank,
+					},
+				];
+			});
 			return { id: div.id, name: div.name, slug: div.slug, rows };
 		});
 
@@ -342,6 +412,8 @@ export const getPublicGameBoxScore = query(
 		const publishPlayers = (side: typeof box.homeTeam) => ({
 			id: side.id,
 			name: side.name,
+			slug: side.slug,
+			divisionSlug: side.divisionSlug,
 			score: side.score,
 			players: side.players.map((player) => ({
 				playerId: player.playerId,
@@ -370,8 +442,10 @@ export const getPublicGameBoxScore = query(
 			id: box.id,
 			name: box.name,
 			status: box.status,
+			gameType: box.gameType,
 			statsAvailable: box.statsAvailable,
 			pointsOnly: box.pointsOnly,
+			defaultLossSide: box.defaultLossSide,
 			completedAt: box.completedAt,
 			awayTeam: publishPlayers(box.awayTeam),
 			homeTeam: publishPlayers(box.homeTeam),
@@ -383,9 +457,10 @@ export const getPublicGames = query(
 	z.object({
 		orgSlug: z.string().optional(),
 		seasonSlug: z.string().optional(),
+		divisionSlug: z.string().optional(),
 		limit: z.number().int().min(1).max(50).default(20),
 	}),
-	async ({ orgSlug, seasonSlug, limit }) => {
+	async ({ orgSlug, seasonSlug, divisionSlug, limit }) => {
 		const leagues = await listPublishedLeagues();
 		const scoped = orgSlug ? leagues.filter((l) => l.slug === orgSlug) : leagues;
 
@@ -399,29 +474,57 @@ export const getPublicGames = query(
 			awayScore: number | null;
 			homeScore: number | null;
 			status: string;
+			gameType: string;
+			statsAvailable: boolean;
+			pointsOnly: boolean;
+			defaultLossSide: string | null;
 			at: Date | null;
 			playerStatsPublic: boolean;
 		}> = [];
 
 		for (const league of scoped) {
 			if (!league.visibility.publishGameScores) continue;
-			const season =
-				seasonSlug && league.season?.slug === seasonSlug
-					? league.season
-					: league.season;
+			let season = league.season;
+			if (seasonSlug) {
+				if (league.season?.slug === seasonSlug) {
+					season = league.season;
+				} else {
+					const meta = await getPublicLeagueMeta({ orgSlug: league.slug });
+					const match = meta.seasons.find((s) => s.slug === seasonSlug);
+					season = match ? { id: match.id, name: match.name, slug: match.slug } : null;
+				}
+			}
 			if (!season) continue;
 
-			const rows = await db.query.game.findMany({
-				where: { seasonId: season.id },
-				with: {
-					homeTeam: { columns: { name: true } },
-					awayTeam: { columns: { name: true } },
-				},
-				orderBy: { scheduledAt: 'desc' },
-				limit,
-			});
+			let divisionTeamIds: Set<string> | null = null;
+			if (divisionSlug) {
+				const seasonFilters = await getPublicSeasonFilters({
+					orgSlug: league.slug,
+					seasonSlug: season.slug,
+				});
+				const division = seasonFilters.divisions.find((d) => d.slug === divisionSlug);
+				divisionTeamIds = new Set(division?.teams.map((t) => t.id) ?? []);
+			}
+
+			const rows = dedupeMatchups(
+				await db.query.game.findMany({
+					where: { seasonId: season.id },
+					with: {
+						homeTeam: { columns: { name: true } },
+						awayTeam: { columns: { name: true } },
+					},
+					orderBy: { scheduledAt: 'desc' },
+				})
+			);
 
 			for (const g of rows) {
+				if (
+					divisionTeamIds &&
+					!divisionTeamIds.has(g.homeTeamId) &&
+					!divisionTeamIds.has(g.awayTeamId)
+				) {
+					continue;
+				}
 				games.push({
 					id: g.id,
 					leagueName: league.name,
@@ -432,15 +535,17 @@ export const getPublicGames = query(
 					awayScore: league.visibility.publishGameScores ? g.awayTeamScore : null,
 					homeScore: league.visibility.publishGameScores ? g.homeTeamScore : null,
 					status: g.status,
+					gameType: g.gameType,
+					statsAvailable: g.statsAvailable,
+					pointsOnly: g.pointsOnly,
+					defaultLossSide: g.defaultLossSide,
 					at: g.completedAt ?? g.scheduledAt,
 					playerStatsPublic: league.visibility.publishPlayerStats,
 				});
 			}
 		}
 
-		return games
-			.sort((a, b) => (b.at?.getTime() ?? 0) - (a.at?.getTime() ?? 0))
-			.slice(0, limit);
+		return games.sort((a, b) => (b.at?.getTime() ?? 0) - (a.at?.getTime() ?? 0)).slice(0, limit);
 	}
 );
 
@@ -453,22 +558,54 @@ export const getPublicTeamStats = query(
 	async ({ orgSlug, seasonSlug, divisionSlug }) => {
 		const filters = await getPublicSeasonFilters({ orgSlug, seasonSlug });
 		if (!filters.visibility.publishTeamStats) {
-			return { teams: [] as Array<Record<string, unknown>>, visibility: filters.visibility };
+			return {
+				teams: [] as Array<{
+					teamId: string;
+					name: string;
+					slug: string;
+					divisionName: string;
+					divisionSlug: string;
+					gp: number;
+					ppg: number;
+					oppPpg: number;
+					diff: number;
+				}>,
+				visibility: filters.visibility,
+			};
 		}
 
 		const divisions = divisionSlug
 			? filters.divisions.filter((d) => d.slug === divisionSlug)
 			: filters.divisions;
 
-		const games = await db.query.game.findMany({
+		const loadedGames = await db.query.game.findMany({
 			where: { seasonId: filters.season.id, status: 'completed' },
 			columns: {
+				id: true,
 				homeTeamId: true,
 				awayTeamId: true,
 				homeTeamScore: true,
 				awayTeamScore: true,
+				gameType: true,
+				status: true,
+				statsAvailable: true,
+				completedAt: true,
+				scheduledAt: true,
 			},
 		});
+		const participantIds = new Set<string>();
+		for (const game of loadedGames) {
+			participantIds.add(game.homeTeamId);
+			participantIds.add(game.awayTeamId);
+		}
+		const games = regularSeasonGames(
+			loadedGames.map((game) => ({
+				...game,
+				homeTeamScore: game.homeTeamScore ?? 0,
+				awayTeamScore: game.awayTeamScore ?? 0,
+			})),
+			participantIds
+		);
 
 		const teams = divisions.flatMap((div) =>
 			div.teams.map((team) => {
@@ -491,6 +628,7 @@ export const getPublicTeamStats = query(
 					name: team.name,
 					slug: team.slug,
 					divisionName: div.name,
+					divisionSlug: div.slug,
 					gp,
 					ppg: gp ? Math.round((pf / gp) * 10) / 10 : 0,
 					oppPpg: gp ? Math.round((pa / gp) * 10) / 10 : 0,

@@ -13,8 +13,6 @@
 	import { tick } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { updatePlayer } from '$lib/api/player.remote';
-	import { getTeam } from '$lib/api/team.remote';
-	import { getTeamOverview } from '$lib/api/team-overview.remote';
 	import type { UpdatePlayerInput } from '$lib/schemas/player';
 	import FieldErrorTooltip from '$lib/components/FieldErrorTooltip.svelte';
 	import ErrorPopover from '$lib/components/ErrorPopover.svelte';
@@ -34,21 +32,17 @@
 	interface Props {
 		player: Player;
 		playerHref: string;
-		teamSlug: string;
-		divisionId: string;
-		seasonId: string;
 		averages?: RosterAverages | null;
 		canManage?: boolean;
+		canRename?: boolean;
 	}
 
 	let {
 		player,
 		playerHref,
-		teamSlug,
-		divisionId,
-		seasonId,
 		averages = null,
 		canManage = false,
+		canRename = false,
 	}: Props = $props();
 
 	const fadeOptions = { duration: 200, easing: cubicOut };
@@ -93,18 +87,6 @@
 			if (await form.submit()) {
 				displayName = inputs.name?.value.trim() || displayName;
 				stopEditing();
-				void Promise.all([
-					getTeam({
-						slug: teamSlug,
-						divisionId,
-						include: { players: true },
-					}).refresh(),
-					getTeamOverview({
-						teamId: player.teamId,
-						divisionId,
-						seasonId,
-					}).refresh(),
-				]);
 			}
 		})
 	);
@@ -120,7 +102,7 @@
 		issues: updateForm.fields.allIssues(),
 	})}
 >
-	<Table.Cell class="w-14 text-center tabular-nums text-[#8B949E]">
+	<Table.Cell class="w-14 text-center text-[#8B949E] tabular-nums">
 		<ExpandTransition>
 			{#if editing}
 				<div in:fade={fadeOptions}>
@@ -151,7 +133,7 @@
 
 	<Table.Cell class="font-medium">
 		<ExpandTransition>
-			{#if editing}
+			{#if editing && canRename}
 				<div in:fade={fadeOptions}>
 					<FieldErrorTooltip remoteField={updateForm.fields.name} anchor={inputs.name}>
 						<Input
@@ -175,98 +157,107 @@
 		</ExpandTransition>
 	</Table.Cell>
 
-	<Table.Cell class="text-center tabular-nums text-[#E6EDF3]">
+	<Table.Cell class="text-center text-[#E6EDF3] tabular-nums">
 		{averages?.gamesPlayed ?? 0}
 	</Table.Cell>
-	<Table.Cell class="text-center tabular-nums text-[#E6EDF3]">{formatAvg(averages?.points)}</Table.Cell>
-	<Table.Cell class="text-center tabular-nums text-[#E6EDF3]">{formatAvg(averages?.rebounds)}</Table.Cell>
-	<Table.Cell class="text-center tabular-nums text-[#E6EDF3]">{formatAvg(averages?.assists)}</Table.Cell>
+	<Table.Cell class="text-center text-[#E6EDF3] tabular-nums"
+		>{formatAvg(averages?.points)}</Table.Cell
+	>
+	<Table.Cell class="text-center text-[#E6EDF3] tabular-nums"
+		>{formatAvg(averages?.rebounds)}</Table.Cell
+	>
+	<Table.Cell class="text-center text-[#E6EDF3] tabular-nums"
+		>{formatAvg(averages?.assists)}</Table.Cell
+	>
 
 	{#if canManage}
-	<Table.Cell class="w-12 text-end">
-		<ExpandTransition>
-			{#if editing}
-				<div in:fade={fadeOptions} class="flex justify-end gap-1">
-					<Button
-						disabled={submitting}
-						onclick={stopEditing}
-						class="group text-[#8B949E] hover:bg-white/10 hover:text-[#E6EDF3]"
-						variant="ghost"
-						size="icon"
-						aria-label="Cancel edit"
-					>
-						<CloseIcon class="size-4" />
-					</Button>
-					<form {...enhancedUpdateForm} id={updateFormId()} bind:this={updateFormElement}>
-						<input {...updateForm.fields.id.as('hidden', player.id)} />
-						<SubmitButton
-							bind:ref={updateButton}
-							class="group text-[#3FB950] hover:bg-white/10"
+		<Table.Cell class="w-12 text-end">
+			<ExpandTransition>
+				{#if editing}
+					<div in:fade={fadeOptions} class="flex justify-end gap-1">
+						<Button
+							disabled={submitting}
+							onclick={stopEditing}
+							class="group text-[#8B949E] hover:bg-white/10 hover:text-[#E6EDF3]"
 							variant="ghost"
 							size="icon"
-							{submitting}
-							aria-label="Save changes"
+							aria-label="Cancel edit"
 						>
-							{#snippet icon()}
-								<CheckIcon class="size-4" />
-							{/snippet}
-						</SubmitButton>
-						<ErrorPopover
-							anchor={updateButton}
-							errors={updateForm.fields.issues()}
-							title="Can't save changes"
-						/>
-					</form>
-				</div>
-			{:else}
-				<div in:fade={fadeOptions} class="flex justify-end">
-					<DropdownMenu.Root>
-						<DropdownMenu.Trigger>
-							{#snippet child({ props })}
-								<Button
-									{...props}
-									variant="ghost"
-									size="icon"
-									class="text-[#8B949E] hover:bg-white/10 hover:text-[#E6EDF3]"
-									aria-label={`Actions for ${displayName}`}
+							<CloseIcon class="size-4" />
+						</Button>
+						<form {...enhancedUpdateForm} id={updateFormId()} bind:this={updateFormElement}>
+							<input {...updateForm.fields.id.as('hidden', player.id)} />
+							{#if !canRename}
+								<input {...updateForm.fields.name.as('hidden', player.name)} />
+							{/if}
+							<SubmitButton
+								bind:ref={updateButton}
+								class="group text-[#3FB950] hover:bg-white/10"
+								variant="ghost"
+								size="icon"
+								{submitting}
+								aria-label="Save changes"
+							>
+								{#snippet icon()}
+									<CheckIcon class="size-4" />
+								{/snippet}
+							</SubmitButton>
+							<ErrorPopover
+								anchor={updateButton}
+								errors={updateForm.fields.issues()}
+								title="Can't save changes"
+							/>
+						</form>
+					</div>
+				{:else}
+					<div in:fade={fadeOptions} class="flex justify-end">
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger>
+								{#snippet child({ props })}
+									<Button
+										{...props}
+										variant="ghost"
+										size="icon"
+										class="text-[#8B949E] hover:bg-white/10 hover:text-[#E6EDF3]"
+										aria-label={`Actions for ${displayName}`}
+									>
+										<MoreHorizontalIcon class="size-4" />
+									</Button>
+								{/snippet}
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content
+								align="end"
+								class="border-[#2A3038] bg-[#161B22] text-[#E6EDF3]"
+							>
+								<DropdownMenu.Item class="cursor-pointer focus:bg-white/10" onclick={startEditing}>
+									<PencilIcon class="size-4" />
+									Edit player
+								</DropdownMenu.Item>
+								<DropdownMenu.Item
+									class="cursor-pointer focus:bg-white/10"
+									onclick={() => (notesOpen = true)}
 								>
-									<MoreHorizontalIcon class="size-4" />
-								</Button>
-							{/snippet}
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Content align="end" class="border-[#2A3038] bg-[#161B22] text-[#E6EDF3]">
-							<DropdownMenu.Item
-								class="cursor-pointer focus:bg-white/10"
-								onclick={startEditing}
-							>
-								<PencilIcon class="size-4" />
-								Edit player
-							</DropdownMenu.Item>
-							<DropdownMenu.Item
-								class="cursor-pointer focus:bg-white/10"
-								onclick={() => (notesOpen = true)}
-							>
-								<MessageSquareIcon class="size-4" />
-								Coach notes
-							</DropdownMenu.Item>
-						</DropdownMenu.Content>
-					</DropdownMenu.Root>
-				</div>
-			{/if}
-		</ExpandTransition>
-		<Dialog.Root bind:open={notesOpen}>
-			<Dialog.Content class="border-[#2A3038] bg-[#161B22] text-[#E6EDF3] sm:max-w-lg">
-				<Dialog.Header>
-					<Dialog.Title>Coach notes</Dialog.Title>
-					<Dialog.Description class="text-[#8B949E]">
-						{player.name}. This stays off public pages and other families' accounts.
-					</Dialog.Description>
-				</Dialog.Header>
-				{#if notesOpen}
-					<CoachNoteEditor playerId={player.id} />
+									<MessageSquareIcon class="size-4" />
+									Coach notes
+								</DropdownMenu.Item>
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
+					</div>
 				{/if}
-			</Dialog.Content>
-		</Dialog.Root>
-	</Table.Cell>
+			</ExpandTransition>
+			<Dialog.Root bind:open={notesOpen}>
+				<Dialog.Content class="border-[#2A3038] bg-[#161B22] text-[#E6EDF3] sm:max-w-lg">
+					<Dialog.Header>
+						<Dialog.Title>Coach notes</Dialog.Title>
+						<Dialog.Description class="text-[#8B949E]">
+							{player.name}. This stays off public pages and other families' accounts.
+						</Dialog.Description>
+					</Dialog.Header>
+					{#if notesOpen}
+						<CoachNoteEditor playerId={player.id} />
+					{/if}
+				</Dialog.Content>
+			</Dialog.Root>
+		</Table.Cell>
 	{/if}
 </Table.Row>
