@@ -23,6 +23,14 @@ export const updatePlayerSchema = z.object({
 
 export type UpdatePlayerInput = z.infer<typeof updatePlayerSchema>;
 
+/** Admin-only rename: the name is the only field it can touch. */
+export const renamePlayerSchema = z.object({
+	name: playerSchema.name,
+	id: z.uuid().nonoptional('Player ID is required.'),
+});
+
+export type RenamePlayerInput = z.infer<typeof renamePlayerSchema>;
+
 export const coachNoteSchema = z.object({
 	playerId: z.uuid('Player ID is required.'),
 	body: z.string().trim().max(2000, 'Coach note must be 2000 characters or less'),

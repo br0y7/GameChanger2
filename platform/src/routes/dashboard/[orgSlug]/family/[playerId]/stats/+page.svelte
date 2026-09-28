@@ -71,13 +71,13 @@
 	{@const rank = home.ranks[key]}
 	{#if rank && (rank.division != null || rank.league != null)}
 		{#if rank.division != null}
-			<p class="mt-1 text-[11px] font-semibold leading-tight text-[#58A6FF]">
+			<p class="mt-1 text-[11px] leading-tight font-semibold text-[#58A6FF]">
 				Division {formatRankPlace(rank.division)}
 			</p>
 		{/if}
 		{#if rank.league != null}
 			<p
-				class="text-[11px] font-semibold leading-tight text-[#E3B341] {rank.division == null
+				class="text-[11px] leading-tight font-semibold text-[#E3B341] {rank.division == null
 					? 'mt-1'
 					: ''}"
 			>
@@ -143,8 +143,13 @@
 					<tbody>
 						{#each home.gameLog as game (game.gameId)}
 							<tr class="border-t border-[#2A3038]/60">
-								<td class="py-2.5">{game.opponentName}</td>
-								<td class="py-2.5 tabular-nums font-medium">{game.pts}</td>
+								<td class="py-2.5">
+									{game.opponentName}
+									{#if game.scoreLabel}
+										<span class="mt-0.5 block text-xs text-[#8B949E]">{game.scoreLabel}</span>
+									{/if}
+								</td>
+								<td class="py-2.5 font-medium tabular-nums">{game.pts}</td>
 								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.reb}</td>
 								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.ast}</td>
 								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.stl}</td>

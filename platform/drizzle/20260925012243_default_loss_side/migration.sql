@@ -1,0 +1,1 @@
+ALTER TABLE "game" ADD COLUMN "default_loss_side" text;

@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { isUserAdmin } from '$lib/api/auth.remote';
-	import { getFamilyPlayerHome } from '$lib/api/family.remote';
-	import { getSeasonPlayers } from '$lib/api/league-manage.remote';
-	import { updatePlayer } from '$lib/api/player.remote';
+	import { getAdminViewAs } from '$lib/api/view-as.remote';
+	import { renamePlayer } from '$lib/api/player.remote';
 	import ErrorPopover from '$lib/components/ErrorPopover.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -14,19 +13,17 @@
 	let {
 		playerId,
 		name,
-		jerseyNumber,
-		seasonId = null,
 		onRenamed,
+		class: className = 'mt-3',
 	}: {
 		playerId: string;
 		name: string;
-		jerseyNumber: string;
-		seasonId?: string | null;
 		onRenamed?: (name: string) => void;
+		class?: string;
 	} = $props();
 
-	const isAdmin = $derived(await isUserAdmin());
-	const form = $derived(updatePlayer.for(playerId));
+	const isAdmin = $derived((await isUserAdmin()) && (await getAdminViewAs()) === 'admin');
+	const form = $derived(renamePlayer.for(playerId));
 	let editing = $state(false);
 	let nameInput: HTMLInputElement | null = $state(null);
 	let saveButton: HTMLButtonElement | null = $state(null);
@@ -37,7 +34,6 @@
 		form.fields.set({
 			id: playerId,
 			name,
-			jerseyNumber,
 		});
 	}
 
@@ -47,7 +43,7 @@
 </script>
 
 {#if isAdmin}
-	<div class="mt-3">
+	<div class={className}>
 		{#if editing}
 			<form
 				class="flex flex-wrap items-center gap-2"
@@ -56,13 +52,10 @@
 					if (await submit()) {
 						onRenamed?.(nextName);
 						stopEditing();
-						void getFamilyPlayerHome({ playerId }).refresh();
-						if (seasonId) void getSeasonPlayers({ seasonId }).refresh();
 					}
 				})}
 			>
 				<input {...form.fields.id.as('hidden', playerId)} />
-				<input {...form.fields.jerseyNumber.as('hidden', jerseyNumber)} />
 				<Input
 					{...form.fields.name.as('text')}
 					required

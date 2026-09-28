@@ -1,9 +1,15 @@
 import { form, getRequestEvent, query } from '$app/server';
-import { createTeamSchema, teamSchema, updateTeamSchema } from '$lib/schemas/team';
+import {
+	isPlayerIdentityChange,
+	publishSavedPlayer,
+	publishScheduleChange,
+	relayDashboard,
+} from '$lib/server/dashboard-sync.server';
+import { createTeamSchema, renameTeamSchema, teamSchema, updateTeamSchema } from '$lib/schemas/team';
 import { auth, type User } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
-import { requireUser } from './auth.remote';
+import { isUserAdmin, requireAdmin, requireUser } from './auth.remote';
 import { serverLogger } from '$lib/server/logger';
 import { invalid } from '@sveltejs/kit';
 import { forbidden, internal, internalNoId, notFound } from '$lib/server/fail';
@@ -18,8 +24,48 @@ import * as table from '$lib/server/db/schema';
 import type { CrudAction, ResourceTarget } from '$lib/forms/types';
 import { isConstraintError } from './errors.server';
 import { teamFormLabels } from '$lib/forms/labels';
+import { readableTeamName } from '$lib/import/team-match';
+import { slugify } from '$lib/utils/string';
 import { isUserLeagueOrganizer } from './league.remote';
+import { getSeasonTeams } from './league-manage.remote';
 import { isUserOrgAdmin } from './organization.remote';
+
+function gameTitle(homeName: string, awayName: string, currentName: string) {
+	const base = `${homeName} vs ${awayName}`;
+	const suffix = currentName.match(/\s*\([^)]*\)\s*$/)?.[0] ?? '';
+	if (!suffix) return base;
+	return `${base}${suffix.startsWith(' ') ? suffix : ` ${suffix}`}`;
+}
+
+async function seasonIdForTeam(teamId: string) {
+	const row = await db.query.team.findFirst({
+		where: { id: teamId },
+		columns: { id: true },
+		with: { division: { columns: { seasonId: true } } },
+	});
+	return row?.division?.seasonId ?? null;
+}
+
+async function syncTeamGameNames(teamId: string) {
+	const withTeams = {
+		homeTeam: { columns: { name: true } },
+		awayTeam: { columns: { name: true } },
+	} as const;
+	const games = [
+		...(await db.query.game.findMany({ where: { homeTeamId: teamId }, with: withTeams })),
+		...(await db.query.game.findMany({ where: { awayTeamId: teamId }, with: withTeams })),
+	];
+	const seen = new Set<string>();
+
+	for (const game of games) {
+		if (seen.has(game.id) || !game.homeTeam || !game.awayTeam) continue;
+		seen.add(game.id);
+		const name = gameTitle(game.homeTeam.name, game.awayTeam.name, game.name);
+		if (game.name !== name) {
+			await db.update(table.game).set({ name }).where(eq(table.game.id, game.id));
+		}
+	}
+}
 
 async function assertPermissions(
 	action: CrudAction,
@@ -47,6 +93,10 @@ async function assertPermissions(
 	}
 
 	if (await isUserLeagueOrganizer()) {
+		return;
+	}
+
+	if (action === 'update' && (await isUserAdmin())) {
 		return;
 	}
 
@@ -223,7 +273,12 @@ export const updateTeam = form(updateTeamSchema, async ({ id, ...data }, issue) 
 	await assertPermissions('update', { resource: 'team', id }, user);
 
 	try {
-		await db.update(table.team).set(data).where(eq(table.team.id, id));
+		const name = readableTeamName(data.name);
+		await db.update(table.team).set({ ...data, name }).where(eq(table.team.id, id));
+		await syncTeamGameNames(id);
+		void getTeams({ divisionId: data.divisionId }).refresh();
+		const seasonId = await seasonIdForTeam(id);
+		if (seasonId) await publishScheduleChange(seasonId);
 
 		serverLogger.info('updated team', { id, userId: user.id });
 	} catch (err) {
@@ -236,12 +291,71 @@ export const updateTeam = form(updateTeamSchema, async ({ id, ...data }, issue) 
 	}
 });
 
+export const renameTeam = form(renameTeamSchema, async ({ id, name }, issue) => {
+	await requireAdmin();
+	const existing = await getTeam({ id });
+	const nextName = readableTeamName(name);
+	const slug = slugify(nextName);
+
+	if (!slug) {
+		return invalid(issue.name('Team name needs at least one letter or number.'));
+	}
+
+	if (nextName === existing.name && slug === existing.slug) {
+		return { name: existing.name, slug: existing.slug };
+	}
+
+	if (slug !== existing.slug) {
+		const clash = await db.query.team.findFirst({
+			where: { divisionId: existing.divisionId, slug },
+			columns: { id: true },
+		});
+		if (clash && clash.id !== existing.id) {
+			return invalid(issue.name('A team with that name already exists in this division.'));
+		}
+	}
+
+	try {
+		await db.update(table.team).set({ name: nextName, slug }).where(eq(table.team.id, id));
+		await syncTeamGameNames(id);
+		// A new slug is a new page address. Reloading the open page first would miss that address.
+		if (slug === existing.slug) {
+			await publishSavedPlayer(id, id, 'player');
+		}
+
+		const user = await requireUser();
+		serverLogger.info('renamed team', { id, userId: user.id, name: nextName });
+
+		void getTeams({ divisionId: existing.divisionId }).refresh();
+		const seasonId = await seasonIdForTeam(id);
+		if (seasonId) await publishScheduleChange(seasonId);
+		const division = await db.query.division.findFirst({
+			where: { id: existing.divisionId },
+			columns: { seasonId: true },
+		});
+		if (division) {
+			void getSeasonTeams({ seasonId: division.seasonId }).refresh();
+		}
+
+		return { name: nextName, slug };
+	} catch (err) {
+		if (isConstraintError(err, table.TEAM_UNIQUE_SLUG_PER_DIVISION_CONSTRAINT)) {
+			return invalid(issue.name('A team with that name already exists in this division.'));
+		}
+
+		serverLogger.error(err);
+		return invalid('Something went wrong');
+	}
+});
+
 export const deleteTeam = form(idOnlySchema, async ({ id }) => {
 	const user = await requireUser();
 
 	await assertPermissions('delete', { resource: 'team', id }, user);
 
+	const seasonId = await seasonIdForTeam(id);
 	await db.delete(table.team).where(eq(table.team.id, id));
+	if (seasonId) await publishScheduleChange(seasonId);
 
 	serverLogger.info('deleted team', { id, userId: user.id });
 });
@@ -252,25 +366,29 @@ const includes = {
 	division: z.boolean().optional(),
 };
 
-export const getTeam = query(
+export const getTeam = query.live(
 	z.object({
 		id: idField.optional(),
 		slug: teamSchema.slug.optional(),
 		divisionId: idField.optional(),
 		include: z.object(includes).default({}),
 	}),
-	async ({ include, ...filters }) => {
-		const team = await db.query.team.findFirst({ where: filters, with: include });
+	({ include, ...filters }) =>
+		relayDashboard(
+			async () => {
+				const team = await db.query.team.findFirst({ where: filters, with: include });
 
-		if (!team) {
-			notFound(
-				{ resource: 'team' },
-				{ action: 'read', message: `team not found. ${JSON.stringify(filters)}` }
-			);
-		}
+				if (!team) {
+					notFound(
+						{ resource: 'team' },
+						{ action: 'read', message: `team not found. ${JSON.stringify(filters)}` }
+					);
+				}
 
-		return team;
-	}
+				return team;
+			},
+			(team, change) => isPlayerIdentityChange(change, { teamId: team.id })
+		)
 );
 
 export const getTeams = query(

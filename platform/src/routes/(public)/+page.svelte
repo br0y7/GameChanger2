@@ -14,24 +14,45 @@
 		return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	};
 
-	const gamesHref = resolve('/stats');
+	const gamesHref = resolve('/games');
 	const leadersHref = resolve('/stats');
 	const standingsHref = resolve('/standings');
+	const teamsHref = resolve('/teams');
 
 	const glance = $derived([
-		{
-			label: 'Players',
-			value: home.counts.players || 325,
-			suffix: home.counts.players ? '' : '+',
-		},
-		{ label: 'Teams', value: home.counts.teams || 20, suffix: '' },
-		{
-			label: 'Games',
-			value: home.counts.games || 100,
-			suffix: home.counts.games ? '' : '+',
-		},
-		{ label: 'Divisions', value: home.counts.divisions || 6, suffix: '' },
+		{ label: 'Players', value: home.counts.players },
+		{ label: 'Teams', value: home.counts.teams },
+		{ label: 'Games', value: home.counts.games },
+		{ label: 'Divisions', value: home.counts.divisions },
 	]);
+
+	function playerHref(playerId: string) {
+		if (!home.league || !home.season) return leadersHref;
+		return resolve('/(public)/leagues/[orgSlug]/[seasonSlug]/players/[playerId]', {
+			orgSlug: home.league.slug,
+			seasonSlug: home.season.slug,
+			playerId,
+		});
+	}
+
+	function teamHref(teamSlug: string, divisionSlug: string) {
+		if (!home.league || !home.season) return teamsHref;
+		const q = new URLSearchParams({ tab: 'players', team: teamSlug });
+		if (divisionSlug) q.set('division', divisionSlug);
+		return resolve(`/(public)/leagues/[orgSlug]/[seasonSlug]?${q}`, {
+			orgSlug: home.league.slug,
+			seasonSlug: home.season.slug,
+		});
+	}
+
+	function gameHref(gameId: string) {
+		if (!home.league || !home.season) return gamesHref;
+		return resolve('/(public)/leagues/[orgSlug]/[seasonSlug]/games/[gameId]', {
+			orgSlug: home.league.slug,
+			seasonSlug: home.season.slug,
+			gameId,
+		});
+	}
 
 	const audiences = [
 		{
@@ -79,7 +100,10 @@
 	/>
 </svelte:head>
 
-<div class="home-platform min-h-screen text-[#E8F0EA]" style="font-family: Figtree, system-ui, sans-serif">
+<div
+	class="home-platform min-h-screen text-[#E8F0EA]"
+	style="font-family: Figtree, system-ui, sans-serif"
+>
 	<!-- Hero -->
 	<section
 		class="relative overflow-hidden border-b border-white/10 bg-[radial-gradient(ellipse_at_top_left,_#1A2A22_0%,_#0C1210_50%,_#0A100E_100%)]"
@@ -89,7 +113,7 @@
 			style="background-image: repeating-linear-gradient(-12deg, transparent, transparent 48px, rgba(184,224,92,0.04) 48px, rgba(184,224,92,0.04) 49px)"
 		></div>
 		<div
-			class="pointer-events-none absolute -right-24 top-10 h-72 w-72 rounded-full bg-[#B8E05C]/15 blur-3xl"
+			class="pointer-events-none absolute top-10 -right-24 h-72 w-72 rounded-full bg-[#B8E05C]/15 blur-3xl"
 		></div>
 		<div
 			class="pointer-events-none absolute -bottom-16 left-1/3 h-56 w-56 rounded-full bg-[#4A7C59]/20 blur-3xl"
@@ -132,7 +156,9 @@
 				</div>
 			</div>
 
-			<div class="hero-fade hero-delay-1 flex min-h-[14rem] items-center justify-center lg:min-h-[22rem] lg:justify-end">
+			<div
+				class="hero-fade hero-delay-1 flex min-h-[14rem] items-center justify-center lg:min-h-[22rem] lg:justify-end"
+			>
 				{#if home.league?.logo}
 					<img
 						src={home.league.logo}
@@ -200,13 +226,10 @@
 				{#each glance as item (item.label)}
 					<div>
 						<p
-							class="text-4xl font-extrabold tabular-nums tracking-tight text-[#B8E05C] sm:text-5xl"
+							class="text-4xl font-extrabold tracking-tight text-[#B8E05C] tabular-nums sm:text-5xl"
 							style="font-family: 'Barlow Condensed', system-ui, sans-serif"
 						>
-							<AnimatedNumber
-								end={item.value}
-								format={(n) => `${formatWhole(n)}${item.suffix}`}
-							/>
+							<AnimatedNumber end={item.value} format={(n) => formatWhole(n)} />
 						</p>
 						<p class="mt-1 text-sm font-medium text-[#8FA398]">{item.label}</p>
 					</div>
@@ -220,7 +243,7 @@
 							Latest Games
 						</h3>
 						<a href={gamesHref} class="text-xs font-semibold text-[#B8E05C] hover:underline">
-							View league stats →
+							All games →
 						</a>
 					</div>
 					{#if home.latestGames.length === 0}
@@ -229,15 +252,15 @@
 						<ul class="mt-4 space-y-3">
 							{#each home.latestGames as game (game.id)}
 								<li class="border-b border-white/10 pb-3 text-sm">
-									<p class="font-medium">
+									<a href={gameHref(game.id)} class="font-medium hover:text-[#B8E05C]">
 										{game.awayName}
 										{#if game.awayScore != null && game.homeScore != null}
-											<span class="tabular-nums text-[#B8E05C]">
+											<span class="text-[#B8E05C] tabular-nums">
 												{game.awayScore}–{game.homeScore}
 											</span>
 										{/if}
 										{game.homeName}
-									</p>
+									</a>
 									{#if game.at}
 										<p class="mt-0.5 text-xs text-[#8FA398]">{formatDate(game.at)}</p>
 									{/if}
@@ -273,17 +296,23 @@
 						<p class="mt-4 text-sm text-[#8FA398]">Standings unlock once games are completed.</p>
 					{:else}
 						<ul class="mt-4 space-y-2">
-							{#each home.standings as row, i (row.name)}
+							{#each home.standings as row (row.slug)}
 								<li class="flex items-center justify-between gap-2 text-sm">
-									<span class="truncate">
-										<span class="mr-2 tabular-nums text-[#8FA398]">{i + 1}.</span>
+									<a
+										href={teamHref(row.slug, row.divisionSlug)}
+										class="truncate hover:text-[#B8E05C]"
+									>
+										<span class="mr-2 text-[#8FA398] tabular-nums">{row.rank}.</span>
 										{row.name}
-									</span>
-									<span class="shrink-0 tabular-nums font-medium">{row.wins}–{row.losses}</span>
+									</a>
+									<span class="shrink-0 font-medium tabular-nums">{row.wins}–{row.losses}</span>
 								</li>
 							{/each}
 						</ul>
-						<a href={standingsHref} class="mt-3 inline-block text-xs font-semibold text-[#B8E05C] hover:underline">
+						<a
+							href={standingsHref}
+							class="mt-3 inline-block text-xs font-semibold text-[#B8E05C] hover:underline"
+						>
 							All standings →
 						</a>
 					{/if}
@@ -304,61 +333,34 @@
 			>
 				More Than a Scoreboard
 			</h2>
-			<p class="mt-4 max-w-xl text-[#A8B8AE]">
-				GameChanger turns game statistics into player development insights — so athletes see how
-				they’re improving, not just whether their team won.
+			<p class="mt-4 max-w-2xl text-[#A8B8AE]">
+				Public pages show scores, standings, and season averages. Player development reports and
+				coach notes stay on the family dashboard.
 			</p>
-
-			<div class="mt-12 flex flex-col items-stretch gap-8 lg:flex-row lg:items-center lg:gap-12">
-				<div class="flex flex-1 flex-wrap items-end justify-center gap-6 sm:gap-10">
-					<div class="text-center">
-						<p class="text-xs tracking-wide text-[#8FA398] uppercase">Season Start</p>
-						<p
-							class="mt-2 text-5xl font-extrabold tabular-nums"
-							style="font-family: 'Barlow Condensed', system-ui, sans-serif"
-						>
-							9.4
-						</p>
-						<p class="text-sm text-[#8FA398]">PPG</p>
-					</div>
-					<div class="pb-6 text-3xl text-[#B8E05C]" aria-hidden="true">→</div>
-					<div class="text-center">
-						<p class="text-xs tracking-wide text-[#8FA398] uppercase">Current</p>
-						<p
-							class="mt-2 text-5xl font-extrabold tabular-nums text-[#B8E05C]"
-							style="font-family: 'Barlow Condensed', system-ui, sans-serif"
-						>
-							14.2
-						</p>
-						<p class="text-sm text-[#8FA398]">PPG</p>
-					</div>
-					<div class="w-full text-center sm:w-auto">
-						<p
-							class="inline-block border border-[#B8E05C]/40 px-4 py-2 text-lg font-bold text-[#B8E05C]"
-						>
-							+51% Improvement
-						</p>
-					</div>
-				</div>
-
-				<div class="grid flex-1 gap-4 sm:grid-cols-2">
-					<div class="border border-white/10 bg-[#0C1210]/60 p-5">
-						<p class="text-xs font-semibold tracking-wide text-[#B8E05C] uppercase">Strengths</p>
-						<ul class="mt-3 space-y-2 text-sm text-[#E8F0EA]">
-							<li>Passing</li>
-							<li>Rebounding</li>
-							<li>Defensive awareness</li>
-						</ul>
-					</div>
-					<div class="border border-white/10 bg-[#0C1210]/60 p-5">
-						<p class="text-xs font-semibold tracking-wide text-[#E8C46A] uppercase">Focus Areas</p>
-						<ul class="mt-3 space-y-2 text-sm text-[#E8F0EA]">
-							<li>Free throws</li>
-							<li>Turnovers</li>
-							<li>Finishing</li>
-						</ul>
-					</div>
-				</div>
+			<div class="mt-10 grid gap-4 sm:grid-cols-3">
+				<a
+					href={gamesHref}
+					class="border border-white/10 bg-[#0C1210]/60 p-5 hover:border-[#B8E05C]/40"
+				>
+					<p class="text-xs font-semibold tracking-wide text-[#B8E05C] uppercase">Games</p>
+					<p class="mt-2 text-sm text-[#E8F0EA]">Scores and box scores, no account required.</p>
+				</a>
+				<a
+					href={standingsHref}
+					class="border border-white/10 bg-[#0C1210]/60 p-5 hover:border-[#B8E05C]/40"
+				>
+					<p class="text-xs font-semibold tracking-wide text-[#B8E05C] uppercase">Standings</p>
+					<p class="mt-2 text-sm text-[#E8F0EA]">Division records from published league results.</p>
+				</a>
+				<a
+					href={resolve('/login')}
+					class="border border-white/10 bg-[#0C1210]/60 p-5 hover:border-[#B8E05C]/40"
+				>
+					<p class="text-xs font-semibold tracking-wide text-[#B8E05C] uppercase">Your dashboard</p>
+					<p class="mt-2 text-sm text-[#E8F0EA]">
+						Coaches and families see ratings, trends, and notes.
+					</p>
+				</a>
 			</div>
 		</div>
 	</section>
@@ -366,7 +368,9 @@
 	<!-- How it works -->
 	<section class="border-b border-white/10 bg-[#0C1210] py-16 sm:py-20">
 		<div class="mx-auto max-w-6xl px-4 sm:px-6">
-			<p class="text-xs font-semibold tracking-[0.18em] text-[#8FA398] uppercase">Simple by design</p>
+			<p class="text-xs font-semibold tracking-[0.18em] text-[#8FA398] uppercase">
+				Simple by design
+			</p>
 			<h2
 				class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl"
 				style="font-family: 'Barlow Condensed', system-ui, sans-serif"
@@ -436,12 +440,26 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each home.risingStars as star (star.name + star.teamName + star.divisionName)}
+							{#each home.risingStars as star (star.playerId)}
 								<tr class="border-b border-white/5">
-									<td class="py-3 font-medium">{star.name}</td>
-									<td class="py-3 text-[#8FA398]">{star.teamName}</td>
+									<td class="py-3 font-medium">
+										<a
+											href={playerHref(star.playerId)}
+											class="hover:text-[#B8E05C] hover:underline"
+										>
+											{star.name}
+										</a>
+									</td>
+									<td class="py-3 text-[#8FA398]">
+										<a
+											href={teamHref(star.teamSlug, star.divisionSlug)}
+											class="hover:text-[#E8F0EA] hover:underline"
+										>
+											{star.teamName}
+										</a>
+									</td>
 									<td class="py-3 text-[#8FA398]">{star.divisionName}</td>
-									<td class="py-3 tabular-nums font-semibold text-[#B8E05C]">{star.pts}</td>
+									<td class="py-3 font-semibold text-[#B8E05C] tabular-nums">{star.pts}</td>
 									<td class="py-3 tabular-nums">{star.reb}</td>
 									<td class="py-3 tabular-nums">{star.ast}</td>
 								</tr>
@@ -472,7 +490,7 @@
 				href={resolve('/signup')}
 				class="mt-8 inline-flex text-sm font-semibold text-[#B8E05C] hover:underline"
 			>
-				Our Story →
+				Create an account
 			</a>
 		</div>
 	</section>

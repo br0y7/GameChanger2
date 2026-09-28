@@ -29,11 +29,17 @@ import {
 	type RatingBreakdown,
 } from '$lib/stats/game-rating';
 import { isPlayerPage, type AskAiAudience, type AskAiContextType } from '$lib/ai/context';
+import { gameTypeLabel } from '$lib/schemas/game';
+import { formatLineupContext, type LineupPlayer } from '$lib/ai/lineup';
 import {
 	formatSeasonLeaderboards,
 	formatSeasonPlayerLine,
 	loadSeasonPlayerLines,
 } from '$lib/server/season-player-directory.server';
+import {
+	formatPrePlayoffStandings,
+	loadPrePlayoffStandings,
+} from '$lib/server/pre-playoff-standings.server';
 
 const historyMessageSchema = z.object({
 	role: z.enum(['user', 'assistant']),
@@ -71,22 +77,52 @@ function audienceLabel(audience: AskAiAudience) {
 	return 'league organizer';
 }
 
-function pushLineupRoster(
-	parts: string[],
-	players: { jerseyNumber: string; name: string; points: number; rebounds: number; assists: number; gamesPlayed: number }[]
-) {
-	parts.push(`Lineup roster (${players.length} players). Use only these names for starters, 6th man, and the rotation:`);
-	for (const player of players) {
-		parts.push(
-			`- #${player.jerseyNumber} ${player.name}: ${player.points.toFixed(1)} PPG, ${player.rebounds.toFixed(1)} RPG, ${player.assists.toFixed(1)} APG (${player.gamesPlayed} GP)`
-		);
+function pageSubjectLine(type: AskAiContextType) {
+	if (isPlayerPage(type)) {
+		return 'This page is about one specific player. "me", "my stats", and "how did I do?" refer to this player unless they name someone else. If they name a player, use the league directory. Leaderboard questions use the Top 10 lists.';
 	}
+	if (type === 'team') {
+		return 'This page is a team page. "we", "our team", and "who should start?" refer to this team. Do not ask which team. Leaderboard questions refer to this division unless they say otherwise. If they ask for "my stats" or "how am I doing?" without naming a player, ask: Who should I pull the stats for? If they name a player, use the league directory.';
+	}
+	if (type === 'game') {
+		return 'This page is a game page. "this game" refers to this game. If they ask for "my stats" or "how am I doing?" without naming a player, ask: Who should I pull the stats for? If they name a player, use the league directory. If they ask who leads a stat or for a top 10 list, use the Top 10 leaderboards.';
+	}
+	if (type === 'season') {
+		return 'This page is a season page and may list several divisions. If they ask for a leaderboard and do not name a division, ask which division. If they ask for "my stats" without naming a player, ask: Who should I pull the stats for? If they name a player, use the league directory.';
+	}
+	return 'This page is not about one team, player, or game. If they ask for their stats without naming who, ask: Who should I pull the stats for? If they name a player, use the league directory. If they ask who leads a stat or for a top 10 list, use the Top 10 leaderboards.';
+}
+
+function pushLineupRoster(parts: string[], teamName: string, players: LineupPlayer[]) {
+	parts.push(formatLineupContext(teamName, players));
+}
+
+function missingRatingNote(input: {
+	playerName: string;
+	pointsOnly: boolean;
+	gameLabel?: string;
+	points: number;
+	rebounds: number;
+	offensiveRebounds: number;
+	assists: number;
+	steals: number;
+	blocks: number;
+	turnovers: number;
+}) {
+	const where = input.gameLabel ? ` (${input.gameLabel})` : '';
+	const stats = `${input.points} PTS, ${input.rebounds} REB, ${input.offensiveRebounds} OREB, ${input.assists} AST, ${input.steals} STL, ${input.blocks} BLK, ${input.turnovers} TO`;
+	if (input.pointsOnly) {
+		return `No Game Rating for ${input.playerName}${where}. Stats: ${stats}. This line is points-only, so it does not receive a Game Rating.`;
+	}
+	return `No Game Rating for ${input.playerName}${where}. Stats: ${stats}. This game was fully tracked. It is not points-only. Do not say the rating is missing because only points were recorded.`;
 }
 
 function pushOfficialRating(
 	parts: string[],
 	input: {
 		playerName: string;
+		gameLabel?: string;
+		pointsOnly?: boolean;
 		rating: number | null;
 		breakdown: RatingBreakdown | null;
 		impactScore: number | null;
@@ -110,6 +146,7 @@ function pushOfficialRating(
 		input.percentile == null ||
 		input.contextBonus == null
 	) {
+		parts.push(missingRatingNote({ ...input, pointsOnly: input.pointsOnly ?? false }));
 		return;
 	}
 
@@ -137,19 +174,22 @@ function pushOfficialRating(
 
 async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 	const parts: string[] = [];
-	const onPlayer = isPlayerPage(context.type as AskAiContextType);
+	const page = context.type === 'family' ? 'player' : context.type;
 	parts.push(`Viewer role: ${audienceLabel(context.audience)}.`);
-	parts.push(
-		onPlayer
-			? 'This page is about one specific player. Answer stats questions for this player unless they name someone else in the league directory, or ask who leads a stat / for a top 10 list. Those leaderboard questions use the Top 10 lists.'
-			: 'This page is not about one specific player. If the user asks for their stats without naming who, ask: Who should I pull the stats for? If they name a player, use the league directory. If they ask who leads a stat or for a top 10 list, use the Top 10 leaderboards.'
-	);
+	parts.push(`Page: ${page}.`);
+	parts.push(pageSubjectLine(context.type as AskAiContextType));
 
 	let seasonId: string | null = null;
 	let focusDivisionName: string | null = null;
 
 	try {
-		if (context.type === 'team' && context.orgSlug && context.seasonSlug && context.divisionSlug && context.teamSlug) {
+		if (
+			context.type === 'team' &&
+			context.orgSlug &&
+			context.seasonSlug &&
+			context.divisionSlug &&
+			context.teamSlug
+		) {
 			const org = await getOrganization({ slug: context.orgSlug });
 			const season = await getSeason({ slug: context.seasonSlug, organizationId: org.id });
 			const division = await getDivision({ slug: context.divisionSlug, seasonId: season.id });
@@ -169,8 +209,10 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			parts.push(`Team: ${team.name}`);
 			parts.push(`Season: ${season.name}`);
 			parts.push(`Division: ${division.name}`);
-			parts.push(`Record: ${overview.record.wins}-${overview.record.losses}`);
-			parts.push(`Rank: ${overview.rank ? `#${overview.rank}` : 'n/a'} of ${overview.teamsInDivision}`);
+			parts.push(`Regular-season record: ${overview.record.wins}-${overview.record.losses}`);
+			parts.push(
+				`Rank before playoffs: ${overview.rank ? `#${overview.rank}` : 'n/a'} of ${overview.teamsInDivision}`
+			);
 			if (overview.divisionPlace) parts.push(`Place: ${overview.divisionPlace}`);
 			parts.push(`PPG: ${overview.ppg.toFixed(1)} | Opp PPG: ${overview.oppPpg.toFixed(1)}`);
 			if (overview.streak) parts.push(`Streak: ${overview.streak}`);
@@ -185,7 +227,7 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			}
 
 			if (context.audience === 'coach') {
-				pushLineupRoster(parts, overview.rosterAverages);
+				pushLineupRoster(parts, team.name, overview.rosterAverages);
 			} else {
 				parts.push('Roster averages (PPG / RPG / APG):');
 				for (const p of overview.rosterAverages.slice(0, 15)) {
@@ -198,9 +240,16 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			if (overview.recentGames.length) {
 				parts.push('Recent games:');
 				for (const g of overview.recentGames) {
-					parts.push(
-						`- ${g.result} ${g.teamScore}-${g.oppScore} vs ${g.opponentName}`
-					);
+					const type = gameTypeLabel(g.gameType);
+					// A forfeit is stored 1-0. Quoting that as the score would read as a played result.
+					if (g.defaultResult) {
+						const outcome = g.defaultResult === 'Default win' ? 'won' : 'lost';
+						parts.push(
+							`- ${g.defaultResult} vs ${g.opponentName} (${type}). The game ended in a default, so they ${outcome} it without a score being played.`
+						);
+						continue;
+					}
+					parts.push(`- ${g.result} ${g.teamScore}-${g.oppScore} vs ${g.opponentName} (${type})`);
 				}
 			}
 		}
@@ -250,6 +299,8 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 					);
 					pushOfficialRating(parts, {
 						playerName: player.name,
+						gameLabel: g.game?.name ?? undefined,
+						pointsOnly: g.pointsOnly,
 						rating: g.gameRating,
 						breakdown: g.ratingBreakdown,
 						impactScore: g.impactScore,
@@ -281,10 +332,11 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 
 		if (context.type === 'game' && context.gameId) {
 			const box = await getGameBoxScore({ gameId: context.gameId });
-			parts.push(`Game: ${box.awayTeam.name} ${box.awayTeam.score} – ${box.homeTeam.score} ${box.homeTeam.name}`);
+			seasonId = box.seasonId;
 			parts.push(
-				'Team result is context only. It is not an input to the GameChanger Rating.'
+				`Game: ${box.awayTeam.name} ${box.awayTeam.score} – ${box.homeTeam.score} ${box.homeTeam.name}`
 			);
+			parts.push('Team result is context only. It is not an input to the GameChanger Rating.');
 			for (const side of [box.awayTeam, box.homeTeam]) {
 				const opponentScore = side.id === box.homeTeam.id ? box.awayTeam.score : box.homeTeam.score;
 				parts.push(`${side.name} players:`);
@@ -294,6 +346,7 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 					);
 					pushOfficialRating(parts, {
 						playerName: p.name,
+						pointsOnly: p.pointsOnly,
 						rating: p.gameRating,
 						breakdown: p.ratingBreakdown,
 						impactScore: p.impactScore,
@@ -349,6 +402,8 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			for (const game of detail.gameLog.slice(0, 5)) {
 				pushOfficialRating(parts, {
 					playerName: detail.player.name,
+					gameLabel: `vs ${game.opponentName}`,
+					pointsOnly: game.pointsOnly,
 					rating: game.gameRating,
 					breakdown: game.breakdown,
 					impactScore: game.impactScore,
@@ -375,7 +430,7 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 						divisionId: portal.division.id,
 						seasonId: portal.season.id,
 					});
-					pushLineupRoster(parts, overview.rosterAverages);
+					pushLineupRoster(parts, detail.player.teamName, overview.rosterAverages);
 				}
 			}
 		}
@@ -394,11 +449,14 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 				parts.push(`Team: ${team.name}`);
 				parts.push(`Season: ${portal.season.name}`);
 				parts.push(`Division: ${portal.division.name}`);
-				parts.push(`Record: ${overview.record.wins}-${overview.record.losses}`);
+				parts.push(`Regular-season record: ${overview.record.wins}-${overview.record.losses}`);
+				parts.push(
+					`Rank before playoffs: ${overview.rank ? `#${overview.rank}` : 'n/a'} of ${overview.teamsInDivision}`
+				);
 				if (overview.divisionPlace) parts.push(`Place: ${overview.divisionPlace}`);
 				parts.push(`PPG: ${overview.ppg.toFixed(1)} | Opp PPG: ${overview.oppPpg.toFixed(1)}`);
 				if (context.audience === 'coach') {
-					pushLineupRoster(parts, overview.rosterAverages);
+					pushLineupRoster(parts, team.name, overview.rosterAverages);
 				} else {
 					parts.push('Roster averages (PPG / RPG / APG):');
 					for (const p of overview.rosterAverages.slice(0, 15)) {
@@ -438,8 +496,18 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 				parts.push(`Average Game Rating: ${home.ratingSummary.average.toFixed(1)}`);
 			}
 			for (const game of home.recentGames) {
+				// A forfeit has no box score, so an all-zero stat line would misread as a bad game.
+				if (game.defaultResult) {
+					const outcome = game.defaultResult === 'Default win' ? 'won' : 'lost';
+					parts.push(
+						`${game.defaultResult} vs ${game.opponentName}. The game ended in a default, so the team ${outcome} it and no box score was recorded for ${home.player.name}.`
+					);
+					continue;
+				}
 				pushOfficialRating(parts, {
 					playerName: home.player.name,
+					gameLabel: `vs ${game.opponentName}`,
+					pointsOnly: game.pointsOnly,
 					rating: game.gameRating,
 					breakdown: game.breakdown,
 					impactScore: game.impactScore,
@@ -465,6 +533,12 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 		}
 
 		if (seasonId) {
+			const standings = await loadPrePlayoffStandings(seasonId);
+			const standingsText = formatPrePlayoffStandings(standings);
+			if (standingsText) {
+				parts.push('');
+				parts.push(standingsText);
+			}
 			const directory = await loadSeasonPlayerLines(seasonId);
 			parts.push('');
 			parts.push(
@@ -501,7 +575,9 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 }
 
 function getOpenAiConfig() {
-	const apiKey = (env.OPENAI_API_KEY || env.OPEN_AI_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+	const apiKey = (env.OPENAI_API_KEY || env.OPEN_AI_API_KEY || '')
+		.trim()
+		.replace(/^["']|["']$/g, '');
 	const baseUrl = (env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
 	const model = env.OPENAI_MODEL || 'gpt-5-mini';
 	return { apiKey, baseUrl, model };
@@ -643,7 +719,12 @@ export const getAskAiContextLabel = command(
 				const player = await getPlayer({ teamId: team.id, jerseyNumber: context.jerseyNumber });
 				return { label: player.name };
 			}
-			if (context.type === 'player' && context.playerId && context.teamId && !context.jerseyNumber) {
+			if (
+				context.type === 'player' &&
+				context.playerId &&
+				context.teamId &&
+				!context.jerseyNumber
+			) {
 				const detail = await getCoachPlayerDetail({
 					teamId: context.teamId,
 					playerId: context.playerId,

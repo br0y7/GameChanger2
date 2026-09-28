@@ -1,4 +1,5 @@
 import { command, form, query } from '$app/server';
+import { isPlayerIdentityChange, relayDashboard } from '$lib/server/dashboard-sync.server';
 import { createSeasonSchema, seasonSchema, updateSeasonSchema } from '$lib/schemas/season';
 import { db } from '$lib/server/db';
 import { requireSession, requireUser } from './auth.remote';
@@ -174,14 +175,9 @@ export const setActiveSeason = command(
 		await db
 			.update(table.season)
 			.set({ status: 'completed' })
-			.where(
-				and(eq(table.season.organizationId, organizationId), ne(table.season.id, seasonId))
-			);
+			.where(and(eq(table.season.organizationId, organizationId), ne(table.season.id, seasonId)));
 
-		await db
-			.update(table.season)
-			.set({ status: 'active' })
-			.where(eq(table.season.id, seasonId));
+		await db.update(table.season).set({ status: 'active' }).where(eq(table.season.id, seasonId));
 
 		const user = await requireUser();
 		serverLogger.info('set active season', { seasonId, organizationId, userId: user.id });
@@ -257,79 +253,83 @@ export const getSeasonStats = query(z.object({ seasonId: idField }), async ({ se
 	};
 });
 
-export const getLeagueRecentActivity = query(
+export const getLeagueRecentActivity = query.live(
 	z.object({
 		organizationId: idField,
 		limit: z.number().int().min(1).max(20).default(8),
 	}),
-	async ({ organizationId, limit }) => {
-		const seasons = await db.query.season.findMany({
-			where: { organizationId },
-			columns: { id: true },
-		});
-		const seasonIds = seasons.map((s) => s.id);
-		if (!seasonIds.length) {
-			return [] as Array<{ id: string; at: Date; label: string }>;
-		}
+	({ organizationId, limit }) =>
+		relayDashboard(
+			async () => {
+				const seasons = await db.query.season.findMany({
+					where: { organizationId },
+					columns: { id: true },
+				});
+				const seasonIds = seasons.map((s) => s.id);
+				if (!seasonIds.length) {
+					return [] as Array<{ id: string; at: Date; label: string }>;
+				}
 
-		const [games, playersAll, teamsAll] = await Promise.all([
-			db.query.game.findMany({
-				where: { seasonId: { in: seasonIds } },
-				with: {
-					homeTeam: { columns: { name: true } },
-					awayTeam: { columns: { name: true } },
-				},
-				orderBy: { updatedAt: 'desc' },
-				limit,
-			}),
-			db
-				.select({
-					id: table.player.id,
-					name: table.player.name,
-					jerseyNumber: table.player.jerseyNumber,
-					updatedAt: table.player.updatedAt,
-					teamName: table.team.name,
-				})
-				.from(table.player)
-				.innerJoin(table.team, eq(table.player.teamId, table.team.id))
-				.innerJoin(table.division, eq(table.team.divisionId, table.division.id))
-				.where(inArray(table.division.seasonId, seasonIds))
-				.orderBy(desc(table.player.updatedAt))
-				.limit(limit),
-			db
-				.select({
-					id: table.team.id,
-					name: table.team.name,
-					updatedAt: table.team.updatedAt,
-				})
-				.from(table.team)
-				.innerJoin(table.division, eq(table.team.divisionId, table.division.id))
-				.where(inArray(table.division.seasonId, seasonIds))
-				.orderBy(desc(table.team.updatedAt))
-				.limit(limit),
-		]);
+				const [games, playersAll, teamsAll] = await Promise.all([
+					db.query.game.findMany({
+						where: { seasonId: { in: seasonIds } },
+						with: {
+							homeTeam: { columns: { name: true } },
+							awayTeam: { columns: { name: true } },
+						},
+						orderBy: { updatedAt: 'desc' },
+						limit,
+					}),
+					db
+						.select({
+							id: table.player.id,
+							name: table.player.name,
+							jerseyNumber: table.player.jerseyNumber,
+							updatedAt: table.player.updatedAt,
+							teamName: table.team.name,
+						})
+						.from(table.player)
+						.innerJoin(table.team, eq(table.player.teamId, table.team.id))
+						.innerJoin(table.division, eq(table.team.divisionId, table.division.id))
+						.where(inArray(table.division.seasonId, seasonIds))
+						.orderBy(desc(table.player.updatedAt))
+						.limit(limit),
+					db
+						.select({
+							id: table.team.id,
+							name: table.team.name,
+							updatedAt: table.team.updatedAt,
+						})
+						.from(table.team)
+						.innerJoin(table.division, eq(table.team.divisionId, table.division.id))
+						.where(inArray(table.division.seasonId, seasonIds))
+						.orderBy(desc(table.team.updatedAt))
+						.limit(limit),
+				]);
 
-		return [
-			...games.map((g) => ({
-				id: `game-${g.id}`,
-				at: g.updatedAt ?? g.completedAt ?? g.createdAt,
-				label: `${g.awayTeam?.name ?? 'Away'} vs ${g.homeTeam?.name ?? 'Home'} stats updated`,
-			})),
-			...playersAll.map((p) => ({
-				id: `player-${p.id}`,
-				at: p.updatedAt,
-				label: `#${p.jerseyNumber} ${p.name} (${p.teamName}) updated`,
-			})),
-			...teamsAll.map((t) => ({
-				id: `team-${t.id}`,
-				at: t.updatedAt,
-				label: `${t.name} roster/team updated`,
-			})),
-		]
-			.filter((e) => !!e.at)
-			.sort((a, b) => b.at.getTime() - a.at.getTime())
-			.slice(0, limit);
-	}
+				return [
+					...games.map((g) => ({
+						id: `game-${g.id}`,
+						at: g.updatedAt ?? g.completedAt ?? g.createdAt,
+						label: `${g.awayTeam?.name ?? 'Away'} vs ${g.homeTeam?.name ?? 'Home'} stats updated`,
+					})),
+					...playersAll.map((p) => ({
+						id: `player-${p.id}`,
+						at: p.updatedAt,
+						label: `#${p.jerseyNumber} ${p.name} (${p.teamName}) updated`,
+					})),
+					...teamsAll.map((t) => ({
+						id: `team-${t.id}`,
+						at: t.updatedAt,
+						label: `${t.name} roster/team updated`,
+					})),
+				]
+					.filter((e) => !!e.at)
+					.sort((a, b) => b.at.getTime() - a.at.getTime())
+					.slice(0, limit);
+			},
+			(_activity, change) => isPlayerIdentityChange(change, { organizationId })
+		)
 );
 
 export const deleteSeason = form(idOnlySchema, async ({ id }) => {

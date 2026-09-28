@@ -4,7 +4,7 @@ import {
 	type SpreadsheetParser,
 } from '$lib/parsers/base';
 import * as xlsx from 'xlsx';
-import { applyExcelTime, convertExcelDate } from './date-time';
+import { applySheetTime, parseSheetDate } from './date-time';
 import {
 	type GamePreview,
 	type PlayerGameStatsPreview,
@@ -12,7 +12,13 @@ import {
 	type TeamPreview,
 } from '$lib/schemas/preview';
 import type { GameType } from '$lib/schemas/game';
-import { isPointsColumn, isPointsOnlyHeaders, parseGameTypeLabel } from '$lib/parsers/sheet-labels';
+import {
+	isGameTypeLabel,
+	isPointsColumn,
+	isPointsOnlyHeaders,
+	parseGameTypeLabel,
+	refineGameTypeWithName,
+} from '$lib/parsers/sheet-labels';
 import { Temporal } from 'temporal-polyfill';
 import { serverLogger } from '$lib/server/logger';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
@@ -31,10 +37,6 @@ const HEADER_REPLACEMENTS: Record<string, Header> = {
 type RowValue = string | number | null | undefined;
 
 function parseGameType(value: RowValue, gameName: string, excelRow: number): GameType {
-	if (value === undefined || value === null || String(value).trim() === '') {
-		return 'regular';
-	}
-
 	const parsed = parseGameTypeLabel(value);
 	if (parsed) return parsed;
 
@@ -45,9 +47,10 @@ function parseGameType(value: RowValue, gameName: string, excelRow: number): Gam
 	);
 }
 
-function isGameTypeLabel(label: string) {
-	const normalized = label.trim().toLowerCase().replace(/[_-]+/g, ' ');
-	return normalized === 'game type' || normalized === 'gametype' || normalized.startsWith('game type');
+/** Labelled rows come as "Date: 2026-08-23" in one cell, or "Date" and the value in two. */
+function labelledValue(first: RowValue, second: RowValue, label: RegExp): RowValue {
+	if (second !== undefined && second !== null && String(second).trim() !== '') return second;
+	return String(first).replace(label, '').trim();
 }
 
 /** Parse the cell beside the team name: a number, or Win/Lose/Default Lose when no stats exist. */
@@ -56,7 +59,9 @@ function parseTeamScoreCell(
 	gameName: string,
 	teamName: string,
 	excelRow: number
-): { kind: 'points'; score: number } | { kind: 'result'; result: 'win' | 'lose'; score: number } {
+):
+	| { kind: 'points'; score: number }
+	| { kind: 'result'; result: 'win' | 'lose' | 'default_lose'; score: number } {
 	if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
 		return { kind: 'points', score: 0 };
 	}
@@ -65,26 +70,28 @@ function parseTeamScoreCell(
 		return { kind: 'points', score: value };
 	}
 
-	const normalized = String(value)
-		.trim()
-		.toLowerCase()
-		.replace(/[_-]+/g, ' ')
-		.replace(/\s+/g, ' ');
+	const normalized = String(value).trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
 
 	if (normalized === 'win' || normalized === 'won' || normalized === 'w') {
 		return { kind: 'result', result: 'win', score: 1 };
 	}
 
-	// Classic lose, or default/forfeit lose — other team wins; no box-score stats.
+	if (
+		normalized === 'default lose' ||
+		normalized === 'default loss' ||
+		normalized === 'default lost' ||
+		normalized === 'default forfeit' ||
+		normalized === 'forfeit' ||
+		normalized === 'dl'
+	) {
+		return { kind: 'result', result: 'default_lose', score: 0 };
+	}
+
 	if (
 		normalized === 'lose' ||
 		normalized === 'loss' ||
 		normalized === 'lost' ||
-		normalized === 'l' ||
-		normalized === 'default lose' ||
-		normalized === 'default loss' ||
-		normalized === 'default lost' ||
-		normalized === 'dl'
+		normalized === 'l'
 	) {
 		return { kind: 'result', result: 'lose', score: 0 };
 	}
@@ -101,8 +108,53 @@ function parseTeamScoreCell(
 	);
 }
 
+function isPlayerHeaderRow(value: RowValue): boolean {
+	if (typeof value !== 'string') return false;
+	const lowered = value.toLowerCase();
+	return lowered.startsWith('player no') || lowered.startsWith('player name');
+}
+
+/** The next row carrying something in column A, which is where names and labels live. */
+function nextLabelledRow(rows: RowValue[][], fromIndex: number): RowValue[] | null {
+	for (let i = fromIndex + 1; i < rows.length; i++) {
+		const first = rows[i]?.[0];
+		if (first === undefined || first === null) continue;
+		if (typeof first === 'string' && first.trim() === '') continue;
+		return rows[i] ?? null;
+	}
+	return null;
+}
+
+/**
+ * A team name in column A carries either its score beside it or its player header underneath.
+ * Notes typed into column A ("No Footage", "missing some footage...") carry neither, and reading
+ * one as a team costs the game a real side: the note takes the slot and an opponent is dropped.
+ */
+function isTeamNameRow(rows: RowValue[][], rowIndex: number): boolean {
+	const beside = rows[rowIndex]?.[1];
+	if (beside !== undefined && beside !== null && String(beside).trim() !== '') return true;
+
+	return isPlayerHeaderRow(nextLabelledRow(rows, rowIndex)?.[0]);
+}
+
 function gameError(gameName: string, section: string, message: string, cause?: unknown) {
-	return new SpreadsheetParserError(`[Game: ${gameName}] [${section}] ${message}`, { cause });
+	return new SpreadsheetParserError(`Game: ${gameName} — ${section} — ${message}`, { cause });
+}
+
+function formatPlayedOn(zoned: Temporal.ZonedDateTime): string {
+	return zoned.toPlainDate().toLocaleString('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+	});
+}
+
+function withPlayedOn(message: string, gameName: string, playedOn?: string) {
+	if (!playedOn) return message;
+	const prefix = `Game: ${gameName}`;
+	const dated = `${prefix} — ${playedOn}`;
+	if (!message.startsWith(prefix) || message.startsWith(dated)) return message;
+	return `${dated}${message.slice(prefix.length)}`;
 }
 
 function parseStatNumber(value: RowValue): number {
@@ -118,6 +170,11 @@ function parseStatNumber(value: RowValue): number {
 	return Number.isFinite(value) ? value : 0;
 }
 
+/** "00" and "04" are text in Excel so a leading zero survives. They are jersey numbers. */
+function isJerseyNumberLabel(value: string): boolean {
+	return /^\d+$/.test(value.trim());
+}
+
 function parseStatsRow(
 	row: RowValue[],
 	headers: Header[],
@@ -127,17 +184,21 @@ function parseStatsRow(
 ): PlayerGameStatsPreview {
 	let jerseyNumber = '';
 	let recordedPts: number | null = pointsOnly ? 0 : null;
-	const stats = Object.fromEntries(rawStatKeys.map((key) => [key, 0])) as Record<
-		StatKey,
-		number
-	>;
+	let sawPointsColumn = false;
+	let pointsFromColumn = 0;
+	const stats = Object.fromEntries(rawStatKeys.map((key) => [key, 0])) as Record<StatKey, number>;
 
 	for (let i = 0; i < headers.length; i++) {
 		const header = headers[i];
+		if (typeof header !== 'string' || header.trim() === '') continue;
 
-		if (pointsOnly && isPointsColumn(header)) {
-			recordedPts = parseStatNumber(row[i]);
-			continue;
+		if (isPointsColumn(header)) {
+			sawPointsColumn = true;
+			pointsFromColumn = parseStatNumber(row[i]);
+			if (pointsOnly) {
+				recordedPts = pointsFromColumn;
+				continue;
+			}
 		}
 
 		if (!ALLOWED_HEADERS.has(header)) {
@@ -159,9 +220,7 @@ function parseStatsRow(
 		}
 
 		const isBlank =
-			value === undefined ||
-			value === null ||
-			(typeof value === 'string' && value.trim() === '');
+			value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
 
 		const statValue = parseStatNumber(value);
 
@@ -175,6 +234,11 @@ function parseStatsRow(
 		}
 
 		stats[header] = statValue;
+	}
+
+	// A full header row with only the points cells filled is still points-only (no footage).
+	if (!pointsOnly && sawPointsColumn && rawStatKeys.every((key) => stats[key] === 0)) {
+		recordedPts = pointsFromColumn;
 	}
 
 	return {
@@ -196,7 +260,10 @@ function parseGameSheet(
 	}) as RowValue[][];
 
 	let gameTime = Temporal.Now.zonedDateTimeISO();
+	let playedOn = '';
 	let gameType: GameType = 'regular';
+	let sawExplicitGameType = false;
+	let looseGameType: GameType | null = null;
 
 	const teams: TeamPreview[] = [];
 	let currentTeam: TeamPreview | null = null;
@@ -204,7 +271,7 @@ function parseGameSheet(
 	let currentPointsOnly = false;
 	let isReadingStats = false;
 	let resultOnlyGame = false;
-	const teamResults: Array<'win' | 'lose' | null> = [];
+	const teamResults: Array<'win' | 'lose' | 'default_lose' | null> = [];
 
 	try {
 		for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
@@ -221,7 +288,11 @@ function parseGameSheet(
 
 			if (firstLowerText.startsWith('date') && !isReadingStats) {
 				try {
-					gameTime = convertExcelDate(second as number, options.timeZone);
+					gameTime = parseSheetDate(
+						labelledValue(first, second, /^date\s*:?\s*/i),
+						options.timeZone
+					);
+					playedOn = formatPlayedOn(gameTime);
 				} catch (err) {
 					throw gameError(
 						gameName,
@@ -234,17 +305,18 @@ function parseGameSheet(
 			}
 
 			if (firstLowerText.startsWith('time') && !isReadingStats) {
+				const value = labelledValue(first, second, /^time\s*:?\s*/i);
 				// Time row is optional: missing/blank values are ignored (date-only is fine).
-				if (second === undefined || second === null || second === '') {
+				if (value === undefined || value === null || String(value).trim() === '') {
 					continue;
 				}
 				try {
-					gameTime = applyExcelTime(gameTime, second as number);
+					gameTime = applySheetTime(gameTime, value);
 				} catch (err) {
 					serverLogger.warn('optional time row skipped', {
 						gameName,
 						excelRow,
-						value: second,
+						value,
 						error: err instanceof Error ? err.message : String(err),
 					});
 				}
@@ -252,7 +324,13 @@ function parseGameSheet(
 			}
 
 			if (isGameTypeLabel(firstLowerText) && !isReadingStats) {
-				gameType = parseGameType(second, gameName, excelRow);
+				const value = labelledValue(first, second, /^game\s*type\s*:?\s*/i);
+				// A Game Type row with no value says nothing, so leave the sheet name in charge.
+				if (value === undefined || value === null || String(value).trim() === '') {
+					continue;
+				}
+				gameType = parseGameType(value, gameName, excelRow);
+				sawExplicitGameType = true;
 				continue;
 			}
 
@@ -262,20 +340,24 @@ function parseGameSheet(
 			}
 
 			if (!isReadingStats) {
+				// Some sheets drop the type on a row of its own, with no "Game Type" label beside it.
+				if (second === undefined || second === null || String(second).trim() === '') {
+					const loose = parseGameTypeLabel(first);
+					if (loose && loose !== 'regular') looseGameType = loose;
+				}
 				continue;
 			}
 
-			if (
-				typeof first === 'string' &&
-				(firstLowerText.startsWith('player no') || firstLowerText.startsWith('player name'))
-			) {
+			if (isPlayerHeaderRow(first)) {
 				// Result-only sheets (Win/Lose/Default Lose) may still include a header row — ignore it.
 				if (resultOnlyGame) {
 					currentHeaders = [];
 					continue;
 				}
 
-				if (!row.every((h) => typeof h === 'string')) {
+				const blankHeader = (cell: RowValue) =>
+					cell == null || (typeof cell === 'string' && cell.trim() === '');
+				if (!row.every((cell) => blankHeader(cell) || typeof cell === 'string')) {
 					throw gameError(
 						gameName,
 						`Header row (Excel row ${excelRow})`,
@@ -283,14 +365,47 @@ function parseGameSheet(
 					);
 				}
 
-				currentHeaders = row
-					.map((v) => v.toString().toLowerCase())
-					.map((h) => HEADER_REPLACEMENTS[h] ?? h);
+				// Blank header cells are empty columns. Keep their index so player values stay aligned.
+				const headers: Header[] = [];
+				for (let i = 0; i < row.length; i++) {
+					const cell = row[i];
+					if (typeof cell !== 'string' || cell.trim() === '') {
+						headers.push('' as Header);
+						continue;
+					}
+					const lowered = cell.trim().toLowerCase();
+					headers.push(HEADER_REPLACEMENTS[lowered] ?? (lowered as Header));
+				}
+				currentHeaders = headers;
 				currentPointsOnly = isPointsOnlyHeaders(currentHeaders);
 				continue;
 			}
 
+			// A jersey kept as text ("00", "04") is still a player on the open team.
+			// Treating it as a team name splits the roster and drops the real opponent.
+			if (
+				typeof first === 'string' &&
+				isJerseyNumberLabel(first) &&
+				currentTeam &&
+				currentHeaders.length > 0 &&
+				!resultOnlyGame
+			) {
+				currentTeam.playerStats.push(
+					parseStatsRow(row, currentHeaders, gameName, currentTeam.name, currentPointsOnly)
+				);
+				continue;
+			}
+
 			if (typeof first === 'string') {
+				if (!isTeamNameRow(rows, rowIndex)) {
+					serverLogger.warn('skipped a column A row that is not a team name', {
+						gameName,
+						excelRow,
+						value: first,
+					});
+					continue;
+				}
+
 				const parsedScore = parseTeamScoreCell(second, gameName, first.toString(), excelRow);
 
 				if (parsedScore.kind === 'result') {
@@ -355,9 +470,10 @@ function parseGameSheet(
 			);
 		}
 
+		let defaultLossSide: 'home' | 'away' | null = null;
 		if (resultOnlyGame) {
 			const wins = teamResults.filter((r) => r === 'win').length;
-			const losses = teamResults.filter((r) => r === 'lose').length;
+			const losses = teamResults.filter((r) => r === 'lose' || r === 'default_lose').length;
 			if (wins !== 1 || losses !== 1) {
 				throw gameError(
 					gameName,
@@ -369,9 +485,32 @@ function parseGameSheet(
 			for (const team of teams) {
 				team.playerStats = [];
 			}
+			if (teamResults[0] === 'default_lose') defaultLossSide = 'home';
+			if (teamResults[1] === 'default_lose') defaultLossSide = 'away';
+		}
+
+		if (sawExplicitGameType) {
+			gameType = refineGameTypeWithName(gameType, gameName);
+		} else if (looseGameType) {
+			gameType = looseGameType;
+		} else {
+			const fromName = parseGameTypeLabel(gameName);
+			if (fromName && fromName !== 'regular') gameType = fromName;
 		}
 
 		const [homeTeam, awayTeam] = teams;
+		if (!resultOnlyGame) {
+			for (const team of teams) {
+				if (team.score !== 0) continue;
+				const fromPlayers = team.playerStats.reduce((sum, row) => {
+					if (row.recordedPts != null) return sum + row.recordedPts;
+					const madeTwos = row.stats.fgm - row.stats.fg3m;
+					return sum + madeTwos * 2 + row.stats.fg3m * 3 + row.stats.ftm;
+				}, 0);
+				if (fromPlayers > 0) team.score = fromPlayers;
+			}
+		}
+
 		const playerRows = teams.flatMap((team) => team.playerStats);
 		const pointsOnly =
 			!resultOnlyGame &&
@@ -381,23 +520,24 @@ function parseGameSheet(
 		return {
 			name: gameName,
 			completedAt: new Date(gameTime.epochMilliseconds),
+			playedOn,
 			gameType,
+			gameTypeExplicit: sawExplicitGameType,
+			defaultLossSide,
 			statsAvailable: !resultOnlyGame,
 			pointsOnly,
 			homeTeam,
 			awayTeam,
 		};
 	} catch (err) {
-		if (err instanceof SpreadsheetParserError) {
-			throw err;
-		}
-
-		throw gameError(
-			gameName,
-			'Sheet',
-			err instanceof Error ? err.message : 'Unknown parse error',
-			err
-		);
+		const detail = err instanceof Error ? err.message : 'Unknown parse error';
+		const base =
+			err instanceof SpreadsheetParserError && err.message.startsWith(`Game: ${gameName}`)
+				? err
+				: gameError(gameName, 'Sheet', detail, err);
+		const message = withPlayedOn(base.message, gameName, playedOn);
+		if (message === base.message) throw base;
+		throw new SpreadsheetParserError(message, { cause: err, issues: [message] });
 	}
 }
 
@@ -405,8 +545,21 @@ const parse: SpreadsheetParser['parse'] = (workbook, options) => {
 	const sheetNames = workbook.SheetNames.filter((s) => s.toLowerCase() !== 'acronyms');
 
 	const games: GamePreview[] = [];
+	const failures: string[] = [];
 	for (const name of sheetNames) {
-		games.push(parseGameSheet(workbook.Sheets[name], name, options));
+		try {
+			games.push(parseGameSheet(workbook.Sheets[name], name, options));
+		} catch (err) {
+			const message =
+				err instanceof SpreadsheetParserError
+					? err.message
+					: `Game: ${name} — Sheet — ${err instanceof Error ? err.message : 'Unknown parse error'}`;
+			failures.push(message);
+		}
+	}
+
+	if (failures.length > 0) {
+		throw new SpreadsheetParserError(failures.join('\n'), { issues: failures });
 	}
 
 	return { games, version: 'v1' };

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isPointsOnlyHeaders, parseGameTypeLabel } from './sheet-labels';
+import { isPointsOnlyHeaders, parseGameTypeLabel, refineGameTypeWithName } from './sheet-labels';
 
 describe('parseGameTypeLabel', () => {
 	test('reads third place labels', () => {
@@ -8,18 +8,42 @@ describe('parseGameTypeLabel', () => {
 		expect(parseGameTypeLabel('third-place')).toBe('third_place');
 	});
 
-	test('reads playoffs semis labels', () => {
+	test('reads playoffs semis labels, including sheet names', () => {
 		expect(parseGameTypeLabel('Playoffs Semis')).toBe('semifinal');
+		expect(parseGameTypeLabel('Playoff Semis')).toBe('semifinal');
+		expect(parseGameTypeLabel('Playoff Semi')).toBe('semifinal');
 		expect(parseGameTypeLabel('Semis')).toBe('semifinal');
 		expect(parseGameTypeLabel('semi-finals')).toBe('semifinal');
+		expect(parseGameTypeLabel('Winners Bracket Semis 1')).toBe('semifinal');
+		expect(parseGameTypeLabel('Loser Semis 1')).toBe('semifinal');
+		expect(parseGameTypeLabel('Losers Bracket Semis 2')).toBe('semifinal');
 	});
 
 	test('keeps the existing game types', () => {
 		expect(parseGameTypeLabel('Playoff')).toBe('playoff');
+		expect(parseGameTypeLabel('Playoffs - Round 1 Game 1')).toBe('playoff');
 		expect(parseGameTypeLabel('Finals')).toBe('finals');
+		expect(parseGameTypeLabel('Winners Bracket Finals')).toBe('finals');
+		expect(parseGameTypeLabel('Championship Game')).toBe('finals');
+		expect(parseGameTypeLabel('Third Place Game')).toBe('third_place');
 		expect(parseGameTypeLabel('Regular Season')).toBe('regular');
 		expect(parseGameTypeLabel('')).toBe('regular');
+		expect(parseGameTypeLabel('White vs Beige')).toBeNull();
 		expect(parseGameTypeLabel('exhibition')).toBeNull();
+	});
+});
+
+describe('refineGameTypeWithName', () => {
+	test('sharpens a plain playoff label using the sheet name', () => {
+		expect(refineGameTypeWithName('playoff', 'Blue vs Red Semis')).toBe('semifinal');
+		expect(refineGameTypeWithName('playoff', 'Red vs White Third Place Game')).toBe('third_place');
+		expect(refineGameTypeWithName('playoff', 'Yellow vs Blue Finals')).toBe('finals');
+	});
+
+	test('leaves the label alone when the name adds nothing', () => {
+		expect(refineGameTypeWithName('playoff', 'KO Black vs Red')).toBe('playoff');
+		expect(refineGameTypeWithName('regular', 'Semis White vs Yellow')).toBe('regular');
+		expect(refineGameTypeWithName('finals', 'Yellow vs Blue Semis')).toBe('finals');
 	});
 });
 

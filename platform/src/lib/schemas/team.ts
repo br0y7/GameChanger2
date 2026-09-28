@@ -1,5 +1,5 @@
 import { teamFormLabels } from '$lib/forms/labels';
-import { createNameSlugSchema, requiredId } from '$lib/schemas/common';
+import { createNameSlugSchema, requiredId, requiredName } from '$lib/schemas/common';
 import { z } from 'zod';
 
 export const teamSchema = {
@@ -21,3 +21,10 @@ export const updateTeamSchema = z.object({
 });
 
 export type UpdateTeamInput = z.infer<typeof updateTeamSchema>;
+
+export const renameTeamSchema = z.object({
+	...requiredName('Team name'),
+	id: z.uuid().nonoptional('Team ID is required.'),
+});
+
+export type RenameTeamInput = z.infer<typeof renameTeamSchema>;

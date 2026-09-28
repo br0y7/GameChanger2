@@ -1,7 +1,9 @@
 import { query } from '$app/server';
+import { isPlayerIdentityChange, relayDashboard } from '$lib/server/dashboard-sync.server';
 import { idField } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
 import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import { ensurePlayerGameRatings } from '$lib/server/game-rating.server';
 import { count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import * as table from '$lib/server/db/schema';
@@ -59,6 +61,7 @@ export const getPlayerGameStats = query(
 		playerId: idField,
 	}),
 	async ({ playerId }) => {
+		await ensurePlayerGameRatings(playerId);
 		const rawStats = await db.query.playerGameStat.findMany({
 			where: {
 				playerId,
@@ -121,31 +124,42 @@ async function getTeamPlayerSeasonAverages(teamId: string) {
 		.sort((a, b) => b.averages.points - a.averages.points);
 }
 
-export const getTeamPlayerAverages = query(z.object({ teamId: idField }), async ({ teamId }) => {
-	return getTeamPlayerSeasonAverages(teamId);
-});
+export const getTeamPlayerAverages = query.live(z.object({ teamId: idField }), ({ teamId }) =>
+	relayDashboard(
+		async () => getTeamPlayerSeasonAverages(teamId),
+		(_players, change) => isPlayerIdentityChange(change, { teamId })
+	)
+);
 
-export const getTeamLeaders = query(z.object({ teamId: idField }), async ({ teamId }) => {
-	const playerAverages = await getTeamPlayerSeasonAverages(teamId);
+export const getTeamLeaders = query.live(z.object({ teamId: idField }), ({ teamId }) =>
+	relayDashboard(
+		async () => {
+			const playerAverages = await getTeamPlayerSeasonAverages(teamId);
 
-	return teamLeaderCategories.map(({ key, label }) => {
-		const leader = playerAverages.reduce<(typeof playerAverages)[number] | null>((best, player) => {
-			if (!best || player.averages[key] > best.averages[key]) return player;
-			return best;
-		}, null);
+			return teamLeaderCategories.map(({ key, label }) => {
+				const leader = playerAverages.reduce<(typeof playerAverages)[number] | null>(
+					(best, player) => {
+						if (!best || player.averages[key] > best.averages[key]) return player;
+						return best;
+					},
+					null
+				);
 
-		return {
-			key,
-			label,
-			player: leader
-				? {
-						id: leader.playerId,
-						name: leader.name,
-						jerseyNumber: leader.jerseyNumber,
-						value: leader.averages[key],
-						isPercent: key === 'fgPct' || key === 'fg3Pct',
-					}
-				: null,
-		};
-	});
-});
+				return {
+					key,
+					label,
+					player: leader
+						? {
+								id: leader.playerId,
+								name: leader.name,
+								jerseyNumber: leader.jerseyNumber,
+								value: leader.averages[key],
+								isPercent: key === 'fgPct' || key === 'fg3Pct',
+							}
+						: null,
+				};
+			});
+		},
+		(_leaders, change) => isPlayerIdentityChange(change, { teamId })
+	)
+);

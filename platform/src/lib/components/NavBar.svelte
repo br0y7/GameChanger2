@@ -9,9 +9,10 @@
 
 	const navLinks = [
 		{ label: 'Home', href: resolve('/') },
-		{ label: 'Leagues', href: resolve('/leagues') },
+		{ label: 'Games', href: resolve('/games') },
 		{ label: 'Standings', href: resolve('/standings') },
 		{ label: 'Stats', href: resolve('/stats') },
+		{ label: 'Teams', href: resolve('/teams') },
 		{ label: 'About', href: `${resolve('/')}#story` },
 	];
 

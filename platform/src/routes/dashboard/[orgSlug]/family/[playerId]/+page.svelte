@@ -88,6 +88,16 @@
 		if (pct < 0) return 'text-[#F85149]';
 		return 'text-[#8B949E]';
 	}
+
+	/** A forfeit is scored 1–0, but the label is what the reader sees, so colour from it. */
+	function resultClass(game: (typeof home.recentGames)[number]) {
+		if (game.defaultResult) {
+			return game.defaultResult === 'Default win' ? 'text-[#3FB950]' : 'text-[#F85149]';
+		}
+		if (game.result === 'W') return 'text-[#3FB950]';
+		if (game.result === 'L') return 'text-[#F85149]';
+		return 'text-[#8B949E]';
+	}
 </script>
 
 {#snippet rankMarks(label: string)}
@@ -106,13 +116,13 @@
 	{@const rank = key ? home.ranks[key] : undefined}
 	{#if rank && (rank.division != null || rank.league != null)}
 		{#if rank.division != null}
-			<p class="mt-1 text-[11px] font-semibold leading-tight text-[#58A6FF]">
+			<p class="mt-1 text-[11px] leading-tight font-semibold text-[#58A6FF]">
 				Division {formatRankPlace(rank.division)}
 			</p>
 		{/if}
 		{#if rank.league != null}
 			<p
-				class="text-[11px] font-semibold leading-tight text-[#E3B341] {rank.division == null
+				class="text-[11px] leading-tight font-semibold text-[#E3B341] {rank.division == null
 					? 'mt-1'
 					: ''}"
 			>
@@ -135,14 +145,14 @@
 			{home.player.seasonName || 'Season'}
 		</p>
 		{#if home.ratingSummary.average != null}
-			<p class="mt-2 text-4xl font-extrabold tabular-nums tracking-tight">
+			<p class="mt-2 text-4xl font-extrabold tracking-tight tabular-nums">
 				{fmt(home.ratingSummary.average)}
 			</p>
 			<p class="mt-1 text-sm text-[#8B949E]">Average Game Rating</p>
 		{:else}
 			<p class="mt-2 text-sm text-[#8B949E]">Average Game Rating appears after games are rated.</p>
 		{/if}
-		<p class="mt-3 text-sm tabular-nums text-[#E6EDF3]">
+		<p class="mt-3 text-sm text-[#E6EDF3] tabular-nums">
 			{fmt(home.season.ppg)} PPG
 			<span class="text-[#8B949E]"> | </span>
 			{fmt(home.season.rpg)} RPG
@@ -152,7 +162,7 @@
 		{#if home.ratingSummary.lastFive.length > 0}
 			<p class="mt-3 text-sm text-[#8B949E]">
 				Recent form:
-				<span class="tabular-nums text-[#E6EDF3]">
+				<span class="text-[#E6EDF3] tabular-nums">
 					{home.ratingSummary.lastFive.map((rating) => rating.toFixed(1)).join(' → ')}
 				</span>
 				<span class="ml-1">{formArrow}</span>
@@ -174,7 +184,7 @@
 				<div
 					class="rounded-2xl border border-[#2A3038] bg-[#161B22]/80 px-3 py-5 text-center backdrop-blur"
 				>
-					<p class="text-3xl font-extrabold tabular-nums tracking-tight text-[#E6EDF3]">
+					<p class="text-3xl font-extrabold tracking-tight text-[#E6EDF3] tabular-nums">
 						{fmt(stat.value)}
 					</p>
 					<p class="mt-1 text-xs font-semibold tracking-wide text-[#8B949E] uppercase">
@@ -192,7 +202,7 @@
 				<div
 					class="rounded-2xl border border-[#2A3038] bg-[#161B22]/80 px-3 py-5 text-center backdrop-blur"
 				>
-					<p class="text-3xl font-extrabold tabular-nums tracking-tight text-[#E6EDF3]">
+					<p class="text-3xl font-extrabold tracking-tight text-[#E6EDF3] tabular-nums">
 						{fmtPct(stat.value)}
 					</p>
 					<p class="mt-1 text-xs font-semibold tracking-wide text-[#8B949E] uppercase">
@@ -213,17 +223,14 @@
 			<p class="text-xs font-semibold tracking-wide text-[#8B949E] uppercase">Season Progress</p>
 			<p class="mt-1 text-sm text-[#8B949E]">Early season vs recent form</p>
 			<ul class="mt-4 space-y-4">
-				{#each [
-					{ label: 'Points per game', ...home.progress.points },
-					{ label: 'Rebounds per game', ...home.progress.rebounds },
-					{ label: 'Assists per game', ...home.progress.assists },
-				] as row (row.label)}
+				{#each [{ label: 'Points per game', ...home.progress.points }, { label: 'Rebounds per game', ...home.progress.rebounds }, { label: 'Assists per game', ...home.progress.assists }] as row (row.label)}
 					<li>
 						<p class="text-sm font-medium">{row.label}</p>
 						<p class="mt-1 text-sm text-[#8B949E]">
-							Season beginning: <span class="tabular-nums text-[#E6EDF3]">{fmt(row.beginning)}</span>
+							Season beginning: <span class="text-[#E6EDF3] tabular-nums">{fmt(row.beginning)}</span
+							>
 							· Current:
-							<span class="tabular-nums text-[#E6EDF3]">{fmt(row.current)}</span>
+							<span class="text-[#E6EDF3] tabular-nums">{fmt(row.current)}</span>
 							{#if progressLabel(row.improvementPct)}
 								<span class="ml-1 font-semibold {progressClass(row.improvementPct)}">
 									{progressLabel(row.improvementPct)} improvement
@@ -258,10 +265,23 @@
 					<tbody>
 						{#each home.recentGames as game (game.gameId)}
 							<tr class="border-t border-[#2A3038]/60">
-								<td class="py-2.5">{game.opponentName}</td>
-								<td class="py-2.5 tabular-nums font-medium">{game.pts}</td>
-								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.reb}</td>
-								<td class="py-2.5 tabular-nums">{game.pointsOnly ? '—' : game.ast}</td>
+								<td class="py-2.5">
+									{game.opponentName}
+									{#if game.scoreLabel}
+										<span class="mt-0.5 block text-xs {resultClass(game)}">
+											{game.scoreLabel}
+										</span>
+									{/if}
+								</td>
+								<td class="py-2.5 font-medium tabular-nums">
+									{game.defaultResult ? '—' : game.pts}
+								</td>
+								<td class="py-2.5 tabular-nums">
+									{game.defaultResult || game.pointsOnly ? '—' : game.reb}
+								</td>
+								<td class="py-2.5 tabular-nums">
+									{game.defaultResult || game.pointsOnly ? '—' : game.ast}
+								</td>
 								<td class="py-2.5 tabular-nums">
 									{#if game.gameRating != null}
 										<button
@@ -295,8 +315,9 @@
 			{:else}
 				<p class="mt-3 text-sm text-[#8B949E]">Keep playing — strengths appear with more games.</p>
 			{/if}
-			<a href={`${base}/development`} class="mt-3 inline-block text-xs text-[#58A6FF] hover:underline"
-				>Full development →</a
+			<a
+				href={`${base}/development`}
+				class="mt-3 inline-block text-xs text-[#58A6FF] hover:underline">Full development →</a
 			>
 		</div>
 		<div class="rounded-2xl border border-[#F0A020]/25 bg-[#161B22]/80 p-5">

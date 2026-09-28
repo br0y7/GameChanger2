@@ -109,7 +109,7 @@
 				<p class="mb-2 text-sm text-muted-foreground">
 					Game Type: {gameTypeLabel(game.gameType)}
 					{#if game.statsAvailable === false}
-						· Result only (Win / Lose / Default Lose) — no box score
+						· {game.defaultLossSide ? 'Default — no box score' : 'Win / Lose only — no box score'}
 					{:else if game.pointsOnly}
 						· Points only — counted in scoring, not in the game rating
 					{/if}

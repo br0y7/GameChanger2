@@ -1,13 +1,21 @@
 import { query } from '$app/server';
+import {
+	isPlayerIdentityChange,
+	isScheduleChange,
+	relayDashboard,
+	type PlayerDisplayChange,
+} from '$lib/server/dashboard-sync.server';
 import { idField } from '$lib/schemas/common';
 import { COACH_STATUS } from '$lib/schemas/coach';
 import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import { dedupeByMatchup } from '$lib/stats/matchup';
 import {
 	averageGameRating,
 	ratingMeaning,
 	trendDelta,
 	trendVersusAverage,
 } from '$lib/stats/game-rating';
+import { ensureTeamGameRatings } from '$lib/server/game-rating.server';
 import { derivePlayerStats } from '$lib/stats/player-stats';
 import { derivePlayerStrengths } from '$lib/player-analysis/player-strengths';
 import { derivePlayerWeaknesses } from '$lib/player-analysis/player-weaknesses';
@@ -18,6 +26,15 @@ import { isUserAdmin, requireUser } from './auth.remote';
 import { isUserLeagueOrganizer } from './league.remote';
 import type { PlayerGameStats, WithGame } from '$lib/schemas/player-game-stat';
 import type { Game } from '$lib/server/db/schema';
+
+function coachViewChange(
+	change: PlayerDisplayChange,
+	scope: { teamId?: string; playerId?: string }
+) {
+	return (
+		isPlayerIdentityChange(change, scope) || isScheduleChange(change, { teamId: scope.teamId })
+	);
+}
 
 async function assertCoachTeamView(teamId: string) {
 	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
@@ -91,10 +108,7 @@ function buildRow(
 	};
 }
 
-function rankAmong(
-	rows: { playerId: string; value: number }[],
-	playerId: string
-): number | null {
+function rankAmong(rows: { playerId: string; value: number }[], playerId: string): number | null {
 	if (!rows.length) return null;
 	const sorted = [...rows].sort((a, b) => b.value - a.value);
 	const idx = sorted.findIndex((r) => r.playerId === playerId);
@@ -159,293 +173,336 @@ function trendArrow(recent: number, season: number): 'up' | 'down' | 'flat' {
 	return delta > 0 ? 'up' : 'down';
 }
 
-export const getCoachTeamPlayerStats = query(z.object({ teamId: idField }), async ({ teamId }) => {
-	await assertCoachTeamView(teamId);
+export const getCoachTeamPlayerStats = query.live(z.object({ teamId: idField }), ({ teamId }) =>
+	relayDashboard(
+		async () => {
+			await assertCoachTeamView(teamId);
 
-	const players = await db.query.player.findMany({
-		where: { teamId },
-		with: {
-			gameStats: {
-				with: { game: true },
-			},
+			const players = await db.query.player.findMany({
+				where: { teamId },
+				with: {
+					gameStats: {
+						with: { game: true },
+					},
+				},
+				orderBy: { name: 'asc' },
+			});
+
+			const rows = players
+				.map((player) => {
+					const derived = dedupeByMatchup(
+						player.gameStats.map(derivePlayerGameStats),
+						(stat) => stat.game
+					);
+					return buildRow(player, derived);
+				})
+				.sort((a, b) => b.ppg - a.ppg);
+
+			const lastUpdated = rows.reduce<Date | null>((latest, row) => {
+				if (!row.updatedAt) return latest;
+				if (!latest || row.updatedAt > latest) return row.updatedAt;
+				return latest;
+			}, null);
+
+			return { rows, lastUpdated };
 		},
-		orderBy: { name: 'asc' },
-	});
+		(_stats, change) => coachViewChange(change, { teamId })
+	)
+);
 
-	const rows = players
-		.map((player) => {
-			const derived = player.gameStats.map(derivePlayerGameStats);
-			return buildRow(player, derived);
-		})
-		.sort((a, b) => b.ppg - a.ppg);
-
-	const lastUpdated = rows.reduce<Date | null>((latest, row) => {
-		if (!row.updatedAt) return latest;
-		if (!latest || row.updatedAt > latest) return row.updatedAt;
-		return latest;
-	}, null);
-
-	return { rows, lastUpdated };
-});
-
-export const getCoachPlayerDetail = query(
+export const getCoachPlayerDetail = query.live(
 	z.object({
 		teamId: idField,
 		playerId: idField,
 	}),
-	async ({ teamId, playerId }) => {
-		await assertCoachTeamView(teamId);
+	({ teamId, playerId }) =>
+		relayDashboard(
+			async () => {
+				await assertCoachTeamView(teamId);
+				await ensureTeamGameRatings(teamId);
 
-		const player = await db.query.player.findFirst({
-			where: { id: playerId, teamId },
-			with: {
-				team: {
+				const player = await db.query.player.findFirst({
+					where: { id: playerId, teamId },
 					with: {
-						division: {
+						team: {
 							with: {
-								season: { with: { organization: true } },
+								division: {
+									with: {
+										season: { with: { organization: true } },
+									},
+								},
+							},
+						},
+						gameStats: {
+							with: {
+								game: {
+									with: {
+										homeTeam: { columns: { id: true, name: true } },
+										awayTeam: { columns: { id: true, name: true } },
+									},
+								},
 							},
 						},
 					},
-				},
-				gameStats: {
-					with: {
-						game: {
-							with: {
-								homeTeam: { columns: { id: true, name: true } },
-								awayTeam: { columns: { id: true, name: true } },
-							},
-						},
+				});
+
+				if (!player) {
+					notFound({ resource: 'player' });
+				}
+
+				const derived = dedupeByMatchup(
+					player.gameStats.filter((s) => s.game).map(derivePlayerGameStats) as GameLogStat[],
+					(stat) => stat.game
+				);
+
+				const summary = buildRow(player, derived);
+				const gameLog = formatGameLog(teamId, derived);
+				const seasonAverageRating = averageGameRating(
+					derived.flatMap((stat) => (stat.gameRating == null ? [] : [stat.gameRating]))
+				);
+
+				const teamPlayers = await db.query.player.findMany({
+					where: { teamId },
+					with: { gameStats: { with: { game: true } } },
+				});
+
+				const teamRows = teamPlayers.map((p) => {
+					const stats = dedupeByMatchup(
+						p.gameStats.map(derivePlayerGameStats),
+						(stat) => stat.game
+					);
+					return buildRow(p, stats);
+				});
+
+				const teamSize = teamRows.filter((r) => r.gp > 0).length || teamRows.length;
+
+				const ranks = {
+					scoring: rankAmong(
+						teamRows.map((r) => ({ playerId: r.playerId, value: r.ppg })),
+						playerId
+					),
+					rebounding: rankAmong(
+						teamRows.map((r) => ({ playerId: r.playerId, value: r.rpg })),
+						playerId
+					),
+					assists: rankAmong(
+						teamRows.map((r) => ({ playerId: r.playerId, value: r.apg })),
+						playerId
+					),
+					teamSize,
+				};
+
+				const last3 = gameLog.slice(0, 3);
+				const last3Avg = (pick: (g: (typeof last3)[number]) => number) =>
+					last3.length ? last3.reduce((a, g) => a + pick(g), 0) / last3.length : 0;
+
+				const recentForm = {
+					games: last3.length,
+					ppg: last3Avg((g) => g.pts),
+					rpg: last3Avg((g) => g.reb),
+					apg: last3Avg((g) => g.ast),
+					ppgTrend: trendArrow(
+						last3Avg((g) => g.pts),
+						summary.ppg
+					),
+					rpgTrend: trendArrow(
+						last3Avg((g) => g.reb),
+						summary.rpg
+					),
+					apgTrend: trendArrow(
+						last3Avg((g) => g.ast),
+						summary.apg
+					),
+					recentScoring: gameLog
+						.slice(0, 5)
+						.map((g) => g.pts)
+						.reverse(),
+				};
+
+				const lastUpdated =
+					derived.reduce<Date | null>((latest, s) => {
+						const at = s.updatedAt ?? s.game?.completedAt ?? null;
+						if (!at) return latest;
+						if (!latest || at > latest) return at;
+						return latest;
+					}, null) ?? summary.updatedAt;
+
+				const division = player.team?.division;
+				const season = division?.season;
+				const organization = season?.organization;
+
+				return {
+					player: {
+						id: player.id,
+						name: player.name,
+						jerseyNumber: player.jerseyNumber,
+						teamName: player.team?.name ?? 'Team',
 					},
-				},
+					statsLink:
+						organization?.slug && season?.slug && division?.slug && player.team?.slug
+							? {
+									orgSlug: organization.slug,
+									seasonSlug: season.slug,
+									divisionSlug: division.slug,
+									teamSlug: player.team.slug,
+									jerseyNumber: player.jerseyNumber,
+								}
+							: null,
+					summary: { ...summary, averageGameRating: seasonAverageRating },
+					gameLog,
+					ranks,
+					recentForm,
+					lastUpdated,
+				};
 			},
-		});
-
-		if (!player) {
-			notFound({ resource: 'player' });
-		}
-
-		const derived = player.gameStats
-			.filter((s) => s.game)
-			.map(derivePlayerGameStats) as GameLogStat[];
-
-		const summary = buildRow(player, derived);
-		const gameLog = formatGameLog(teamId, derived);
-		const seasonAverageRating = averageGameRating(
-			derived.flatMap((stat) => (stat.gameRating == null ? [] : [stat.gameRating]))
-		);
-
-		const teamPlayers = await db.query.player.findMany({
-			where: { teamId },
-			with: { gameStats: true },
-		});
-
-		const teamRows = teamPlayers.map((p) => {
-			const stats = p.gameStats.map(derivePlayerGameStats);
-			return buildRow(p, stats);
-		});
-
-		const teamSize = teamRows.filter((r) => r.gp > 0).length || teamRows.length;
-
-		const ranks = {
-			scoring: rankAmong(
-				teamRows.map((r) => ({ playerId: r.playerId, value: r.ppg })),
-				playerId
-			),
-			rebounding: rankAmong(
-				teamRows.map((r) => ({ playerId: r.playerId, value: r.rpg })),
-				playerId
-			),
-			assists: rankAmong(
-				teamRows.map((r) => ({ playerId: r.playerId, value: r.apg })),
-				playerId
-			),
-			teamSize,
-		};
-
-		const last3 = gameLog.slice(0, 3);
-		const last3Avg = (pick: (g: (typeof last3)[number]) => number) =>
-			last3.length ? last3.reduce((a, g) => a + pick(g), 0) / last3.length : 0;
-
-		const recentForm = {
-			games: last3.length,
-			ppg: last3Avg((g) => g.pts),
-			rpg: last3Avg((g) => g.reb),
-			apg: last3Avg((g) => g.ast),
-			ppgTrend: trendArrow(last3Avg((g) => g.pts), summary.ppg),
-			rpgTrend: trendArrow(last3Avg((g) => g.reb), summary.rpg),
-			apgTrend: trendArrow(last3Avg((g) => g.ast), summary.apg),
-			recentScoring: gameLog.slice(0, 5).map((g) => g.pts).reverse(),
-		};
-
-		const lastUpdated =
-			derived.reduce<Date | null>((latest, s) => {
-				const at = s.updatedAt ?? s.game?.completedAt ?? null;
-				if (!at) return latest;
-				if (!latest || at > latest) return at;
-				return latest;
-			}, null) ?? summary.updatedAt;
-
-		const division = player.team?.division;
-		const season = division?.season;
-		const organization = season?.organization;
-
-		return {
-			player: {
-				id: player.id,
-				name: player.name,
-				jerseyNumber: player.jerseyNumber,
-				teamName: player.team?.name ?? 'Team',
-			},
-			statsLink:
-				organization?.slug && season?.slug && division?.slug && player.team?.slug
-					? {
-							orgSlug: organization.slug,
-							seasonSlug: season.slug,
-							divisionSlug: division.slug,
-							teamSlug: player.team.slug,
-							jerseyNumber: player.jerseyNumber,
-						}
-					: null,
-			summary: { ...summary, averageGameRating: seasonAverageRating },
-			gameLog,
-			ranks,
-			recentForm,
-			lastUpdated,
-		};
-	}
+			(_detail, change) => coachViewChange(change, { teamId, playerId })
+		)
 );
 
-export const getCoachTeamDevelopment = query(z.object({ teamId: idField }), async ({ teamId }) => {
-	await assertCoachTeamView(teamId);
+export const getCoachTeamDevelopment = query.live(z.object({ teamId: idField }), ({ teamId }) =>
+	relayDashboard(
+		async () => {
+			await assertCoachTeamView(teamId);
 
-	const players = await db.query.player.findMany({
-		where: { teamId },
-		with: { gameStats: true },
-		orderBy: { name: 'asc' },
-	});
+			const players = await db.query.player.findMany({
+				where: { teamId },
+				with: { gameStats: { with: { game: true } } },
+				orderBy: { name: 'asc' },
+			});
 
-	return players
-		.map((player) => {
-			const derived = player.gameStats.map(derivePlayerGameStats);
-			if (!derived.length) {
-				return {
-					playerId: player.id,
-					name: player.name,
-					jerseyNumber: player.jerseyNumber,
-					ppg: 0,
-					rpg: 0,
-					apg: 0,
-					gp: 0,
-					strengths: [] as string[],
-					developmentAreas: [] as string[],
-				};
-			}
+			return players
+				.map((player) => {
+					const derived = dedupeByMatchup(
+						player.gameStats.map(derivePlayerGameStats),
+						(stat) => stat.game
+					);
+					if (!derived.length) {
+						return {
+							playerId: player.id,
+							name: player.name,
+							jerseyNumber: player.jerseyNumber,
+							ppg: 0,
+							rpg: 0,
+							apg: 0,
+							gp: 0,
+							strengths: [] as string[],
+							developmentAreas: [] as string[],
+						};
+					}
 
-			const summary = buildRow(player, derived);
-			const stats = derivePlayerStats(derived);
-			const strengths = derivePlayerStrengths(stats);
-			const weaknesses = derivePlayerWeaknesses(stats);
+					const summary = buildRow(player, derived);
+					const stats = derivePlayerStats(derived);
+					const strengths = derivePlayerStrengths(stats);
+					const weaknesses = derivePlayerWeaknesses(stats);
 
-			return {
-				playerId: player.id,
-				name: player.name,
-				jerseyNumber: player.jerseyNumber,
-				ppg: summary.ppg,
-				rpg: summary.rpg,
-				apg: summary.apg,
-				gp: summary.gp,
-				strengths: strengths.slice(0, 3).map((s) => s.description),
-				developmentAreas: weaknesses.slice(0, 3).map((w) => w.description),
-			};
-		})
-		.filter((p) => p.gp > 0)
-		.sort((a, b) => b.ppg - a.ppg);
-});
+					return {
+						playerId: player.id,
+						name: player.name,
+						jerseyNumber: player.jerseyNumber,
+						ppg: summary.ppg,
+						rpg: summary.rpg,
+						apg: summary.apg,
+						gp: summary.gp,
+						strengths: strengths.slice(0, 3).map((s) => s.description),
+						developmentAreas: weaknesses.slice(0, 3).map((w) => w.description),
+					};
+				})
+				.filter((p) => p.gp > 0)
+				.sort((a, b) => b.ppg - a.ppg);
+		},
+		(_rows, change) => coachViewChange(change, { teamId })
+	)
+);
 
-export const getCoachLatestGameRatings = query(z.object({ teamId: idField }), async ({ teamId }) => {
-	await assertCoachTeamView(teamId);
+export const getCoachLatestGameRatings = query.live(z.object({ teamId: idField }), ({ teamId }) =>
+	relayDashboard(
+		async () => {
+			await assertCoachTeamView(teamId);
+			await ensureTeamGameRatings(teamId);
 
-	const players = await db.query.player.findMany({
-		where: { teamId },
-		with: {
-			gameStats: {
+			const players = await db.query.player.findMany({
+				where: { teamId },
 				with: {
-					game: {
+					gameStats: {
 						with: {
-							homeTeam: { columns: { id: true, name: true } },
-							awayTeam: { columns: { id: true, name: true } },
+							game: {
+								with: {
+									homeTeam: { columns: { id: true, name: true } },
+									awayTeam: { columns: { id: true, name: true } },
+								},
+							},
 						},
 					},
 				},
-			},
-		},
-		orderBy: { name: 'asc' },
-	});
+				orderBy: { name: 'asc' },
+			});
 
-	let latestGame: {
-		id: string;
-		at: number;
-		opponentName: string;
-		teamScore: number;
-		oppScore: number;
-	} | null = null;
+			let latestGame: {
+				id: string;
+				at: number;
+				opponentName: string;
+				teamScore: number;
+				oppScore: number;
+			} | null = null;
 
-	for (const player of players) {
-		for (const stat of player.gameStats) {
-			const game = stat.game;
-			if (!game || game.status !== 'completed') continue;
-			const at = (game.completedAt ?? game.scheduledAt)?.getTime() ?? 0;
-			if (latestGame && at <= latestGame.at) continue;
-			const isHome = game.homeTeamId === teamId;
-			latestGame = {
-				id: game.id,
-				at,
-				opponentName: (isHome ? game.awayTeam?.name : game.homeTeam?.name) ?? 'Opponent',
-				teamScore: isHome ? (game.homeTeamScore ?? 0) : (game.awayTeamScore ?? 0),
-				oppScore: isHome ? (game.awayTeamScore ?? 0) : (game.homeTeamScore ?? 0),
-			};
-		}
-	}
+			for (const player of players) {
+				for (const stat of player.gameStats) {
+					const game = stat.game;
+					if (!game || game.status !== 'completed') continue;
+					const at = (game.completedAt ?? game.scheduledAt)?.getTime() ?? 0;
+					if (latestGame && at <= latestGame.at) continue;
+					const isHome = game.homeTeamId === teamId;
+					latestGame = {
+						id: game.id,
+						at,
+						opponentName: (isHome ? game.awayTeam?.name : game.homeTeam?.name) ?? 'Opponent',
+						teamScore: isHome ? (game.homeTeamScore ?? 0) : (game.awayTeamScore ?? 0),
+						oppScore: isHome ? (game.awayTeamScore ?? 0) : (game.homeTeamScore ?? 0),
+					};
+				}
+			}
 
-	if (!latestGame) return null;
+			if (!latestGame) return null;
 
-	const roster = players
-		.map((player) => {
-			const derived = player.gameStats.filter((stat) => stat.game).map(derivePlayerGameStats);
-			const seasonAverage = averageGameRating(
-				derived.flatMap((stat) => (stat.gameRating == null ? [] : [stat.gameRating]))
-			);
-			const gameStat = derived.find((stat) => stat.game?.id === latestGame!.id);
-			if (!gameStat || gameStat.gameRating == null) return null;
-			const delta = trendDelta(gameStat.gameRating, seasonAverage);
+			const roster = players
+				.map((player) => {
+					const derived = player.gameStats.filter((stat) => stat.game).map(derivePlayerGameStats);
+					const seasonAverage = averageGameRating(
+						derived.flatMap((stat) => (stat.gameRating == null ? [] : [stat.gameRating]))
+					);
+					const gameStat = derived.find((stat) => stat.game?.id === latestGame!.id);
+					if (!gameStat || gameStat.gameRating == null) return null;
+					const delta = trendDelta(gameStat.gameRating, seasonAverage);
+					return {
+						playerId: player.id,
+						name: player.name,
+						jerseyNumber: player.jerseyNumber,
+						pts: gameStat.pts,
+						reb: gameStat.reb,
+						ast: gameStat.ast,
+						stl: gameStat.stl,
+						blk: gameStat.blk,
+						tov: gameStat.tov,
+						oreb: gameStat.oreb,
+						gameRating: gameStat.gameRating,
+						meaning: ratingMeaning(gameStat.gameRating),
+						breakdown: gameStat.ratingBreakdown,
+						seasonAverage,
+						trend: trendVersusAverage(gameStat.gameRating, seasonAverage),
+						delta,
+					};
+				})
+				.filter((row) => row != null)
+				.sort((a, b) => b.gameRating - a.gameRating);
+
 			return {
-				playerId: player.id,
-				name: player.name,
-				jerseyNumber: player.jerseyNumber,
-				pts: gameStat.pts,
-				reb: gameStat.reb,
-				ast: gameStat.ast,
-				stl: gameStat.stl,
-				blk: gameStat.blk,
-				tov: gameStat.tov,
-				oreb: gameStat.oreb,
-				gameRating: gameStat.gameRating,
-				meaning: ratingMeaning(gameStat.gameRating),
-				breakdown: gameStat.ratingBreakdown,
-				seasonAverage,
-				trend: trendVersusAverage(gameStat.gameRating, seasonAverage),
-				delta,
+				gameId: latestGame.id,
+				opponentName: latestGame.opponentName,
+				teamScore: latestGame.teamScore,
+				oppScore: latestGame.oppScore,
+				players: roster,
 			};
-		})
-		.filter((row) => row != null)
-		.sort((a, b) => b.gameRating - a.gameRating);
-
-	return {
-		gameId: latestGame.id,
-		opponentName: latestGame.opponentName,
-		teamScore: latestGame.teamScore,
-		oppScore: latestGame.oppScore,
-		players: roster,
-	};
-});
+		},
+		(_ratings, change) => coachViewChange(change, { teamId })
+	)
+);

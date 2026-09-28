@@ -1,7 +1,13 @@
 import { form, query } from '$app/server';
 import type { CrudAction, ResourceTarget } from '$lib/forms/types';
 import { idField, idOnlySchema } from '$lib/schemas/common';
-import { coachNoteSchema, createPlayerSchema, playerSchema, updatePlayerSchema } from '$lib/schemas/player';
+import {
+	coachNoteSchema,
+	createPlayerSchema,
+	playerSchema,
+	renamePlayerSchema,
+	updatePlayerSchema,
+} from '$lib/schemas/player';
 import { db } from '$lib/server/db';
 import { PLAYER_UNIQUE_JERSEY_PER_TEAM_CONSTRAINT } from '$lib/server/db/schema';
 import { forbidden, internal, internalNoId, notFound } from '$lib/server/fail';
@@ -10,15 +16,18 @@ import { invalid } from '@sveltejs/kit';
 import * as table from '$lib/server/db/schema';
 import { isConstraintError } from './errors.server';
 import { eq } from 'drizzle-orm';
-import { isUserAdmin, requireUser } from './auth.remote';
+import { isUserAdmin, requireAdmin, requireUser } from './auth.remote';
 import { getCoach } from './coach.remote';
-import { getFamilyPlayerHome } from './family.remote';
 import { isUserLeagueOrganizer } from './league.remote';
-import { getTeam } from './team.remote';
 import { requireFamilyPlayerAccess } from '$lib/server/family-access.server';
+import {
+	isPlayerIdentityChange,
+	publishSavedPlayer,
+	relayDashboard,
+} from '$lib/server/dashboard-sync.server';
 import { z } from 'zod';
 
-export const getPlayer = query(
+export const getPlayer = query.live(
 	z.union([
 		idOnlySchema,
 		z.object({
@@ -26,15 +35,22 @@ export const getPlayer = query(
 			jerseyNumber: playerSchema.jerseyNumber,
 		}),
 	]),
-	async (filters) => {
-		const player = await db.query.player.findFirst({ where: filters });
+	(filters) =>
+		relayDashboard(
+			async () => {
+				const player = await db.query.player.findFirst({ where: filters });
 
-		if (!player) {
-			notFound({ resource: 'player' }, { message: `player not found ${JSON.stringify(filters)}` });
-		}
+				if (!player) {
+					notFound(
+						{ resource: 'player' },
+						{ message: `player not found ${JSON.stringify(filters)}` }
+					);
+				}
 
-		return player;
-	}
+				return player;
+			},
+			(player, change) => isPlayerIdentityChange(change, { playerId: player.id })
+		)
 );
 
 async function assertPlayerPermissions(action: CrudAction, target: ResourceTarget): Promise<void> {
@@ -108,7 +124,7 @@ export const createPlayer = form(createPlayerSchema, async (data, issue) => {
 		const user = await requireUser();
 		serverLogger.info('created player', { id: created.id, userId: user.id });
 
-		void getTeam({ id: data.teamId, include: { players: true } }).refresh();
+		await publishSavedPlayer(created.id, data.teamId, 'player');
 
 		return {
 			data: {
@@ -126,10 +142,38 @@ export const createPlayer = form(createPlayerSchema, async (data, issue) => {
 	}
 });
 
+/**
+ * Admins only, and the name is the only column it writes. Coaches and organizers rename
+ * through `updatePlayer` on their own roster pages instead.
+ */
+export const renamePlayer = form(renamePlayerSchema, async ({ id, name }) => {
+	await requireAdmin();
+	await getPlayer({ id });
+
+	const [renamed] = await db
+		.update(table.player)
+		.set({ name })
+		.where(eq(table.player.id, id))
+		.returning({ teamId: table.player.teamId, name: table.player.name });
+
+	const user = await requireUser();
+	serverLogger.info('renamed player', { id, userId: user.id, name: renamed?.name });
+
+	await publishSavedPlayer(id, renamed?.teamId, 'player');
+
+	return { success: true };
+});
+
 export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 	const { id, ...changes } = data;
 
 	await assertPlayerPermissions('update', { resource: 'player', id });
+
+	// Renaming is admin-only wherever it happens; coaches and organizers keep the jersey number.
+	const existing = await getPlayer({ id });
+	if (changes.name !== existing.name && !(await isUserAdmin())) {
+		return invalid(issue.name('Only an admin can change a player name.'));
+	}
 
 	try {
 		const [updated] = await db
@@ -141,24 +185,7 @@ export const updatePlayer = form(updatePlayerSchema, async (data, issue) => {
 		const user = await requireUser();
 		serverLogger.info('updated player', { id, userId: user.id, name: updated?.name });
 
-		void getFamilyPlayerHome({ playerId: id }).refresh();
-		void getPlayer({ id }).refresh();
-
-		if (updated?.teamId) {
-			const team = await db.query.team.findFirst({
-				where: { id: updated.teamId },
-				columns: { id: true, slug: true, divisionId: true },
-			});
-
-			if (team) {
-				void getTeam({ id: team.id, include: { players: true } }).refresh();
-				void getTeam({
-					slug: team.slug,
-					divisionId: team.divisionId,
-					include: { players: true },
-				}).refresh();
-			}
-		}
+		await publishSavedPlayer(id, updated?.teamId, 'player');
 
 		return { success: true };
 	} catch (err) {
@@ -182,9 +209,7 @@ export const deletePlayer = form(idOnlySchema, async ({ id }) => {
 	const user = await requireUser();
 	serverLogger.info('deleted player', { id, userId: user.id });
 
-	if (deleted?.teamId) {
-		void getTeam({ id: deleted.teamId, include: { players: true } }).refresh();
-	}
+	await publishSavedPlayer(id, deleted?.teamId, 'player');
 });
 
 async function requireOrganizerOrAdmin() {
@@ -192,21 +217,26 @@ async function requireOrganizerOrAdmin() {
 	forbidden({ resource: 'player' });
 }
 
-export const getCoachNote = query(z.object({ playerId: idField }), async ({ playerId }) => {
-	await requireFamilyPlayerAccess(playerId);
+export const getCoachNote = query.live(z.object({ playerId: idField }), ({ playerId }) =>
+	relayDashboard(
+		async () => {
+			await requireFamilyPlayerAccess(playerId);
 
-	const [row] = await db
-		.select({ body: table.playerCoachNote.body })
-		.from(table.playerCoachNote)
-		.where(eq(table.playerCoachNote.playerId, playerId))
-		.limit(1);
+			const [row] = await db
+				.select({ body: table.playerCoachNote.body })
+				.from(table.playerCoachNote)
+				.where(eq(table.playerCoachNote.playerId, playerId))
+				.limit(1);
 
-	return { body: row?.body ?? null };
-});
+			return { body: row?.body ?? null };
+		},
+		(_note, change) => change.kind === 'note' && change.playerId === playerId
+	)
+);
 
 export const saveCoachNote = form(coachNoteSchema, async ({ playerId, body }) => {
 	await requireOrganizerOrAdmin();
-	await getPlayer({ id: playerId });
+	const player = await getPlayer({ id: playerId });
 
 	const trimmed = body.trim();
 
@@ -225,8 +255,7 @@ export const saveCoachNote = form(coachNoteSchema, async ({ playerId, body }) =>
 	const user = await requireUser();
 	serverLogger.info('saved coach note', { playerId, userId: user.id, cleared: !trimmed });
 
-	void getCoachNote({ playerId }).refresh();
-	void getFamilyPlayerHome({ playerId }).refresh();
+	await publishSavedPlayer(playerId, player.teamId, 'note');
 
 	return { success: true };
 });

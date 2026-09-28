@@ -29,13 +29,7 @@ export type CountingLine = {
 };
 
 export type ImpactLabel =
-	| 'Exceptional'
-	| 'Very High'
-	| 'High'
-	| 'Moderate'
-	| 'Average'
-	| 'Low'
-	| 'Poor';
+	'Exceptional' | 'Very High' | 'High' | 'Moderate' | 'Average' | 'Low' | 'Poor';
 
 export type RatingBreakdown = {
 	scoring: ImpactLabel;
@@ -309,7 +303,7 @@ export function ratingPatch(
 	teamPoints: number | null | undefined,
 	scale: ApplicableScale | null
 ) {
-	if (!scale) return clearedRating();
+	if (!scale?.distribution?.impacts?.length) return clearedRating();
 	const computed = computeGameRating({
 		line,
 		teamPoints,
@@ -333,7 +327,7 @@ export function computeGameRating(input: {
 	scale: RatingScaleDistribution;
 }): ComputedGameRating | null {
 	if (isEmptyLine(input.line)) return null;
-	if (input.scale.impacts.length === 0) return null;
+	if (!input.scale?.impacts?.length) return null;
 
 	const parts = impactParts(input.line);
 	const percentile = percentileRank(input.scale.impacts, parts.impact);

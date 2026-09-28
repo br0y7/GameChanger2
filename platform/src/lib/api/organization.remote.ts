@@ -6,6 +6,7 @@ import { db } from '$lib/server/db';
 import { notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { getUser, isUserAdmin, requireAdmin, requireSession } from './auth.remote';
+import { writeAdminViewAsCookie } from './view-as';
 import * as table from '$lib/server/db/schema';
 import { count, countDistinct, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -129,6 +130,7 @@ export const goToAdminDashboard = command(async () => {
 		headers,
 		body: { organizationId: adminOrg.id },
 	});
+	writeAdminViewAsCookie(getRequestEvent().cookies, 'admin');
 	void requireSession().refresh();
 	void getOrganizations({ userId: user.id }).refresh();
 
@@ -272,7 +274,7 @@ export const listAllLeaguesForAdmin = query(async () => {
 export const enterLeagueAsAdmin = command(
 	z.object({
 		organizationId: idField,
-		destination: z.enum(['dashboard', 'stats']).default('dashboard'),
+		destination: z.enum(['dashboard', 'stats', 'portal', 'family']).default('dashboard'),
 	}),
 	async ({ organizationId, destination }) => {
 		const user = await requireAdmin();
@@ -310,6 +312,10 @@ export const enterLeagueAsAdmin = command(
 		});
 
 		void requireSession().refresh();
+		writeAdminViewAsCookie(
+			getRequestEvent().cookies,
+			destination === 'portal' ? 'coach' : destination === 'family' ? 'family' : 'admin'
+		);
 
 		const season =
 			(await db.query.season.findFirst({

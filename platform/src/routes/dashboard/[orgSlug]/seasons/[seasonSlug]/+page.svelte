@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { PUBLIC_APP_NAME } from '$env/static/public';
+	import { isUserAdmin } from '$lib/api/auth.remote';
 	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
 	import { getOrganization } from '$lib/api/organization.remote';
 	import { getSeason } from '$lib/api/season.remote';
@@ -10,6 +11,7 @@
 
 	let { params }: PageProps = $props();
 	const isOrganizer = $derived(await isUserLeagueOrganizer());
+	const isAdmin = $derived(await isUserAdmin());
 </script>
 
 {const org = await getOrganization({ slug: params.orgSlug })}
@@ -47,7 +49,7 @@
 			orgSlug={params.orgSlug}
 			seasonId={season.id}
 			confirmDelete
-			canEdit={isOrganizer}
+			canEdit={isOrganizer || isAdmin}
 			canDelete={isOrganizer}
 		/>
 	</section>

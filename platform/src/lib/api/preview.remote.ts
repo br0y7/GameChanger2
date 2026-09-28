@@ -1,7 +1,7 @@
 import { command, form } from '$app/server';
 import * as xlsx from 'xlsx';
 import { serverLogger } from '$lib/server/logger';
-import { error, invalid } from '@sveltejs/kit';
+import { error, invalid, isHttpError } from '@sveltejs/kit';
 import {
 	savePreviewSchema,
 	uploadSpreadsheetSchema,
@@ -22,11 +22,20 @@ import { requireAdmin } from './auth.remote';
 import { notFound } from '$lib/server/fail';
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
+import { publishScheduleChange } from '$lib/server/dashboard-sync.server';
+import { calendarDay, staleDivisionGameIds } from '$lib/import/game-identity';
+import { resolveImportedGameType } from '$lib/schemas/game';
+import { pickExistingTeam, readableTeamName } from '$lib/import/team-match';
 import { slugify } from '$lib/utils/string';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
 import { RATING_VERSION, type CountingLine } from '$lib/stats/game-rating';
-import { loadApplicableScale, ratingPatch, type ApplicableScale } from '$lib/server/game-rating.server';
+import {
+	loadApplicableScale,
+	ratingPatch,
+	recalibrateOrganizationRatings,
+	type ApplicableScale,
+} from '$lib/server/game-rating.server';
 import { clearedRating } from '$lib/stats/game-rating';
 import { idField } from '$lib/schemas/common';
 import { z } from 'zod';
@@ -52,7 +61,7 @@ async function annotatePreview(preview: SpreadsheetPreview, divisionId: string) 
 	const teams = await getTeams({ divisionId, include: { players: true } });
 
 	for (const game of preview.games) {
-		const homeTeam = teams.find((team) => team.name === game.homeTeam.name);
+		const homeTeam = pickExistingTeam(teams, game.homeTeam.name);
 
 		if (homeTeam) {
 			game.homeTeam._status = 'update';
@@ -61,7 +70,7 @@ async function annotatePreview(preview: SpreadsheetPreview, divisionId: string) 
 			await annotatePlayers(game.homeTeam.playerStats, homeTeam.players);
 		}
 
-		const awayTeam = teams.find((team) => team.name === game.awayTeam.name);
+		const awayTeam = pickExistingTeam(teams, game.awayTeam.name);
 
 		if (awayTeam) {
 			game.awayTeam._status = 'update';
@@ -92,33 +101,38 @@ export const previewSpreadsheet = form(
 
 			return preview;
 		} catch (err) {
+			serverLogger.error(err);
 			if (err instanceof SpreadsheetParserError) {
-				serverLogger.error(err);
-				return invalid(`Parser error ${err.message}`);
+				return invalid(...err.issues);
 			}
 
-			serverLogger.error(err);
-			return invalid('Something went wrong');
+			return invalid(describeFailure(err));
 		}
 	}
 );
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+async function useReadableTeamName(tx: Transaction, team: Team) {
+	const name = readableTeamName(team.name);
+	if (name === team.name) return team;
+	await tx.update(table.team).set({ name }).where(eq(table.team.id, team.id));
+	return { ...team, name };
+}
+
 async function saveTeam(tx: Transaction, teamPreview: TeamPreview, divisionId: string) {
+	const divisionTeams = await tx.query.team.findMany({ where: { divisionId } });
+
 	if (teamPreview.id && teamPreview._status === 'update') {
-		return await tx.query.team.findFirst({ where: { id: teamPreview.id } });
+		const byId = divisionTeams.find((team) => team.id === teamPreview.id);
+		if (byId) return useReadableTeamName(tx, byId);
 	}
 
-	const { name } = teamPreview;
+	const existing = pickExistingTeam(divisionTeams, teamPreview.name);
+	if (existing) return useReadableTeamName(tx, existing);
+
+	const name = readableTeamName(teamPreview.name);
 	const slug = slugify(name);
-	// Check first if a previous iteration already made the team
-	// in the current transaction
-	const team = await tx.query.team.findFirst({ where: { slug, divisionId } });
-	if (team) {
-		return team;
-	}
-
 	const [created] = await tx.insert(table.team).values({ divisionId, name, slug }).returning();
 	return created;
 }
@@ -128,36 +142,70 @@ async function saveGame(
 	homeTeam: Team,
 	awayTeam: Team,
 	gamePreview: GamePreview,
-	seasonId: string
+	seasonId: string,
+	timeZone?: string
 ) {
-	// does game exist already?
-	const game = await db.query.game.findFirst({
-		where: {
-			homeTeamId: homeTeam.id,
-			awayTeamId: awayTeam.id,
-		},
-	});
+	// Same two teams on the same day are one game. A different day is a new game.
+	// Games for this division that are not in the sheet are deleted after the sheet is saved.
+	const day = calendarDay(gamePreview.completedAt, timeZone);
+	const [asStoredHome, asStoredAway] = await Promise.all([
+		tx.query.game.findMany({
+			where: {
+				seasonId,
+				homeTeamId: homeTeam.id,
+				awayTeamId: awayTeam.id,
+			},
+		}),
+		tx.query.game.findMany({
+			where: {
+				seasonId,
+				homeTeamId: awayTeam.id,
+				awayTeamId: homeTeam.id,
+			},
+		}),
+	]);
+	const game = [...asStoredHome, ...asStoredAway].find(
+		(row) => calendarDay(row.completedAt ?? row.scheduledAt, timeZone) === day
+	);
 
 	if (game) {
-		const nextType = gamePreview.gameType ?? 'regular';
+		const flipped = game.homeTeamId === awayTeam.id;
+		const nextType = resolveImportedGameType(
+			game.gameType,
+			gamePreview.gameType ?? 'regular',
+			gamePreview.gameTypeExplicit
+		);
 		const nextStatsAvailable = gamePreview.statsAvailable ?? true;
 		const nextPointsOnly = gamePreview.pointsOnly ?? false;
 		const patch: {
+			name?: string;
 			gameType?: typeof nextType;
 			statsAvailable?: boolean;
 			pointsOnly?: boolean;
 			homeTeamScore?: number;
 			awayTeamScore?: number;
 			completedAt?: Date;
+			defaultLossSide?: 'home' | 'away' | null;
 		} = {};
 
 		if (game.gameType !== nextType) patch.gameType = nextType;
 		if (game.statsAvailable !== nextStatsAvailable) patch.statsAvailable = nextStatsAvailable;
 		if (game.pointsOnly !== nextPointsOnly) patch.pointsOnly = nextPointsOnly;
-		if (!nextStatsAvailable || nextPointsOnly) {
-			patch.homeTeamScore = gamePreview.homeTeam.score;
-			patch.awayTeamScore = gamePreview.awayTeam.score;
-			patch.completedAt = gamePreview.completedAt;
+		const previewDefaultLoss = gamePreview.defaultLossSide ?? null;
+		const nextDefaultLoss = flipped
+			? previewDefaultLoss === 'home'
+				? 'away'
+				: previewDefaultLoss === 'away'
+					? 'home'
+					: null
+			: previewDefaultLoss;
+		if (game.defaultLossSide !== nextDefaultLoss) patch.defaultLossSide = nextDefaultLoss;
+		patch.homeTeamScore = flipped ? gamePreview.awayTeam.score : gamePreview.homeTeam.score;
+		patch.awayTeamScore = flipped ? gamePreview.homeTeam.score : gamePreview.awayTeam.score;
+		patch.completedAt = gamePreview.completedAt;
+		if (!flipped) {
+			const nextName = `${readableTeamName(homeTeam.name)} vs ${readableTeamName(awayTeam.name)}`;
+			if (game.name !== nextName) patch.name = nextName;
 		}
 
 		if (Object.keys(patch).length > 0) {
@@ -172,7 +220,7 @@ async function saveGame(
 			seasonId,
 			homeTeamId: homeTeam.id,
 			awayTeamId: awayTeam.id,
-			name: `${homeTeam.name} vs ${awayTeam.name}`,
+			name: `${readableTeamName(homeTeam.name)} vs ${readableTeamName(awayTeam.name)}`,
 			completedAt: gamePreview.completedAt,
 			homeTeamScore: gamePreview.homeTeam.score,
 			awayTeamScore: gamePreview.awayTeam.score,
@@ -180,6 +228,7 @@ async function saveGame(
 			gameType: gamePreview.gameType ?? 'regular',
 			statsAvailable: gamePreview.statsAvailable ?? true,
 			pointsOnly: gamePreview.pointsOnly ?? false,
+			defaultLossSide: gamePreview.defaultLossSide ?? null,
 		})
 		.returning({ id: table.game.id });
 
@@ -199,7 +248,7 @@ async function saveStats(
 		const pointsOnly = recordedPts != null;
 
 		if (!jerseyNumber) {
-			notFound({ resource: 'player' }, { message: 'No jersey number while trying to save stats.' });
+			throw new Error(`Team: ${team.name} — a player row has no jersey number`);
 		}
 
 		const stats = Object.fromEntries(
@@ -268,9 +317,80 @@ async function saveStats(
 	}
 }
 
+class StatsheetSaveError extends Error {
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = 'StatsheetSaveError';
+	}
+}
+
+function findSaveError(err: unknown): StatsheetSaveError | undefined {
+	if (err instanceof StatsheetSaveError) return err;
+	if (err instanceof Error && err.cause) return findSaveError(err.cause);
+	return undefined;
+}
+
+function describeFailure(err: unknown): string {
+	if (isHttpError(err)) {
+		return err.body.message?.trim() || `Request failed (${err.status})`;
+	}
+
+	if (err instanceof Error) {
+		const own = err.message.trim();
+		const cause = err.cause ? describeFailure(err.cause) : '';
+		if (cause && (own.startsWith('Failed query') || !own)) {
+			return cause;
+		}
+		if (cause && !own.includes(cause)) {
+			return `${own} — ${cause}`;
+		}
+		return own || cause || 'Unknown error';
+	}
+
+	return 'Unknown error';
+}
+
+function formatGameDate(value: unknown, timeZone?: string): string | null {
+	const date =
+		value instanceof Date
+			? value
+			: typeof value === 'string' || typeof value === 'number'
+				? new Date(value)
+				: null;
+	if (!date || Number.isNaN(date.getTime())) return null;
+
+	const options: Intl.DateTimeFormatOptions = {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+	};
+	if (timeZone) {
+		try {
+			return new Intl.DateTimeFormat('en-US', { ...options, timeZone }).format(date);
+		} catch {
+			return new Intl.DateTimeFormat('en-US', options).format(date);
+		}
+	}
+	return new Intl.DateTimeFormat('en-US', options).format(date);
+}
+
+function gameHeading(
+	game: { name: string; playedOn?: string | null; completedAt?: unknown },
+	timeZone?: string
+) {
+	const fromSheet = typeof game.playedOn === 'string' ? game.playedOn.trim() : null;
+	const date = fromSheet
+		? fromSheet
+		: game.playedOn === ''
+			? null
+			: formatGameDate(game.completedAt, timeZone);
+	return date ? `Game: ${game.name} — ${date}` : `Game: ${game.name}`;
+}
+
 function formatSaveValidationIssues(
 	games: GamePreview[],
-	issues: { path: PropertyKey[]; message: string }[]
+	issues: { path: PropertyKey[]; message: string }[],
+	timeZone?: string
 ) {
 	return issues
 		.map((issue) => {
@@ -280,7 +400,7 @@ function formatSaveValidationIssues(
 
 			const parts: string[] = [];
 			if (game) {
-				parts.push(`Game: ${game.name}`);
+				parts.push(gameHeading(game, timeZone));
 			} else if (Number.isInteger(gameIndex)) {
 				parts.push(`Game #${gameIndex + 1}`);
 			}
@@ -316,15 +436,17 @@ export const savePreview = command(
 	z.object({
 		games: z.array(z.any()),
 		divisionId: idField,
+		timeZone: z.string().optional(),
 	}),
-	async ({ games, divisionId }) => {
+	async ({ games, divisionId, timeZone }) => {
 		const admin = await requireAdmin();
 
 		const parsed = savePreviewSchema.safeParse({ games, divisionId });
 		if (!parsed.success) {
 			const details = formatSaveValidationIssues(
 				games as GamePreview[],
-				parsed.error.issues.map((issue) => ({ path: issue.path, message: issue.message }))
+				parsed.error.issues.map((issue) => ({ path: issue.path, message: issue.message })),
+				timeZone
 			);
 			serverLogger.error('save preview validation failed', details);
 			error(400, details || 'Invalid statsheet data');
@@ -348,13 +470,18 @@ export const savePreview = command(
 			const ratingScale = await loadApplicableScale(season.organizationId, division.slug);
 
 			await db.transaction(async (tx) => {
+				const keptGameIds = new Set<string>();
 				for (const game of parsed.data.games) {
 					try {
 						const homeTeam = await saveTeam(tx, game.homeTeam, divisionId);
 						const awayTeam = await saveTeam(tx, game.awayTeam, divisionId);
 
 						if (!homeTeam || !awayTeam) {
-							notFound({ resource: 'team' });
+							const missing = [
+								!homeTeam ? `home (${game.homeTeam.name})` : null,
+								!awayTeam ? `away (${game.awayTeam.name})` : null,
+							].filter((name) => name != null);
+							throw new Error(`Could not find or create ${missing.join(' and ')}`);
 						}
 
 						const { id: gameId } = await saveGame(
@@ -362,8 +489,10 @@ export const savePreview = command(
 							homeTeam,
 							awayTeam,
 							game,
-							season.id
+							season.id,
+							timeZone
 						);
+						keptGameIds.add(gameId);
 
 						if (game.statsAvailable !== false) {
 							await saveStats(
@@ -384,16 +513,44 @@ export const savePreview = command(
 							);
 						}
 					} catch (err) {
-						const message = err instanceof Error ? err.message : 'Unknown save error';
-						throw new Error(`[Game: ${game.name}] ${message}`, { cause: err });
+						const reason = describeFailure(err);
+						const heading = gameHeading(game, timeZone);
+						const line = reason.startsWith('Game:') ? reason : `${heading} — ${reason}`;
+						throw new StatsheetSaveError(line, { cause: err });
 					}
+				}
+
+				const divisionTeams = await tx.query.team.findMany({
+					where: { divisionId },
+					columns: { id: true },
+				});
+				const seasonGames = await tx.query.game.findMany({
+					where: { seasonId: season.id },
+					columns: { id: true, homeTeamId: true, awayTeamId: true },
+				});
+				const staleIds = staleDivisionGameIds(
+					seasonGames,
+					new Set(divisionTeams.map((team) => team.id)),
+					keptGameIds
+				);
+				if (staleIds.length > 0) {
+					await tx.delete(table.game).where(inArray(table.game.id, staleIds));
 				}
 			});
 
-			serverLogger.info('saved stats', { admin: admin.id });
+			const ratings = await recalibrateOrganizationRatings(season.organizationId);
+			serverLogger.info('saved stats', {
+				admin: admin.id,
+				rated: ratings.rated,
+				cleared: ratings.cleared,
+			});
+			await publishScheduleChange(season.id);
 		} catch (err) {
 			serverLogger.error(err);
-			throw err;
+			const saveError = findSaveError(err);
+			if (saveError) error(400, saveError.message);
+			if (isHttpError(err)) throw err;
+			error(400, describeFailure(err));
 		}
 	}
 );

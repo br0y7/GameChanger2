@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { getCoachPlayerDetail } from '$lib/api/coach-player-stats.remote';
 	import { getPortalTeamContext } from '$lib/api/coach-portal.remote';
+	import AdminPlayerRename from '$lib/components/AdminPlayerRename.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import GameRatingDetail, {
 		type GameRatingDetailModel,
@@ -104,7 +105,11 @@
 </script>
 
 <section class="space-y-6">
-	<BackLink fallbackHref={backHref} fallbackLabel="Player Stats" class="text-[#58A6FF] hover:underline" />
+	<BackLink
+		fallbackHref={backHref}
+		fallbackLabel="Player Stats"
+		class="text-[#58A6FF] hover:underline"
+	/>
 
 	<header class="flex flex-wrap items-start justify-between gap-3">
 		<div>
@@ -115,6 +120,7 @@
 					· {season.name}
 				{/if}
 			</p>
+			<AdminPlayerRename playerId={params.playerId} name={detail.player.name} />
 		</div>
 		{#if statsHref}
 			<button
@@ -160,12 +166,7 @@
 		<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5">
 			<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Season Stats</h3>
 			<div class="mt-4 grid grid-cols-4 gap-2 text-center">
-				{#each [
-					{ label: 'REB', value: detail.summary.reb },
-					{ label: 'AST', value: detail.summary.ast },
-					{ label: 'STL', value: detail.summary.stl },
-					{ label: 'BLK', value: detail.summary.blk },
-				] as item (item.label)}
+				{#each [{ label: 'REB', value: detail.summary.reb }, { label: 'AST', value: detail.summary.ast }, { label: 'STL', value: detail.summary.stl }, { label: 'BLK', value: detail.summary.blk }] as item (item.label)}
 					<div>
 						<p class="text-xs text-[#8B949E]">{item.label}</p>
 						<p class="mt-1 text-lg font-bold tabular-nums">{item.value}</p>
@@ -233,7 +234,7 @@
 				<p class="mt-4 text-xs font-medium tracking-wide text-[#8B949E] uppercase">
 					Recent scoring
 				</p>
-				<p class="mt-2 flex flex-wrap gap-3 text-sm tabular-nums text-[#E6EDF3]">
+				<p class="mt-2 flex flex-wrap gap-3 text-sm text-[#E6EDF3] tabular-nums">
 					{#each detail.recentForm.recentScoring as pts, i (i)}
 						<span>{pts}</span>
 					{/each}
