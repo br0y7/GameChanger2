@@ -13,7 +13,9 @@
 		return new Promise((resolve) => {
 			document.startViewTransition(async () => {
 				resolve();
-				await navigation.complete;
+				// A redirect aborts this navigation and rejects `complete`. Letting that reject here
+				// leaves the transition unfinished, which silently swallows every later click.
+				await navigation.complete.catch(() => {});
 			});
 		});
 	});
