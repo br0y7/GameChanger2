@@ -37,7 +37,7 @@ export async function resolvePostLoginPath(preferredRedirect?: string | null): P
 		});
 	}
 
-	const { getUser } = await import('./auth.remote');
+	const { getUser, isUserAdmin, requireSession } = await import('./auth.remote');
 	const user = await getUser();
 	if (user) {
 		const { getOnboarding } = await import('./onboarding.remote');
@@ -53,6 +53,17 @@ export async function resolvePostLoginPath(preferredRedirect?: string | null): P
 				return resolve('/onboarding/awaiting-invite');
 			}
 			return resolve('/onboarding');
+		}
+
+		if (await isUserAdmin()) {
+			const { ensureAdminSystemOrganization, getOrganization } =
+				await import('./organization.remote');
+			await ensureAdminSystemOrganization();
+			const session = await requireSession();
+			if (session.activeOrganizationId) {
+				const org = await getOrganization({ id: session.activeOrganizationId });
+				return resolve('/dashboard/[orgSlug]', { orgSlug: org.slug });
+			}
 		}
 	}
 
