@@ -26,6 +26,11 @@
 		return `${(n * 100).toFixed(1)}%`;
 	}
 
+	function formatDate(d: Date | null | undefined) {
+		if (!d) return 'TBD';
+		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+	}
+
 	/** Typical marks so a steal rate can outrank a modest scoring average. */
 	const strongestStats = $derived(
 		[
@@ -256,6 +261,7 @@
 				<table class="w-full text-left text-sm">
 					<thead class="text-xs text-[#8B949E] uppercase">
 						<tr>
+							<th class="pb-2 font-medium">Date</th>
 							<th class="pb-2 font-medium">Opponent</th>
 							<th class="pb-2 font-medium tabular-nums">PTS</th>
 							<th class="pb-2 font-medium tabular-nums">REB</th>
@@ -266,6 +272,7 @@
 					<tbody>
 						{#each home.recentGames as game (game.gameId)}
 							<tr class="border-t border-[#2A3038]/60">
+								<td class="py-2.5 whitespace-nowrap text-[#8B949E]">{formatDate(game.date)}</td>
 								<td class="py-2.5">
 									{game.opponentName}
 									<span class="mt-0.5 block text-xs {gameTypeClass(game.gameType)}">
