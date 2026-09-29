@@ -7,7 +7,7 @@ import {
 } from '$lib/server/dashboard-sync.server';
 import { idField } from '$lib/schemas/common';
 import { COACH_STATUS } from '$lib/schemas/coach';
-import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { dedupeByMatchup } from '$lib/stats/matchup';
 import {
 	averageGameRating,
@@ -124,6 +124,7 @@ type GameLogStat = WithGame<PlayerGameStats> & {
 
 function formatGameLog(teamId: string, stats: GameLogStat[]) {
 	return stats
+		.filter((stat) => playerAppearedOnSheet(stat))
 		.map((stat) => {
 			const game = stat.game;
 			const isHome = game.homeTeamId === teamId;
@@ -147,6 +148,7 @@ function formatGameLog(teamId: string, stats: GameLogStat[]) {
 				result,
 				teamScore,
 				oppScore,
+				gameType: game.gameType,
 				pts: stat.pts,
 				pointsOnly: stat.pointsOnly,
 				reb: stat.reb,
@@ -191,7 +193,9 @@ export const getCoachTeamPlayerStats = query.live(z.object({ teamId: idField }),
 			const rows = players
 				.map((player) => {
 					const derived = dedupeByMatchup(
-						player.gameStats.map(derivePlayerGameStats),
+						player.gameStats
+							.filter((s) => s.game && playerAppearedOnSheet(s))
+							.map(derivePlayerGameStats),
 						(stat) => stat.game
 					);
 					return buildRow(player, derived);
@@ -251,7 +255,9 @@ export const getCoachPlayerDetail = query.live(
 				}
 
 				const derived = dedupeByMatchup(
-					player.gameStats.filter((s) => s.game).map(derivePlayerGameStats) as GameLogStat[],
+					player.gameStats
+						.filter((s) => s.game && playerAppearedOnSheet(s))
+						.map(derivePlayerGameStats) as GameLogStat[],
 					(stat) => stat.game
 				);
 
@@ -268,7 +274,9 @@ export const getCoachPlayerDetail = query.live(
 
 				const teamRows = teamPlayers.map((p) => {
 					const stats = dedupeByMatchup(
-						p.gameStats.map(derivePlayerGameStats),
+						p.gameStats
+							.filter((s) => s.game && playerAppearedOnSheet(s))
+							.map(derivePlayerGameStats),
 						(stat) => stat.game
 					);
 					return buildRow(p, stats);
@@ -373,7 +381,9 @@ export const getCoachTeamDevelopment = query.live(z.object({ teamId: idField }),
 			return players
 				.map((player) => {
 					const derived = dedupeByMatchup(
-						player.gameStats.map(derivePlayerGameStats),
+						player.gameStats
+							.filter((s) => s.game && playerAppearedOnSheet(s))
+							.map(derivePlayerGameStats),
 						(stat) => stat.game
 					);
 					if (!derived.length) {

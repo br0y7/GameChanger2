@@ -186,6 +186,23 @@ describe('points only', () => {
 		expect(game.homeTeam.playerStats.find((row) => row.jerseyNumber === '00')?.recordedPts).toBe(4);
 	});
 
+	test('does not create a team named 00 or 04', () => {
+		const game = parseSheet('Teal Green vs Dark Blue', [
+			['Category', 'girls'],
+			['00', 4],
+			['Teal Green', 38],
+			['Player No.', 'PTS'],
+			[15, 10],
+			['04', 3],
+			['Dark Blue', 20],
+			['Player No.', 'PTS'],
+			[1, 8],
+		]);
+
+		expect(game.homeTeam.name).toBe('Teal Green');
+		expect(game.awayTeam.name).toBe('Dark Blue');
+	});
+
 	test('keeps a score written beside the team name', () => {
 		const game = parseSheet('Brown vs Black', [
 			['Category', '15-17 years old'],

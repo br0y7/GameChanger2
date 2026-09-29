@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getFamilyPlayerHome } from '$lib/api/family.remote';
+	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -32,11 +33,14 @@
 								</span>
 							{/if}
 						</p>
+						<p class="text-xs {gameTypeClass(game.gameType)}">{gameTypeLabel(game.gameType)}</p>
 						{#if game.status === 'completed' && game.playerLine}
 							<p class="text-xs text-[#8B949E]">
 								{game.playerLine.pts} PTS{#if !game.playerLine.pointsOnly}
 									· {game.playerLine.reb} REB · {game.playerLine.ast} AST{/if}
 							</p>
+						{:else if game.status === 'completed'}
+							<p class="text-xs text-[#8B949E]">Did not play</p>
 						{:else if game.status !== 'completed'}
 							<p class="text-xs text-[#8B949E]">{formatDate(game.scheduledAt)}</p>
 						{/if}

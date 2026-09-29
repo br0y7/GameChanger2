@@ -34,6 +34,8 @@ import { slugify } from '$lib/utils/string';
 import { isUserLeagueOrganizer } from './league.remote';
 import { getSeasonTeams } from './league-manage.remote';
 import { isUserOrgAdmin } from './organization.remote';
+import { purgeJerseyNumberTeams } from '$lib/import/jersey-number-teams.server';
+import { isJerseyNumberTeamName } from '$lib/import/team-match';
 
 function gameTitle(homeName: string, awayName: string, currentName: string) {
 	const base = `${homeName} vs ${awayName}`;
@@ -404,10 +406,13 @@ export const getTeams = query(
 		divisionId: idField,
 		include: z.object(includes).default({}),
 	}),
-	async ({ divisionId, include }) =>
-		await db.query.team.findMany({
+	async ({ divisionId, include }) => {
+		await purgeJerseyNumberTeams(divisionId);
+		const teams = await db.query.team.findMany({
 			where: { divisionId },
 			with: include,
 			orderBy: (team, { asc }) => [asc(team.name)],
-		})
+		});
+		return teams.filter((team) => !isJerseyNumberTeamName(team.name));
+	}
 );

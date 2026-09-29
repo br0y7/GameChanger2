@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { pickExistingTeam, readableTeamName } from './team-match';
+import { isJerseyNumberTeamName, pickExistingTeam, readableTeamName } from './team-match';
 
 const division = [
 	{ name: 'Team Red', slug: 'team-red' },
@@ -29,5 +29,19 @@ describe('readableTeamName', () => {
 	test('leaves a name that is not fully capitalized', () => {
 		expect(readableTeamName('Team Red')).toBe('Team Red');
 		expect(readableTeamName('No Footage')).toBe('No Footage');
+	});
+});
+
+describe('isJerseyNumberTeamName', () => {
+	test('treats a column of only digits as a jersey, including a leading zero', () => {
+		expect(isJerseyNumberTeamName('00')).toBe(true);
+		expect(isJerseyNumberTeamName('04')).toBe(true);
+		expect(isJerseyNumberTeamName(' 7 ')).toBe(true);
+	});
+
+	test('leaves a real team name alone', () => {
+		expect(isJerseyNumberTeamName('Green')).toBe(false);
+		expect(isJerseyNumberTeamName('U10')).toBe(false);
+		expect(isJerseyNumberTeamName('10U')).toBe(false);
 	});
 });

@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { getFamilyPlayerHome } from '$lib/api/family.remote';
 	import { formatRankPlace, type RankedStatKey } from '$lib/stats/stat-ranks';
+	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
 	import GameRatingDetail, {
 		type GameRatingDetailModel,
 	} from '$lib/components/GameRatingDetail.svelte';
@@ -249,7 +250,7 @@
 			<a href={`${base}/stats`} class="text-xs text-[#58A6FF] hover:underline">All stats →</a>
 		</div>
 		{#if home.recentGames.length === 0}
-			<p class="mt-3 text-sm text-[#8B949E]">No games recorded yet.</p>
+			<p class="mt-3 text-sm text-[#8B949E]">No games played yet.</p>
 		{:else}
 			<div class="mt-3 overflow-x-auto">
 				<table class="w-full text-left text-sm">
@@ -267,6 +268,9 @@
 							<tr class="border-t border-[#2A3038]/60">
 								<td class="py-2.5">
 									{game.opponentName}
+									<span class="mt-0.5 block text-xs {gameTypeClass(game.gameType)}">
+										{gameTypeLabel(game.gameType)}
+									</span>
 									{#if game.scoreLabel}
 										<span class="mt-0.5 block text-xs {resultClass(game)}">
 											{game.scoreLabel}

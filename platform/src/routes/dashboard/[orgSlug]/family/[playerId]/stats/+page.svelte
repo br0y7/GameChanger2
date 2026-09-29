@@ -4,6 +4,7 @@
 		type GameRatingDetailModel,
 	} from '$lib/components/GameRatingDetail.svelte';
 	import { formatRankPlace, type RankedStatKey } from '$lib/stats/stat-ranks';
+	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
 	import { trueShootingPercentage } from '$lib/utils/collection';
 	import type { PageProps } from './$types';
 
@@ -126,7 +127,7 @@
 	<div class="rounded-2xl border border-[#2A3038] bg-[#161B22]/80 p-5">
 		<p class="text-xs font-semibold tracking-wide text-[#8B949E] uppercase">Game Log</p>
 		{#if home.gameLog.length === 0}
-			<p class="mt-3 text-sm text-[#8B949E]">No game stats yet.</p>
+			<p class="mt-3 text-sm text-[#8B949E]">No games played yet.</p>
 		{:else}
 			<div class="mt-3 overflow-x-auto">
 				<table class="w-full text-left text-sm">
@@ -145,6 +146,9 @@
 							<tr class="border-t border-[#2A3038]/60">
 								<td class="py-2.5">
 									{game.opponentName}
+									<span class="mt-0.5 block text-xs {gameTypeClass(game.gameType)}">
+										{gameTypeLabel(game.gameType)}
+									</span>
 									{#if game.scoreLabel}
 										<span class="mt-0.5 block text-xs text-[#8B949E]">{game.scoreLabel}</span>
 									{/if}

@@ -25,7 +25,7 @@ import * as table from '$lib/server/db/schema';
 import { publishScheduleChange } from '$lib/server/dashboard-sync.server';
 import { calendarDay, staleDivisionGameIds } from '$lib/import/game-identity';
 import { resolveImportedGameType } from '$lib/schemas/game';
-import { pickExistingTeam, readableTeamName } from '$lib/import/team-match';
+import { pickExistingTeam, readableTeamName, isJerseyNumberTeamName } from '$lib/import/team-match';
 import { slugify } from '$lib/utils/string';
 import { and, eq, inArray } from 'drizzle-orm';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
@@ -130,6 +130,12 @@ async function saveTeam(tx: Transaction, teamPreview: TeamPreview, divisionId: s
 
 	const existing = pickExistingTeam(divisionTeams, teamPreview.name);
 	if (existing) return useReadableTeamName(tx, existing);
+
+	if (isJerseyNumberTeamName(teamPreview.name)) {
+		throw new Error(
+			`"${teamPreview.name}" is a jersey number, not a team. Put it under Player No.`
+		);
+	}
 
 	const name = readableTeamName(teamPreview.name);
 	const slug = slugify(name);
@@ -535,6 +541,17 @@ export const savePreview = command(
 				);
 				if (staleIds.length > 0) {
 					await tx.delete(table.game).where(inArray(table.game.id, staleIds));
+				}
+
+				const leftoverTeams = await tx.query.team.findMany({
+					where: { divisionId },
+					columns: { id: true, name: true },
+				});
+				const jerseyTeamIds = leftoverTeams
+					.filter((team) => isJerseyNumberTeamName(team.name))
+					.map((team) => team.id);
+				if (jerseyTeamIds.length > 0) {
+					await tx.delete(table.team).where(inArray(table.team.id, jerseyTeamIds));
 				}
 			});
 

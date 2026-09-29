@@ -1,5 +1,10 @@
 import { slugify } from '$lib/utils/string';
 
+/** "00" and "04" are jersey numbers stored as text, not team names. */
+export function isJerseyNumberTeamName(name: string): boolean {
+	return /^\d+$/.test(name.trim());
+}
+
 /** "GREEN" and "WHITE" become "Green" and "White". Mixed-case names stay as written. */
 export function readableTeamName(name: string): string {
 	return name

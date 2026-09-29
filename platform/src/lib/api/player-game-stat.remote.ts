@@ -2,7 +2,7 @@ import { query } from '$app/server';
 import { isPlayerIdentityChange, relayDashboard } from '$lib/server/dashboard-sync.server';
 import { idField } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
-import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { ensurePlayerGameRatings } from '$lib/server/game-rating.server';
 import { count, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -71,7 +71,7 @@ export const getPlayerGameStats = query(
 			},
 		});
 
-		return rawStats.map(derivePlayerGameStats);
+		return rawStats.filter(playerAppearedOnSheet).map(derivePlayerGameStats);
 	}
 );
 
@@ -110,7 +110,7 @@ async function getTeamPlayerSeasonAverages(teamId: string) {
 
 	return players
 		.map((player) => {
-			const derived = player.gameStats.map(derivePlayerGameStats);
+			const derived = player.gameStats.filter(playerAppearedOnSheet).map(derivePlayerGameStats);
 			if (!derived.length) return null;
 
 			return {

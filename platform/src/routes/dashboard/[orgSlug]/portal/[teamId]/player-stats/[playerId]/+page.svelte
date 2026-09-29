@@ -10,6 +10,7 @@
 	} from '$lib/components/GameRatingDetail.svelte';
 	import ClipboardIcon from '@lucide/svelte/icons/clipboard';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -246,7 +247,7 @@
 	<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5">
 		<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Game-by-Game</h3>
 		{#if detail.gameLog.length === 0}
-			<p class="mt-3 text-sm text-[#8B949E]">No games logged yet.</p>
+			<p class="mt-3 text-sm text-[#8B949E]">No games played yet.</p>
 		{:else}
 			<div class="mt-4 overflow-x-auto">
 				<table class="w-full min-w-[560px] text-left text-sm">
@@ -265,7 +266,12 @@
 						{#each detail.gameLog as game (game.gameId)}
 							<tr class="border-b border-[#2A3038]/50">
 								<td class="py-2.5 text-[#8B949E]">{formatDate(game.date)}</td>
-								<td class="py-2.5">{game.opponentName}</td>
+								<td class="py-2.5">
+									{game.opponentName}
+									<span class="mt-0.5 block text-xs {gameTypeClass(game.gameType)}">
+										{gameTypeLabel(game.gameType)}
+									</span>
+								</td>
 								<td class="py-2.5">
 									{#if game.result}
 										<span
