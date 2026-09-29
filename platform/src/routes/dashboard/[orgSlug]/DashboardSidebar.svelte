@@ -3,7 +3,6 @@
 	import type { ComponentProps } from 'svelte';
 	import NavUser from './NavUser.svelte';
 	import NavMain from './NavMain.svelte';
-	import NavModeToggle from './NavModeToggle.svelte';
 	import NavHeader from './NavHeader.svelte';
 	import NavItem from './NavItem.svelte';
 	import { resolve } from '$app/paths';
@@ -30,7 +29,6 @@
 				{/snippet}
 			</NavItem>
 		</Sidebar.Menu>
-		<NavModeToggle />
 		<NavUser />
 	</Sidebar.Footer>
 	<Sidebar.Rail />
