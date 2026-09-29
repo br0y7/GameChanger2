@@ -22,6 +22,7 @@ import {
 import { Temporal } from 'temporal-polyfill';
 import { serverLogger } from '$lib/server/logger';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
+import { isJerseyNumberTeamName } from '$lib/import/team-match';
 
 type Header = StatKey | 'jerseyNumber';
 
@@ -168,11 +169,6 @@ function parseStatNumber(value: RowValue): number {
 	}
 
 	return Number.isFinite(value) ? value : 0;
-}
-
-/** "00" and "04" are text in Excel so a leading zero survives. They are jersey numbers. */
-function isJerseyNumberLabel(value: string): boolean {
-	return /^\d+$/.test(value.trim());
 }
 
 function parseStatsRow(
@@ -382,17 +378,19 @@ function parseGameSheet(
 			}
 
 			// A jersey kept as text ("00", "04") is still a player on the open team.
-			// Treating it as a team name splits the roster and drops the real opponent.
-			if (
-				typeof first === 'string' &&
-				isJerseyNumberLabel(first) &&
-				currentTeam &&
-				currentHeaders.length > 0 &&
-				!resultOnlyGame
-			) {
-				currentTeam.playerStats.push(
-					parseStatsRow(row, currentHeaders, gameName, currentTeam.name, currentPointsOnly)
-				);
+			// Treating it as a team name splits the roster and leaves a fake 00 / 04 team.
+			if (typeof first === 'string' && isJerseyNumberTeamName(first)) {
+				if (currentTeam && currentHeaders.length > 0 && !resultOnlyGame) {
+					currentTeam.playerStats.push(
+						parseStatsRow(row, currentHeaders, gameName, currentTeam.name, currentPointsOnly)
+					);
+				} else {
+					serverLogger.warn('skipped a jersey number that is not a team name', {
+						gameName,
+						excelRow,
+						value: first,
+					});
+				}
 				continue;
 			}
 

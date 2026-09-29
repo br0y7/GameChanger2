@@ -8,8 +8,12 @@ import { idField } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
 import { dedupeMatchups } from '$lib/stats/matchup';
 import { z } from 'zod';
+import { purgeJerseyNumberTeamsForSeason } from '$lib/import/jersey-number-teams.server';
+import { isJerseyNumberTeamName } from '$lib/import/team-match';
 
 export const getSeasonTeams = query(z.object({ seasonId: idField }), async ({ seasonId }) => {
+	await purgeJerseyNumberTeamsForSeason(seasonId);
+
 	const divisions = await db.query.division.findMany({
 		where: { seasonId },
 		with: {
@@ -24,21 +28,25 @@ export const getSeasonTeams = query(z.object({ seasonId: idField }), async ({ se
 	});
 
 	return divisions.flatMap((division) =>
-		division.teams.map((team) => ({
-			id: team.id,
-			name: team.name,
-			slug: team.slug,
-			divisionId: division.id,
-			divisionName: division.name,
-			divisionSlug: division.slug,
-			playerCount: team.players.length,
-		}))
+		division.teams
+			.filter((team) => !isJerseyNumberTeamName(team.name))
+			.map((team) => ({
+				id: team.id,
+				name: team.name,
+				slug: team.slug,
+				divisionId: division.id,
+				divisionName: division.name,
+				divisionSlug: division.slug,
+				playerCount: team.players.length,
+			}))
 	);
 });
 
 export const getSeasonPlayers = query.live(z.object({ seasonId: idField }), ({ seasonId }) =>
 	relayDashboard(
 		async () => {
+			await purgeJerseyNumberTeamsForSeason(seasonId);
+
 			const divisions = await db.query.division.findMany({
 				where: { seasonId },
 				with: {
@@ -55,31 +63,34 @@ export const getSeasonPlayers = query.live(z.object({ seasonId: idField }), ({ s
 			});
 
 			const players = divisions.flatMap((division) =>
-				division.teams.flatMap((team) =>
-					team.players.map((player) => {
-						const hasAccount =
-							!!player.userId || player.followers.some((follower) => follower.status === 'active');
-						const accountStatus = hasAccount
-							? ('account' as const)
-							: player.followers.some((follower) => follower.status === 'invited')
-								? ('invited' as const)
-								: ('none' as const);
+				division.teams
+					.filter((team) => !isJerseyNumberTeamName(team.name))
+					.flatMap((team) =>
+						team.players.map((player) => {
+							const hasAccount =
+								!!player.userId ||
+								player.followers.some((follower) => follower.status === 'active');
+							const accountStatus = hasAccount
+								? ('account' as const)
+								: player.followers.some((follower) => follower.status === 'invited')
+									? ('invited' as const)
+									: ('none' as const);
 
-						return {
-							id: player.id,
-							name: player.name,
-							jerseyNumber: player.jerseyNumber,
-							teamId: team.id,
-							teamName: team.name,
-							teamSlug: team.slug,
-							divisionId: division.id,
-							divisionName: division.name,
-							divisionSlug: division.slug,
-							updatedAt: player.updatedAt,
-							accountStatus,
-						};
-					})
-				)
+							return {
+								id: player.id,
+								name: player.name,
+								jerseyNumber: player.jerseyNumber,
+								teamId: team.id,
+								teamName: team.name,
+								teamSlug: team.slug,
+								divisionId: division.id,
+								divisionName: division.name,
+								divisionSlug: division.slug,
+								updatedAt: player.updatedAt,
+								accountStatus,
+							};
+						})
+					)
 			);
 
 			return players.sort((a, b) => a.name.localeCompare(b.name));

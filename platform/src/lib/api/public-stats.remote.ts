@@ -10,12 +10,13 @@ import * as table from '$lib/server/db/schema';
 import { forbidden, notFound } from '$lib/server/fail';
 import { dedupeMatchups } from '$lib/stats/matchup';
 import { regularSeasonGames, regularSeasonStandings } from '$lib/stats/standings';
-import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { loadBoxScore } from '$lib/server/game-box-score.server';
 import { countDistinct, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { isUserAdmin, requireUser } from './auth.remote';
 import { isUserLeagueOrganizer } from './league.remote';
+import { isJerseyNumberTeamName } from '$lib/import/team-match';
 
 export type PublicVisibility = LeagueVisibilityFlags & {
 	organizationId?: string;
@@ -155,7 +156,9 @@ export const getPublicSeasonFilters = query(
 				id: d.id,
 				name: d.name,
 				slug: d.slug,
-				teams: d.teams.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
+				teams: d.teams
+					.filter((t) => !isJerseyNumberTeamName(t.name))
+					.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
 			})),
 		};
 	}
@@ -232,7 +235,12 @@ export const getPublicPlayerLeaders = query(
 		const players = filteredTeams.flatMap((team) =>
 			team.players.map((player) => {
 				const derived = player.gameStats
-					.filter((s) => s.game?.seasonId === filters.season.id && s.game.status === 'completed')
+					.filter(
+						(s) =>
+							s.game?.seasonId === filters.season.id &&
+							s.game.status === 'completed' &&
+							playerAppearedOnSheet(s)
+					)
 					.map((s) => derivePlayerGameStats(s as Parameters<typeof derivePlayerGameStats>[0]));
 				const gp = derived.length;
 				const avg = (pick: (s: (typeof derived)[number]) => number) =>
@@ -303,7 +311,12 @@ export const getPublicPlayer = query(
 		}
 
 		const derived = player.gameStats
-			.filter((s) => s.game?.seasonId === filters.season.id && s.game.status === 'completed')
+			.filter(
+				(s) =>
+					s.game?.seasonId === filters.season.id &&
+					s.game.status === 'completed' &&
+					playerAppearedOnSheet(s)
+			)
 			.map((s) => derivePlayerGameStats(s as Parameters<typeof derivePlayerGameStats>[0]));
 		const gp = derived.length;
 		const avg = (pick: (s: (typeof derived)[number]) => number) =>

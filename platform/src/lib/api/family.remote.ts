@@ -11,13 +11,14 @@ import * as table from '$lib/server/db/schema';
 import { forbidden, notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { ONBOARDING_DONE_STEP } from '$lib/onboarding/steps';
-import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { dedupeByMatchup, dedupeMatchups } from '$lib/stats/matchup';
 import { derivePlayerStats } from '$lib/stats/player-stats';
 import { ranksForPlayer, type RankRow } from '$lib/stats/stat-ranks';
 import { averageGameRating, ratingMeaning, trendVersusAverage } from '$lib/stats/game-rating';
 import { ensurePlayerGameRatings } from '$lib/server/game-rating.server';
 import { loadSeasonPlayerLines } from '$lib/server/season-player-directory.server';
+import { scoresForTeam } from '$lib/stats/game-scores';
 import { derivePlayerStrengths } from '$lib/player-analysis/player-strengths';
 import { derivePlayerWeaknesses } from '$lib/player-analysis/player-weaknesses';
 import { invalid, isRedirect, redirect } from '@sveltejs/kit';
@@ -359,7 +360,9 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 			if (!player) notFound({ resource: 'player' });
 
 			const derived = dedupeByMatchup(
-				player.gameStats.filter((s) => s.game).map(derivePlayerGameStats),
+				player.gameStats
+					.filter((s) => s.game && playerAppearedOnSheet(s))
+					.map(derivePlayerGameStats),
 				(stat) => stat.game
 			);
 
@@ -412,9 +415,10 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 			};
 
 			const teamId = player.teamId;
+			const seasonId = player.team?.division?.seasonId;
 			const lineByGameId = new Map(
 				player.gameStats
-					.filter((stat) => stat.game)
+					.filter((stat) => stat.game && playerAppearedOnSheet(stat))
 					.map((raw) => {
 						const stat = derivePlayerGameStats(raw);
 						return [
@@ -423,8 +427,26 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 						] as const;
 					})
 			);
+			const scheduleGames = seasonId
+				? await db.query.game.findMany({
+						where: { seasonId },
+						with: {
+							homeTeam: { columns: { id: true, name: true } },
+							awayTeam: { columns: { id: true, name: true } },
+							playerStats: {
+								with: { player: { columns: { teamId: true } } },
+							},
+						},
+						orderBy: { scheduledAt: 'asc' },
+					})
+				: [];
+
+			const scoreByGameId = new Map(
+				scheduleGames.map((game) => [game.id, scoresForTeam(game, teamId)] as const)
+			);
+
 			const gameLog = [...player.gameStats]
-				.filter((stat) => stat.game)
+				.filter((stat) => stat.game && playerAppearedOnSheet(stat))
 				.sort((a, b) => {
 					const aAt = (a.game?.completedAt ?? a.game?.scheduledAt)?.getTime() ?? 0;
 					const bAt = (b.game?.completedAt ?? b.game?.scheduledAt)?.getTime() ?? 0;
@@ -433,37 +455,30 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 				.map((raw) => {
 					const stat = derivePlayerGameStats(raw);
 					const game = raw.game!;
-					const isHome = game.homeTeamId === teamId;
+					const scored = scoreByGameId.get(game.id) ?? scoresForTeam(game, teamId);
+					const { isHome, teamScore, oppScore, result } = scored;
 					const opponent = isHome ? game.awayTeam : game.homeTeam;
-					const teamScore = isHome ? (game.homeTeamScore ?? 0) : (game.awayTeamScore ?? 0);
-					const oppScore = isHome ? (game.awayTeamScore ?? 0) : (game.homeTeamScore ?? 0);
-					const result =
-						game.status === 'completed'
-							? teamScore > oppScore
-								? ('W' as const)
-								: teamScore < oppScore
-									? ('L' as const)
-									: ('T' as const)
-							: null;
+					const completed = game.status === 'completed';
 					return {
 						gameId: game.id,
 						date: game.completedAt ?? game.scheduledAt,
 						opponentName: opponent?.name ?? 'Opponent',
-						result,
+						result: completed ? result : null,
 						defaultResult: isDefaultGame(game)
 							? defaultResultLabel(game.defaultLossSide, isHome)
 							: null,
-						teamScore: game.status === 'completed' ? teamScore : null,
-						oppScore: game.status === 'completed' ? oppScore : null,
+						teamScore: completed ? teamScore : null,
+						oppScore: completed ? oppScore : null,
 						scoreLabel: completedGameLabel({
 							statsAvailable: game.statsAvailable,
 							defaultLossSide: game.defaultLossSide,
 							pointsOnly: game.pointsOnly || stat.pointsOnly,
 							isHome,
-							result,
-							teamScore: game.status === 'completed' ? teamScore : null,
-							oppScore: game.status === 'completed' ? oppScore : null,
+							result: completed ? result : null,
+							teamScore: completed ? teamScore : null,
+							oppScore: completed ? oppScore : null,
 						}),
+						gameType: game.gameType,
 						pts: stat.pts,
 						pointsOnly: stat.pointsOnly,
 						reb: stat.reb,
@@ -495,96 +510,43 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 						: trendVersusAverage(lastFiveAverage, seasonAverageRating),
 			};
 
-			const seasonId = player.team?.division?.seasonId;
-			const scheduleGames = seasonId
-				? await db.query.game.findMany({
-						where: { seasonId },
-						with: {
-							homeTeam: { columns: { id: true, name: true } },
-							awayTeam: { columns: { id: true, name: true } },
-						},
-						orderBy: { scheduledAt: 'asc' },
-					})
-				: [];
-
 			const schedule = dedupeMatchups(scheduleGames)
 				.filter((g) => g.homeTeamId === teamId || g.awayTeamId === teamId)
 				.map((game) => {
-					const isHome = game.homeTeamId === teamId;
+					const scored = scoresForTeam(game, teamId);
+					const { isHome, teamScore, oppScore, result } = scored;
 					const opponent = isHome ? game.awayTeam : game.homeTeam;
-					const teamScore = isHome ? (game.homeTeamScore ?? 0) : (game.awayTeamScore ?? 0);
-					const oppScore = isHome ? (game.awayTeamScore ?? 0) : (game.homeTeamScore ?? 0);
-					const result =
-						game.status === 'completed'
-							? teamScore > oppScore
-								? ('W' as const)
-								: teamScore < oppScore
-									? ('L' as const)
-									: ('T' as const)
-							: null;
+					const completed = game.status === 'completed';
 					return {
 						id: game.id,
 						status: game.status,
 						scheduledAt: game.scheduledAt,
 						completedAt: game.completedAt,
 						opponentName: opponent?.name ?? 'TBD',
-						result,
+						result: completed ? result : null,
 						defaultResult: isDefaultGame(game)
 							? defaultResultLabel(game.defaultLossSide, isHome)
 							: null,
 						pointsOnly: game.pointsOnly,
-						scoreLabel:
-							game.status === 'completed'
-								? completedGameLabel({
-										statsAvailable: game.statsAvailable,
-										defaultLossSide: game.defaultLossSide,
-										pointsOnly: game.pointsOnly,
-										isHome,
-										result,
-										teamScore,
-										oppScore,
-									})
-								: null,
-						teamScore: game.status === 'completed' ? teamScore : null,
-						oppScore: game.status === 'completed' ? oppScore : null,
-						playerLine: game.status === 'completed' ? (lineByGameId.get(game.id) ?? null) : null,
+						scoreLabel: completed
+							? completedGameLabel({
+									statsAvailable: game.statsAvailable,
+									defaultLossSide: game.defaultLossSide,
+									pointsOnly: game.pointsOnly,
+									isHome,
+									result,
+									teamScore,
+									oppScore,
+								})
+							: null,
+						teamScore: completed ? teamScore : null,
+						oppScore: completed ? oppScore : null,
+						playerLine: completed ? (lineByGameId.get(game.id) ?? null) : null,
+						gameType: game.gameType,
 					};
 				});
 
-			// A forfeit has no box score, so the player has no stat line to log it against.
-			// Pull it from the team schedule so the game still shows up in their recent games.
-			const loggedGameIds = new Set(gameLog.map((entry) => entry.gameId));
-			const forfeits: (typeof gameLog)[number][] = schedule
-				.filter(
-					(game) =>
-						game.defaultResult && game.status === 'completed' && !loggedGameIds.has(game.id)
-				)
-				.map((game) => ({
-					gameId: game.id,
-					date: game.completedAt ?? game.scheduledAt,
-					opponentName: game.opponentName,
-					result: game.result,
-					defaultResult: game.defaultResult,
-					teamScore: game.teamScore,
-					oppScore: game.oppScore,
-					scoreLabel: game.scoreLabel,
-					pts: 0,
-					pointsOnly: false,
-					reb: 0,
-					ast: 0,
-					stl: 0,
-					blk: 0,
-					tov: 0,
-					oreb: 0,
-					gameRating: null,
-					meaning: null,
-					breakdown: null,
-					impactScore: null,
-					percentile: null,
-					contextBonus: null,
-				}));
-
-			const recentGames = [...gameLog, ...forfeits]
+			const recentGames = [...gameLog]
 				.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0))
 				.slice(0, 5);
 

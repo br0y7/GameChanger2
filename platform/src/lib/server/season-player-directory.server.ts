@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { derivePlayerStats } from '$lib/stats/player-stats';
 import {
 	displayRankValue,
@@ -44,7 +44,9 @@ export async function loadSeasonPlayerLines(seasonId: string): Promise<SeasonPla
 	for (const division of divisions) {
 		for (const team of division.teams) {
 			for (const rosterPlayer of team.players) {
-				const games = rosterPlayer.gameStats.map((stat) => derivePlayerGameStats(stat));
+				const games = rosterPlayer.gameStats
+					.filter((stat) => playerAppearedOnSheet(stat))
+					.map((stat) => derivePlayerGameStats(stat));
 				if (!games.length) continue;
 				const stats = derivePlayerStats(games);
 				const gp = games.length;
@@ -168,15 +170,25 @@ export function formatSeasonPlayerLine(player: SeasonPlayerLine, players: Season
 	return `- ${player.name} #${player.jerseyNumber}, ${player.teamName}, ${player.divisionName}: ${(v.points ?? 0).toFixed(1)} PPG, ${(v.rebounds ?? 0).toFixed(1)} RPG, ${(v.assists ?? 0).toFixed(1)} APG, ${(v.steals ?? 0).toFixed(1)} SPG, ${(v.blocks ?? 0).toFixed(1)} BPG, OR ${(v.oreb ?? 0).toFixed(1)}, DR ${(v.dreb ?? 0).toFixed(1)}, 3PM ${(v.threes ?? 0).toFixed(1)}, FTM ${(v.fts ?? 0).toFixed(1)}, FG ${pct(v.fg)}, 3P ${pct(v.fg3)}, FT ${pct(v.ft)}, TS ${pct(v.ts)}, ${player.gp} GP.${divisionRankNote(players, player)}`;
 }
 
-function formatBoardLine(title: string, leaders: ReturnType<typeof leadersFor>, key: RankedStatKey) {
+function formatBoardLine(
+	title: string,
+	leaders: ReturnType<typeof leadersFor>,
+	key: RankedStatKey
+) {
 	const list = leaders
-		.map((leader) => `${formatRankPlace(leader)} ${leader.name} ${formatLeaderValue(key, leader.value)}`)
+		.map(
+			(leader) =>
+				`${formatRankPlace(leader)} ${leader.name} ${formatLeaderValue(key, leader.value)}`
+		)
 		.join(', ');
 	return `${title}: ${list}`;
 }
 
 /** League top 10, plus the open division's top 10. Each category is one line. */
-export function formatSeasonLeaderboards(players: SeasonPlayerLine[], focusDivisionName?: string | null) {
+export function formatSeasonLeaderboards(
+	players: SeasonPlayerLine[],
+	focusDivisionName?: string | null
+) {
 	const lines: string[] = [
 		'Top 10 leaderboards. Tied players share one rank, written T - 4. When asked who leads a stat or for a top 10 list, answer from these lists. Do not say this data is missing.',
 		'League:',

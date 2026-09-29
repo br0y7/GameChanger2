@@ -1,5 +1,15 @@
 import type { PlayerGameStats, WithGame } from '$lib/schemas/player-game-stat';
+import { rawStatKeys } from '$lib/schemas/player-game-stat';
 import type { RawPlayerGameStats } from '$lib/server/db/schema';
+
+/** True when this row is a box-score appearance, not a leftover DNP / empty line. */
+export function playerAppearedOnSheet(stat: {
+	recordedPts?: number | null;
+	[key: string]: unknown;
+}): boolean {
+	if (stat.recordedPts != null) return true;
+	return rawStatKeys.some((key) => Number(stat[key]) > 0);
+}
 
 export function derivePlayerGameStats(
 	rawStats: WithGame<RawPlayerGameStats>

@@ -402,7 +402,7 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			for (const game of detail.gameLog.slice(0, 5)) {
 				pushOfficialRating(parts, {
 					playerName: detail.player.name,
-					gameLabel: `vs ${game.opponentName}`,
+					gameLabel: `vs ${game.opponentName} (${gameTypeLabel(game.gameType)})`,
 					pointsOnly: game.pointsOnly,
 					rating: game.gameRating,
 					breakdown: game.breakdown,
@@ -506,7 +506,7 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 				}
 				pushOfficialRating(parts, {
 					playerName: home.player.name,
-					gameLabel: `vs ${game.opponentName}`,
+					gameLabel: `vs ${game.opponentName} (${gameTypeLabel(game.gameType)})`,
 					pointsOnly: game.pointsOnly,
 					rating: game.gameRating,
 					breakdown: game.breakdown,
