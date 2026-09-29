@@ -8,7 +8,7 @@
 	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
 	import type { Organization } from '$lib/server/db/auth-schema';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { loadPage } from '$lib/navigation/load-page';
 	import { resolve } from '$app/paths';
 
 	interface Props {
@@ -32,7 +32,7 @@
 		// prevents the inputs getting cleared
 		// since that is default behavior
 		if ((await form.submit()) && form.result && form.result.slug != page.params.orgSlug) {
-			goto(resolve('/dashboard/[orgSlug]/settings', { orgSlug: form.result.slug }));
+			loadPage(resolve('/dashboard/[orgSlug]/settings', { orgSlug: form.result.slug }));
 		}
 	})}
 >

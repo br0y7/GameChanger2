@@ -18,7 +18,7 @@
 		listAllLeaguesForAdmin,
 	} from '$lib/api/organization.remote';
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { loadPage } from '$lib/navigation/load-page';
 	import { getAdminViewAs } from '$lib/api/view-as.remote';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 
@@ -44,7 +44,7 @@
 			});
 			await getAdminViewAs().refresh();
 			if (destination === 'stats' && result.seasonSlug) {
-				await goto(
+				loadPage(
 					resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]/stats', {
 						orgSlug: result.slug,
 						seasonSlug: result.seasonSlug,
@@ -53,14 +53,14 @@
 				return;
 			}
 			if (destination === 'portal') {
-				await goto(resolve('/dashboard/[orgSlug]/portal', { orgSlug: result.slug }));
+				loadPage(resolve('/dashboard/[orgSlug]/portal', { orgSlug: result.slug }));
 				return;
 			}
 			if (destination === 'family') {
-				await goto(resolve('/dashboard/[orgSlug]/family', { orgSlug: result.slug }));
+				loadPage(resolve('/dashboard/[orgSlug]/family', { orgSlug: result.slug }));
 				return;
 			}
-			await goto(resolve('/dashboard/[orgSlug]', { orgSlug: result.slug }));
+			loadPage(resolve('/dashboard/[orgSlug]', { orgSlug: result.slug }));
 		} finally {
 			openingId = null;
 		}
@@ -255,7 +255,9 @@
 						spreadsheet data.
 					</p>
 					{#if leagueToDelete.stats.games > 0 || leagueToDelete.stats.players > 0}
-						<p class="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+						<p
+							class="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+						>
 							This league currently has
 							{leagueToDelete.stats.players} player{leagueToDelete.stats.players === 1 ? '' : 's'}
 							and
@@ -280,11 +282,7 @@
 				>
 					<input {...deleteForm.fields.id.as('hidden', leagueToDelete.id)} />
 					<AlertDialog.Cancel type="button">Cancel</AlertDialog.Cancel>
-					<AlertDialog.Action
-						variant="destructive"
-						type="submit"
-						disabled={!!deleteForm.pending}
-					>
+					<AlertDialog.Action variant="destructive" type="submit" disabled={!!deleteForm.pending}>
 						{deleteForm.pending ? 'Deleting…' : 'Delete league'}
 					</AlertDialog.Action>
 				</form>

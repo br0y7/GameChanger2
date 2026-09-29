@@ -5,11 +5,16 @@ import {
 	publishScheduleChange,
 	relayDashboard,
 } from '$lib/server/dashboard-sync.server';
-import { createTeamSchema, renameTeamSchema, teamSchema, updateTeamSchema } from '$lib/schemas/team';
+import {
+	createTeamSchema,
+	renameTeamSchema,
+	teamSchema,
+	updateTeamSchema,
+} from '$lib/schemas/team';
 import { auth, type User } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
-import { isUserAdmin, requireAdmin, requireUser } from './auth.remote';
+import { isUserAdmin, requireUser } from './auth.remote';
 import { serverLogger } from '$lib/server/logger';
 import { invalid } from '@sveltejs/kit';
 import { forbidden, internal, internalNoId, notFound } from '$lib/server/fail';
@@ -274,7 +279,10 @@ export const updateTeam = form(updateTeamSchema, async ({ id, ...data }, issue) 
 
 	try {
 		const name = readableTeamName(data.name);
-		await db.update(table.team).set({ ...data, name }).where(eq(table.team.id, id));
+		await db
+			.update(table.team)
+			.set({ ...data, name })
+			.where(eq(table.team.id, id));
 		await syncTeamGameNames(id);
 		void getTeams({ divisionId: data.divisionId }).refresh();
 		const seasonId = await seasonIdForTeam(id);
@@ -292,7 +300,8 @@ export const updateTeam = form(updateTeamSchema, async ({ id, ...data }, issue) 
 });
 
 export const renameTeam = form(renameTeamSchema, async ({ id, name }, issue) => {
-	await requireAdmin();
+	const user = await requireUser();
+	await assertPermissions('update', { resource: 'team', id }, user);
 	const existing = await getTeam({ id });
 	const nextName = readableTeamName(name);
 	const slug = slugify(nextName);
@@ -323,7 +332,6 @@ export const renameTeam = form(renameTeamSchema, async ({ id, name }, issue) => 
 			await publishSavedPlayer(id, id, 'player');
 		}
 
-		const user = await requireUser();
 		serverLogger.info('renamed team', { id, userId: user.id, name: nextName });
 
 		void getTeams({ divisionId: existing.divisionId }).refresh();

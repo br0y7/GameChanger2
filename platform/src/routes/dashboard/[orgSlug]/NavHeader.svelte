@@ -14,7 +14,7 @@
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
 	import type { Organization } from '$lib/server/db/schema';
-	import { goto } from '$app/navigation';
+	import { loadPage } from '$lib/navigation/load-page';
 	import { authClient } from '$lib/auth-client';
 
 	interface Props {
@@ -87,7 +87,7 @@
 
 								await authClient.organization.setActive({ organizationId: org.id });
 
-								await goto(resolve('/dashboard/[orgSlug]', { orgSlug: org.slug }));
+								loadPage(resolve('/dashboard/[orgSlug]', { orgSlug: org.slug }));
 							}}
 							class="gap-2 p-2"
 						>

@@ -8,7 +8,6 @@
 	import ActiveSeasonGate from '../ActiveSeasonGate.svelte';
 	import type { PageProps } from './$types';
 	import { redirect } from '@sveltejs/kit';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 
 	let { params }: PageProps = $props();
 	const org = $derived(await getOrganization({ slug: params.orgSlug }));
@@ -21,12 +20,25 @@
 	validateOrg();
 
 	const currentSeason = $derived(await getCurrentSeason({ organizationId: org.id }));
-	const teams = $derived(
-		currentSeason ? await getSeasonTeams({ seasonId: currentSeason.id }) : []
+	const teams = $derived(currentSeason ? await getSeasonTeams({ seasonId: currentSeason.id }) : []);
+
+	const divisions = $derived([
+		...new Map(
+			teams.map((team) => [
+				team.divisionId,
+				{ id: team.divisionId, name: team.divisionName, slug: team.divisionSlug },
+			])
+		).values(),
+	]);
+
+	let divisionId = $state('');
+
+	const visibleTeams = $derived(
+		divisionId ? teams.filter((team) => team.divisionId === divisionId) : teams
 	);
 
 	const byDivision = $derived(
-		teams.reduce(
+		visibleTeams.reduce(
 			(acc, team) => {
 				const key = team.divisionName;
 				if (!acc[key]) acc[key] = [];
@@ -37,17 +49,17 @@
 		)
 	);
 
+	const selectClass =
+		'w-full max-w-xs rounded-md border border-[#2A3038] bg-[#0D1117] px-3 py-2 text-sm text-[#E6EDF3] focus:border-[#58A6FF] focus:outline-none';
+
 	function teamHref(team: (typeof teams)[number]) {
 		if (!currentSeason) return '#';
-		return resolve(
-			'/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]',
-			{
-				orgSlug: params.orgSlug,
-				seasonSlug: currentSeason.slug,
-				divisionSlug: team.divisionSlug,
-				teamSlug: team.slug,
-			}
-		);
+		return resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]', {
+			orgSlug: params.orgSlug,
+			seasonSlug: currentSeason.slug,
+			divisionSlug: team.divisionSlug,
+			teamSlug: team.slug,
+		});
 	}
 
 	function manageSeasonHref() {
@@ -90,16 +102,35 @@
 				</a>
 			</div>
 		{:else}
+			<div class="flex flex-wrap items-end gap-3">
+				<label class="block text-sm text-[#8B949E]">
+					Division
+					<select class="{selectClass} mt-1" bind:value={divisionId}>
+						<option value="">All divisions</option>
+						{#each divisions as division (division.id)}
+							<option value={division.id}>{division.name}</option>
+						{/each}
+					</select>
+				</label>
+				<p class="pb-2 text-sm text-[#8B949E]">
+					{visibleTeams.length} team{visibleTeams.length === 1 ? '' : 's'}
+				</p>
+			</div>
+
 			{#each Object.entries(byDivision) as [divisionName, divisionTeams] (divisionName)}
 				<section class="space-y-2">
 					<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
 						{divisionName}
 					</h2>
-					<ul class="divide-y divide-[#2A3038] overflow-hidden rounded-2xl border border-[#2A3038] bg-[#161B22]">
+					<ul
+						class="divide-y divide-[#2A3038] overflow-hidden rounded-2xl border border-[#2A3038] bg-[#161B22]"
+					>
 						{#each divisionTeams as team (team.id)}
 							<li class="flex items-center justify-between gap-3 px-4 py-3">
 								<div class="min-w-0">
-									<p class="truncate font-medium">{team.name}</p>
+									<a href={teamHref(team)} class="truncate font-medium hover:text-[#58A6FF]">
+										{team.name}
+									</a>
 									<p class="text-xs text-[#8B949E]">{team.playerCount} players</p>
 									{#if currentSeason}
 										<AdminTeamRename
@@ -115,10 +146,9 @@
 								</div>
 								<a
 									href={teamHref(team)}
-									class="inline-flex shrink-0 items-center gap-1 text-sm text-[#58A6FF] hover:underline"
+									class="inline-flex shrink-0 text-sm text-[#58A6FF] hover:underline"
 								>
-									View public page
-									<ExternalLinkIcon class="size-3.5" />
+									View dashboard
 								</a>
 							</li>
 						{/each}
