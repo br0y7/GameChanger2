@@ -18,7 +18,7 @@
 	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
 	import { getSeasonTeams } from '$lib/api/league-manage.remote';
 	import AdminTeamRename from '$lib/components/AdminTeamRename.svelte';
-	import { goto } from '$app/navigation';
+	import { loadPage } from '$lib/navigation/load-page';
 	import { getTeamCoach } from '$lib/api/coach.remote';
 	import { getMyTeamCoachAssignment } from '$lib/api/coach-portal.remote';
 	import { coachRoleLabels, coachStatusLabels } from '$lib/schemas/coach';
@@ -178,7 +178,7 @@
 						void getTeams({ divisionId: division.id }).refresh();
 						void getSeasonTeams({ seasonId: season.id }).refresh();
 						if (slug === params.teamSlug) return;
-						await goto(
+						loadPage(
 							resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]', {
 								orgSlug: params.orgSlug,
 								seasonSlug: params.seasonSlug,
@@ -340,9 +340,7 @@
 
 				<div class="grid gap-5 lg:grid-cols-2">
 					<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
-						<h2 class="mb-4 text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
-							Games
-						</h2>
+						<h2 class="mb-4 text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Games</h2>
 						{#if overview.recentGames.length === 0}
 							<p class="text-sm text-[#8B949E]">No games yet.</p>
 						{:else}
@@ -552,7 +550,11 @@
 					<p class="text-sm text-[#8B949E]">No games on the schedule yet.</p>
 				{:else if filteredSchedule.length === 0}
 					<p class="text-sm text-[#8B949E]">
-						No {scheduleFilter === 'all' ? '' : scheduleFilter === 'regular' ? 'regular season ' : 'playoff '}games to show.
+						No {scheduleFilter === 'all'
+							? ''
+							: scheduleFilter === 'regular'
+								? 'regular season '
+								: 'playoff '}games to show.
 					</p>
 				{:else}
 					<ul class="space-y-3">

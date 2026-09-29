@@ -1,18 +1,20 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { loadPage } from '$lib/navigation/load-page';
 	import { resolve } from '$app/paths';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
 	import { requireUser } from '$lib/api/auth.remote';
-	import { getOnboarding, startAwaitingInvite, startSoloCoachOnboarding } from '$lib/api/onboarding.remote';
+	import {
+		getOnboarding,
+		startAwaitingInvite,
+		startSoloCoachOnboarding,
+	} from '$lib/api/onboarding.remote';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 
 	const user = await requireUser();
 	const onboarding = $derived(await getOnboarding({ userId: user.id }));
 
 	const isCoach = $derived(onboarding.role === 'coach');
-	const isFamily = $derived(
-		onboarding.role === 'player_follower' || onboarding.role === 'player'
-	);
+	const isFamily = $derived(onboarding.role === 'player_follower' || onboarding.role === 'player');
 
 	let inviteUrl = $state('');
 	let inviteError = $state('');
@@ -40,7 +42,7 @@
 				inviteError = 'That does not look like a GameChanger invite link.';
 				return;
 			}
-			goto(url.pathname + url.search);
+			loadPage(url.pathname + url.search);
 		} catch {
 			inviteError = 'Enter a valid invite URL.';
 		}
@@ -57,7 +59,10 @@
 <div class="mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center gap-6 p-6">
 	<div>
 		<p class="text-xs font-semibold tracking-[0.18em] text-[#8FA398] uppercase">Almost there</p>
-		<h1 class="mt-2 text-3xl font-bold tracking-tight" style="font-family: 'Barlow Condensed', system-ui, sans-serif">
+		<h1
+			class="mt-2 text-3xl font-bold tracking-tight"
+			style="font-family: 'Barlow Condensed', system-ui, sans-serif"
+		>
 			{#if isCoach}
 				You're signed up as a coach
 			{:else if isFamily}
@@ -86,9 +91,7 @@
 				id="invite-url"
 				type="url"
 				bind:value={inviteUrl}
-				placeholder={isCoach
-					? 'https://…/invite/coach/…'
-					: 'https://…/invite/family/…'}
+				placeholder={isCoach ? 'https://…/invite/coach/…' : 'https://…/invite/family/…'}
 				class="min-w-0 flex-1 rounded-md border border-white/15 bg-[#0C1210] px-3 py-2 text-sm text-[#E8F0EA]"
 			/>
 			<button

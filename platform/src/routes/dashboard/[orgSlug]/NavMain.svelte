@@ -12,7 +12,7 @@
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import { resolve } from '$app/paths';
 	import type { ResolvedPathname } from '$app/types';
-	import { goto } from '$app/navigation';
+	import { loadPage } from '$lib/navigation/load-page';
 	import { isAuthenticated, isUserAdmin } from '$lib/api/auth.remote';
 	import { isCoachOnlyUser } from '$lib/api/coach-nav.remote';
 	import { isFamilyOnlyUser } from '$lib/api/family-nav.remote';
@@ -44,7 +44,7 @@
 		try {
 			await setAdminViewAs({ mode });
 			await getAdminViewAs().refresh();
-			await goto(href);
+			loadPage(href);
 		} finally {
 			switchingView = false;
 		}
@@ -151,7 +151,7 @@
 							try {
 								const result = await goToAdminDashboard();
 								await getAdminViewAs().refresh();
-								await goto(resolve('/dashboard/[orgSlug]', { orgSlug: result.slug }));
+								loadPage(resolve('/dashboard/[orgSlug]', { orgSlug: result.slug }));
 							} finally {
 								goingToAdmin = false;
 							}
@@ -173,8 +173,7 @@
 					<Sidebar.MenuButton
 						tooltipContent="See the coach dashboard as a coach sees it"
 						aria-disabled={switchingView}
-						onclick={() =>
-							switchView('coach', resolve('/dashboard/[orgSlug]/portal', { orgSlug }))}
+						onclick={() => switchView('coach', resolve('/dashboard/[orgSlug]/portal', { orgSlug }))}
 					>
 						<EyeIcon />
 						<span>View as coach</span>

@@ -16,7 +16,7 @@
 
 <Sidebar.MenuButton tooltipContent={label} onclick={() => sidebar.setOpenMobile(false)}>
 	{#snippet child({ props })}
-		<a {href} {...props}>
+		<a {href} {...props} data-sveltekit-reload>
 			{@render icon()}
 			<span>{label}</span>
 		</a>

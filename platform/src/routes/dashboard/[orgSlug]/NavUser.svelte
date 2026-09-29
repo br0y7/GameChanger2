@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { loadPage } from '$lib/navigation/load-page';
 	import { getUser, isAuthenticated } from '$lib/api/auth.remote';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
@@ -75,7 +75,7 @@
 					{@render dropdownLabel()}
 
 					<DropdownMenu.Separator />
-					<DropdownMenu.Item onclick={() => goto(resolve('/logout'))}>
+					<DropdownMenu.Item onclick={() => loadPage(resolve('/logout'))}>
 						<LogOutIcon />
 						Log out
 					</DropdownMenu.Item>
@@ -84,11 +84,11 @@
 
 					<DropdownMenu.Separator />
 					{const searchParams = new URLSearchParams({ [REDIRECT_TO_PARAM]: page.url.pathname })}
-					<DropdownMenu.Item onclick={() => goto(resolve(`/login?${searchParams}`))}>
+					<DropdownMenu.Item onclick={() => loadPage(resolve(`/login?${searchParams}`))}>
 						<LogInIcon />
 						Log in
 					</DropdownMenu.Item>
-					<DropdownMenu.Item onclick={() => goto(resolve('/signup'))}>
+					<DropdownMenu.Item onclick={() => loadPage(resolve('/signup'))}>
 						<SignUpIcon />
 						Sign Up
 					</DropdownMenu.Item>

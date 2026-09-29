@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { loadPage } from '$lib/navigation/load-page';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
@@ -22,7 +22,7 @@
 	onMount(async () => {
 		await authClient.signOut();
 		await isAuthenticated().refresh();
-		await goto(safePostLogoutPath(page.url.searchParams.get(REDIRECT_TO_PARAM)));
+		loadPage(safePostLogoutPath(page.url.searchParams.get(REDIRECT_TO_PARAM)));
 	});
 </script>
 

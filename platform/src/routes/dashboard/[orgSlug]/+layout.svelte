@@ -11,7 +11,7 @@
 	import HouseIcon from '@lucide/svelte/icons/house';
 	import AskAiAssistant from '$lib/components/ask-ai/AskAiAssistant.svelte';
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { loadPage } from '$lib/navigation/load-page';
 	import { getAdminViewAs, setAdminViewAs } from '$lib/api/view-as.remote';
 
 	// import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
@@ -46,7 +46,7 @@
 		try {
 			await setAdminViewAs({ mode: 'admin' });
 			await getAdminViewAs().refresh();
-			await goto(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
+			loadPage(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
 		} finally {
 			leavingPreview = false;
 		}
@@ -64,7 +64,7 @@
 				<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
 				<!-- TODO: Add Breadcrumbs, the child pages uses context 
 				Replaces this back button -->
-				<Button variant="ghost" href={resolve('/')}>
+				<Button variant="ghost" href={resolve('/')} data-sveltekit-reload>
 					<HouseIcon />
 					Home
 				</Button>

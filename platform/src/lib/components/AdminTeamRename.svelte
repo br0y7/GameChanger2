@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { isUserAdmin } from '$lib/api/auth.remote';
+	import { isUserLeagueOrganizer } from '$lib/api/league.remote';
+	import { getAdminViewAs } from '$lib/api/view-as.remote';
 	import { renameTeam } from '$lib/api/team.remote';
 	import ErrorPopover from '$lib/components/ErrorPopover.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
@@ -21,7 +23,10 @@
 		class?: string;
 	} = $props();
 
-	const isAdmin = $derived(await isUserAdmin());
+	const canRename = $derived(
+		(await getAdminViewAs()) === 'admin' &&
+			((await isUserAdmin()) || (await isUserLeagueOrganizer()))
+	);
 	const form = $derived(renameTeam.for(teamId));
 	let editing = $state(false);
 	let saveButton: HTMLButtonElement | null = $state(null);
@@ -40,7 +45,7 @@
 	}
 </script>
 
-{#if isAdmin}
+{#if canRename}
 	<div class={className}>
 		{#if editing}
 			<form
