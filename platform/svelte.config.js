@@ -19,6 +19,13 @@ const config = {
 		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 		adapter: adapter(),
 
+		paths: {
+			// Resolved links are absolute. Relative ones are read against whatever page they render
+			// on, so any component that builds a link once (the nav bar does) keeps the first
+			// page's version and sends you somewhere else after a client side navigation.
+			relative: false,
+		},
+
 		typescript: {
 			config: (config) => ({
 				...config,

@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
 	import { isAuthenticated, requireUser } from '$lib/api/auth.remote';
-	import { buttonVariants } from '$lib/components/ui/button';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import MenuIcon from '@lucide/svelte/icons/menu';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -47,24 +47,18 @@
 			{#if await isAuthenticated()}
 				{const user = await requireUser()}
 				<span class="max-w-32 truncate text-sm text-[#8FA398]">{user.name}</span>
-				<a
-					href="/dashboard"
-					class="rounded-md border border-white/15 px-3 py-2 text-sm font-medium text-[#E8F0EA] hover:border-[#B8E05C]/50"
-				>
-					Dashboard
-				</a>
-				<a href="/logout" class="px-2 text-sm text-[#8FA398] hover:text-[#E8F0EA]">Logout</a>
+				<Button variant="outline" href={resolve('/dashboard')}>Dashboard</Button>
+				<Button variant="ghost" href={resolve('/logout')} class="text-[#8FA398]">Logout</Button>
 			{:else}
 				<div class="relative">
-					<button
-						type="button"
-						class="inline-flex items-center gap-1 rounded-md border border-white/15 px-3 py-2 text-sm font-semibold text-[#E8F0EA] transition-colors hover:border-[#B8E05C]/50"
+					<Button
+						variant="outline"
 						onclick={() => (loginOpen = !loginOpen)}
 						aria-expanded={loginOpen}
 					>
 						Login
 						<ChevronDownIcon class="size-4" />
-					</button>
+					</Button>
 					{#if loginOpen}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
@@ -95,12 +89,12 @@
 						</div>
 					{/if}
 				</div>
-				<a
+				<Button
 					href={resolve('/signup')}
-					class="inline-flex items-center rounded-md bg-[#B8E05C] px-3 py-2 text-sm font-semibold text-[#0C1210] transition-colors hover:bg-[#C8E06A]"
+					class="bg-[#B8E05C] font-semibold text-[#0C1210] hover:bg-[#C8E06A]"
 				>
 					Sign Up
-				</a>
+				</Button>
 			{/if}
 		</div>
 
@@ -128,10 +122,13 @@
 							</a>
 						{/each}
 						{#if await isAuthenticated()}
-							<a href="/dashboard" class="rounded-md px-3 py-2 text-sm hover:bg-[#151D19]"
-								>Dashboard</a
+							<a
+								href={resolve('/dashboard')}
+								class="rounded-md px-3 py-2 text-sm hover:bg-[#151D19]">Dashboard</a
 							>
-							<a href="/logout" class="rounded-md px-3 py-2 text-sm text-[#8FA398]">Logout</a>
+							<a href={resolve('/logout')} class="rounded-md px-3 py-2 text-sm text-[#8FA398]"
+								>Logout</a
+							>
 						{:else}
 							<p class="mt-3 px-3 text-xs font-semibold tracking-wide text-[#8FA398] uppercase">
 								Login as
@@ -145,12 +142,12 @@
 							<a href={resolve('/login')} class="rounded-md px-3 py-2 text-sm hover:bg-[#151D19]"
 								>Player / Family</a
 							>
-							<a
+							<Button
 								href={resolve('/signup')}
-								class="mt-2 rounded-md bg-[#B8E05C] px-3 py-2 text-center text-sm font-semibold text-[#0C1210]"
+								class="mt-2 bg-[#B8E05C] font-semibold text-[#0C1210] hover:bg-[#C8E06A]"
 							>
 								Sign Up
-							</a>
+							</Button>
 						{/if}
 					</div>
 					<Sheet.Footer>
