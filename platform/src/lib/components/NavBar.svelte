@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
-	import { isAuthenticated, requireUser } from '$lib/api/auth.remote';
+	import { getPostLoginRedirect, isAuthenticated, requireUser } from '$lib/api/auth.remote';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import MenuIcon from '@lucide/svelte/icons/menu';
@@ -46,9 +46,15 @@
 		<div class="hidden items-center gap-2 md:flex">
 			{#if await isAuthenticated()}
 				{const user = await requireUser()}
+				{const dashboardHref = await getPostLoginRedirect({})}
 				<span class="max-w-32 truncate text-sm text-[#8FA398]">{user.name}</span>
-				<Button variant="outline" href={resolve('/dashboard')}>Dashboard</Button>
-				<Button variant="ghost" href={resolve('/logout')} class="text-[#8FA398]">Logout</Button>
+				<Button variant="outline" href={dashboardHref} data-sveltekit-reload>Dashboard</Button>
+				<Button
+					variant="ghost"
+					href={resolve('/logout')}
+					class="text-[#8FA398]"
+					data-sveltekit-reload>Logout</Button
+				>
 			{:else}
 				<div class="relative">
 					<Button
@@ -122,12 +128,16 @@
 							</a>
 						{/each}
 						{#if await isAuthenticated()}
+							{const dashboardHref = await getPostLoginRedirect({})}
 							<a
-								href={resolve('/dashboard')}
+								href={dashboardHref}
+								data-sveltekit-reload
 								class="rounded-md px-3 py-2 text-sm hover:bg-[#151D19]">Dashboard</a
 							>
-							<a href={resolve('/logout')} class="rounded-md px-3 py-2 text-sm text-[#8FA398]"
-								>Logout</a
+							<a
+								href={resolve('/logout')}
+								data-sveltekit-reload
+								class="rounded-md px-3 py-2 text-sm text-[#8FA398]">Logout</a
 							>
 						{:else}
 							<p class="mt-3 px-3 text-xs font-semibold tracking-wide text-[#8FA398] uppercase">

@@ -7,14 +7,21 @@
 	let { children } = $props();
 
 	onNavigate((navigation) => {
-		if (!document.startViewTransition) return;
+		if (!document.startViewTransition || navigation.willUnload) return;
+
+		const dest = navigation.to?.url.pathname ?? '';
+		// /dashboard always 30x-redirects, and dashboard layouts use top-level `await`.
+		// A view transition that waits on that `complete` never paints the destination —
+		// and in some cases never finishes, so the browser swallows later clicks.
+		if (dest === '/dashboard' || dest.startsWith('/dashboard/') || dest === '/logout') return;
 
 		return new Promise((resolve) => {
 			document.startViewTransition(async () => {
 				resolve();
-				// A redirect aborts this navigation and rejects `complete`. Letting that reject here
-				// leaves the transition unfinished, which silently swallows every later click.
-				await navigation.complete.catch(() => {});
+				await Promise.race([
+					navigation.complete.catch(() => {}),
+					new Promise((r) => setTimeout(r, 2000)),
+				]);
 			});
 		});
 	});
