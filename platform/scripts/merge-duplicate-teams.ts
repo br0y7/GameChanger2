@@ -1,5 +1,5 @@
 import { SQL } from 'bun';
-import { teamMatchKey } from '../src/lib/import/team-match';
+import { preferredTeamName, teamMatchKey } from '../src/lib/import/team-match';
 import { slugify } from '../src/lib/utils/string';
 
 type TeamRow = {
@@ -10,12 +10,6 @@ type TeamRow = {
 	games: number;
 	players: number;
 };
-
-function canonicalName(key: string, names: string[]) {
-	const titled = key.charAt(0).toUpperCase() + key.slice(1);
-	if (/^[a-z]+$/.test(key)) return titled;
-	return [...names].sort((a, b) => a.length - b.length)[0] ?? titled;
-}
 
 const sql = new SQL(process.env.DATABASE_URL!);
 
@@ -44,10 +38,7 @@ await sql.begin(async (tx) => {
 		);
 		const keeper = ranked[0]!;
 		const duplicates = ranked.slice(1);
-		const name = canonicalName(
-			teamMatchKey(keeper.name),
-			group.map((team) => team.name)
-		);
+		const name = preferredTeamName(group.map((team) => team.name));
 		const slug = slugify(name);
 
 		for (const duplicate of duplicates) {

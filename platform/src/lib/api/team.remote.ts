@@ -35,6 +35,7 @@ import { isUserLeagueOrganizer } from './league.remote';
 import { getSeasonTeams } from './league-manage.remote';
 import { isUserOrgAdmin } from './organization.remote';
 import { purgeJerseyNumberTeams } from '$lib/import/jersey-number-teams.server';
+import { mergeDuplicateTeamsForSeason } from '$lib/import/duplicate-teams.server';
 import { isJerseyNumberTeamName } from '$lib/import/team-match';
 
 function gameTitle(homeName: string, awayName: string, currentName: string) {
@@ -408,6 +409,11 @@ export const getTeams = query(
 	}),
 	async ({ divisionId, include }) => {
 		await purgeJerseyNumberTeams(divisionId);
+		const division = await db.query.division.findFirst({
+			where: { id: divisionId },
+			columns: { seasonId: true },
+		});
+		if (division) await mergeDuplicateTeamsForSeason(division.seasonId);
 		const teams = await db.query.team.findMany({
 			where: { divisionId },
 			with: include,

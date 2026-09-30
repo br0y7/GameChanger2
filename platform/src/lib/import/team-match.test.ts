@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { isJerseyNumberTeamName, pickExistingTeam, readableTeamName } from './team-match';
+import {
+	isJerseyNumberTeamName,
+	pickExistingTeam,
+	preferredTeamName,
+	readableTeamName,
+	teamMatchKey,
+} from './team-match';
 
 const division = [
 	{ name: 'Team Red', slug: 'team-red' },
@@ -16,6 +22,20 @@ describe('pickExistingTeam', () => {
 
 	test('does not match a different team', () => {
 		expect(pickExistingTeam(division, 'Green')).toBeUndefined();
+	});
+
+	test('treats Team Reds as the same team as Red', () => {
+		expect(teamMatchKey('Team Reds')).toBe(teamMatchKey('Red'));
+		expect(teamMatchKey('Team Whites')).toBe(teamMatchKey('White'));
+		expect(teamMatchKey('Team Blacks')).toBe(teamMatchKey('Black'));
+		expect(pickExistingTeam(division, 'Team Reds')?.name).toBe('Team Red');
+	});
+});
+
+describe('preferredTeamName', () => {
+	test('keeps the color name instead of the Team prefix', () => {
+		expect(preferredTeamName(['Team Reds', 'Red'])).toBe('Red');
+		expect(preferredTeamName(['Team White', 'WHITE'])).toBe('White');
 	});
 });
 

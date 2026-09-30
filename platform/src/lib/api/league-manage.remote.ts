@@ -9,10 +9,12 @@ import { db } from '$lib/server/db';
 import { dedupeMatchups } from '$lib/stats/matchup';
 import { z } from 'zod';
 import { purgeJerseyNumberTeamsForSeason } from '$lib/import/jersey-number-teams.server';
+import { mergeDuplicateTeamsForSeason } from '$lib/import/duplicate-teams.server';
 import { isJerseyNumberTeamName } from '$lib/import/team-match';
 
 export const getSeasonTeams = query(z.object({ seasonId: idField }), async ({ seasonId }) => {
 	await purgeJerseyNumberTeamsForSeason(seasonId);
+	await mergeDuplicateTeamsForSeason(seasonId);
 
 	const divisions = await db.query.division.findMany({
 		where: { seasonId },
@@ -46,6 +48,7 @@ export const getSeasonPlayers = query.live(z.object({ seasonId: idField }), ({ s
 	relayDashboard(
 		async () => {
 			await purgeJerseyNumberTeamsForSeason(seasonId);
+			await mergeDuplicateTeamsForSeason(seasonId);
 
 			const divisions = await db.query.division.findMany({
 				where: { seasonId },
