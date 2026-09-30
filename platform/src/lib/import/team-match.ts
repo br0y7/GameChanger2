@@ -20,13 +20,38 @@ export function readableTeamName(name: string): string {
 		.join(' ');
 }
 
-/** "Team Red", "RED", and "Red" are the same team. */
+const COLOR_PLURALS: Record<string, string> = {
+	reds: 'red',
+	whites: 'white',
+	blacks: 'black',
+	blues: 'blue',
+	greens: 'green',
+	yellows: 'yellow',
+	oranges: 'orange',
+	purples: 'purple',
+	pinks: 'pink',
+	browns: 'brown',
+	golds: 'gold',
+	greys: 'grey',
+	grays: 'gray',
+};
+
+/** "Team Red", "Team Reds", "RED", and "Red" are the same team. */
 export function teamMatchKey(name: string): string {
-	return name
+	const key = name
 		.trim()
 		.toLowerCase()
 		.replace(/^team\s+/, '')
 		.replace(/[^a-z0-9]+/g, '');
+	return COLOR_PLURALS[key] ?? key;
+}
+
+/** Keep "Red" over "Team Reds" when folding duplicate rows. */
+export function preferredTeamName(names: string[]): string {
+	const withoutPrefix = names.filter((name) => !/^team\s+/i.test(name.trim()));
+	const pool = withoutPrefix.length ? withoutPrefix : names;
+	const shortest = [...pool].sort((a, b) => a.length - b.length)[0] ?? names[0] ?? '';
+	return readableTeamName(shortest);
 }
 
 export function pickExistingTeam<T extends { name: string; slug?: string | null }>(

@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { isUserAdmin, requireUser } from './auth.remote';
 import { isUserLeagueOrganizer } from './league.remote';
 import { isJerseyNumberTeamName } from '$lib/import/team-match';
+import { mergeDuplicateTeamsForSeason } from '$lib/import/duplicate-teams.server';
 
 export type PublicVisibility = LeagueVisibilityFlags & {
 	organizationId?: string;
@@ -141,6 +142,8 @@ export const getPublicSeasonFilters = query(
 		const meta = await getPublicLeagueMeta({ orgSlug });
 		const season = meta.seasons.find((s) => s.slug === seasonSlug);
 		if (!season) notFound({ resource: 'season' });
+
+		await mergeDuplicateTeamsForSeason(season.id);
 
 		const divisions = await db.query.division.findMany({
 			where: { seasonId: season.id },
