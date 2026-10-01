@@ -12,6 +12,7 @@
 	import AskAiAssistant from '$lib/components/ask-ai/AskAiAssistant.svelte';
 	import { resolve } from '$app/paths';
 	import { loadPage } from '$lib/navigation/load-page';
+	import { isUserAdmin } from '$lib/api/auth.remote';
 	import { getAdminViewAs, setAdminViewAs } from '$lib/api/view-as.remote';
 
 	// import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
@@ -36,6 +37,14 @@
 			appHistory.canGoBack &&
 			page.url.pathname.split('/').filter(Boolean).length > 2
 	);
+	const pathSegments = $derived(page.url.pathname.split('/').filter(Boolean));
+	const portalAt = $derived(pathSegments.indexOf('portal'));
+	/** Coach team pages. A full page load (how admins enter this view) has no in-app history. */
+	const onCoachTeam = $derived(portalAt !== -1 && pathSegments.length > portalAt + 1);
+	const coachTeamsHref = $derived(
+		resolve('/dashboard/[orgSlug]/portal', { orgSlug: params.orgSlug })
+	);
+	const isAdmin = $derived(await isUserAdmin());
 
 	const viewAs = $derived(await getAdminViewAs());
 	let leavingPreview = $state(false);
@@ -72,6 +81,11 @@
 					<Button variant="ghost" href={allPlayersHref}>
 						<ArrowLeft />
 						All players
+					</Button>
+				{:else if isAdmin && onCoachTeam}
+					<Button variant="ghost" href={coachTeamsHref}>
+						<ArrowLeft />
+						Back
 					</Button>
 				{:else if showBackButton}
 					<Button variant="ghost" onclick={() => history.back()}>

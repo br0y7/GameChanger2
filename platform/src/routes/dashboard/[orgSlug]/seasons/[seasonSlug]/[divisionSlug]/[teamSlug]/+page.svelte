@@ -200,7 +200,7 @@
 					</span>
 					{#if overview.divisionPlace}
 						<span class="text-[#2A3038]">|</span>
-						<span>Place: {overview.divisionPlace}</span>
+						<span>Season place: {overview.divisionPlace}</span>
 					{/if}
 					{#if overview.streak}
 						<span class="text-[#2A3038]">|</span>
@@ -331,7 +331,7 @@
 						</div>
 						{#if overview.divisionPlace}
 							<div class="rounded-xl border border-[#2A3038] bg-[#0D1117] p-4">
-								<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">Place</p>
+								<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">Season place</p>
 								<p class="mt-2 text-lg leading-snug font-bold">{overview.divisionPlace}</p>
 							</div>
 						{/if}
