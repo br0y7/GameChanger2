@@ -934,11 +934,12 @@ View the team schedule:
 3. Use All / Regular / Playoffs to filter games.
 4. Click a completed score to open the box score.
 
-Division place on a team page:
-- Finals winner is the division winner. Finals loser is 2nd. Third-place winner is 3rd. Third-place loser is 4th.
-- A team that only played the first playoff round shows Place: Playoffs first round.
-- A team that lost Playoffs Semis and did not play a third-place game shows Place: Semis lost or (3rd). That covers a three-team playoff with no third-place game.
-- Teams with no playoff games do not show a place.
+Season place on a team page is the finish after playoffs. It is not the rank before playoffs.
+- Finals winner is the division winner. Finals loser is 2nd. Third-place winner is 3rd. Third-place loser is 4th in the season.
+- A team that only played the first playoff round shows Season place: Playoffs first round.
+- A team that lost Playoffs Semis and did not play a third-place game shows Season place: Semis lost or (3rd). That covers a three-team playoff with no third-place game.
+- Teams with no playoff games do not show a season place.
+- When both numbers exist, say them separately. Example: rank before playoffs #1, season place 4th.
 
 View a player:
 1. From the team Roster or Stats tab, click the player (or open their jersey URL).

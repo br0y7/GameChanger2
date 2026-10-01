@@ -213,7 +213,11 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			parts.push(
 				`Rank before playoffs: ${overview.rank ? `#${overview.rank}` : 'n/a'} of ${overview.teamsInDivision}`
 			);
-			if (overview.divisionPlace) parts.push(`Place: ${overview.divisionPlace}`);
+			if (overview.divisionPlace) {
+				parts.push(
+					`Season place: ${overview.divisionPlace} (finish after playoffs, not the rank before playoffs)`
+				);
+			}
 			parts.push(`PPG: ${overview.ppg.toFixed(1)} | Opp PPG: ${overview.oppPpg.toFixed(1)}`);
 			if (overview.streak) parts.push(`Streak: ${overview.streak}`);
 
@@ -453,7 +457,11 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 				parts.push(
 					`Rank before playoffs: ${overview.rank ? `#${overview.rank}` : 'n/a'} of ${overview.teamsInDivision}`
 				);
-				if (overview.divisionPlace) parts.push(`Place: ${overview.divisionPlace}`);
+				if (overview.divisionPlace) {
+				parts.push(
+					`Season place: ${overview.divisionPlace} (finish after playoffs, not the rank before playoffs)`
+				);
+			}
 				parts.push(`PPG: ${overview.ppg.toFixed(1)} | Opp PPG: ${overview.oppPpg.toFixed(1)}`);
 				if (context.audience === 'coach') {
 					pushLineupRoster(parts, team.name, overview.rosterAverages);

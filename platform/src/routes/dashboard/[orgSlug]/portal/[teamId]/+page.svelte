@@ -171,7 +171,12 @@
 				</p>
 				{#if overview.divisionPlace}
 					<p class="mt-2 text-sm font-medium text-[#E6EDF3]">
-						Place: {overview.divisionPlace}
+						Season place: {overview.divisionPlace}
+					</p>
+				{/if}
+				{#if overview.rank}
+					<p class="mt-1 text-sm text-[#8B949E]">
+						Rank before playoffs: #{overview.rank}
 					</p>
 				{/if}
 				{#if teamAverages}
