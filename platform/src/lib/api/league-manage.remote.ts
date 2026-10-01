@@ -6,7 +6,7 @@ import {
 } from '$lib/server/dashboard-sync.server';
 import { idField } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
-import { dedupeMatchups } from '$lib/stats/matchup';
+import { correctFalsePlayoffTypes, dedupeMatchups } from '$lib/stats/matchup';
 import { z } from 'zod';
 import { purgeJerseyNumberTeamsForSeason } from '$lib/import/jersey-number-teams.server';
 import { mergeDuplicateTeamsForSeason } from '$lib/import/duplicate-teams.server';
@@ -105,22 +105,21 @@ export const getSeasonPlayers = query.live(z.object({ seasonId: idField }), ({ s
 export const getSeasonGames = query.live(z.object({ seasonId: idField }), ({ seasonId }) =>
 	relayDashboard(
 		async () => {
-			const games = dedupeMatchups(
-				await db.query.game.findMany({
-					where: { seasonId },
-					with: {
-						homeTeam: {
-							columns: { id: true, name: true, slug: true, divisionId: true },
-							with: { division: { columns: { slug: true, name: true } } },
-						},
-						awayTeam: {
-							columns: { id: true, name: true, slug: true, divisionId: true },
-							with: { division: { columns: { slug: true, name: true } } },
-						},
+			const rawGames = await db.query.game.findMany({
+				where: { seasonId },
+				with: {
+					homeTeam: {
+						columns: { id: true, name: true, slug: true, divisionId: true },
+						with: { division: { columns: { slug: true, name: true } } },
 					},
-					orderBy: { completedAt: 'desc' },
-				})
-			);
+					awayTeam: {
+						columns: { id: true, name: true, slug: true, divisionId: true },
+						with: { division: { columns: { slug: true, name: true } } },
+					},
+				},
+				orderBy: { completedAt: 'desc' },
+			});
+			const games = dedupeMatchups(correctFalsePlayoffTypes(rawGames));
 
 			return games.flatMap((game) => {
 				if (!game.homeTeam || !game.awayTeam) return [];

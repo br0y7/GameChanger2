@@ -23,6 +23,44 @@ export function matchupKey(game: MatchupIdentity) {
 	return `${day}|${teams}`;
 }
 
+function pairKey(homeTeamId: string, awayTeamId: string) {
+	return [homeTeamId, awayTeamId].sort().join('|');
+}
+
+function gameAt(game: MatchupIdentity) {
+	const value = game.completedAt ?? game.scheduledAt;
+	if (value == null) return 0;
+	return value instanceof Date ? value.getTime() : new Date(value).getTime();
+}
+
+/**
+ * A Playoff label against a team they later meet in semis, finals, or third place
+ * is the regular-season rematch, not a playoff game.
+ */
+export function correctFalsePlayoffTypes<T extends MatchupIdentity>(games: T[]): T[] {
+	const laterRoundByPair = new Map<string, number>();
+	for (const game of games) {
+		if (
+			game.gameType !== 'semifinal' &&
+			game.gameType !== 'finals' &&
+			game.gameType !== 'third_place'
+		) {
+			continue;
+		}
+		const key = pairKey(game.homeTeamId, game.awayTeamId);
+		const at = gameAt(game);
+		const previous = laterRoundByPair.get(key) ?? 0;
+		if (at > previous) laterRoundByPair.set(key, at);
+	}
+
+	return games.map((game) => {
+		if (game.gameType !== 'playoff') return game;
+		const laterRound = laterRoundByPair.get(pairKey(game.homeTeamId, game.awayTeamId));
+		if (laterRound == null || gameAt(game) >= laterRound) return game;
+		return { ...game, gameType: 'regular' };
+	});
+}
+
 function richness(game: MatchupIdentity) {
 	let score = 0;
 	if (game.status === 'completed') score += 8;
