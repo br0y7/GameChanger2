@@ -11,6 +11,7 @@
 	import ClipboardIcon from '@lucide/svelte/icons/clipboard';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
+	import GameBoxScoreLink from '$lib/components/GameBoxScoreLink.svelte';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -274,7 +275,10 @@
 								</td>
 								<td class="py-2.5">
 									{#if game.result}
-										<span
+										<GameBoxScoreLink
+											orgSlug={params.orgSlug}
+											seasonSlug={season?.slug}
+											gameId={game.gameId}
 											class={game.result === 'W'
 												? 'text-[#3FB950]'
 												: game.result === 'L'
@@ -283,7 +287,7 @@
 										>
 											{game.result}
 											{game.teamScore}–{game.oppScore}
-										</span>
+										</GameBoxScoreLink>
 									{:else}
 										<span class="text-[#8B949E]">—</span>
 									{/if}

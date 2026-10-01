@@ -12,6 +12,7 @@
 		type GameRatingDetailModel,
 	} from '$lib/components/GameRatingDetail.svelte';
 	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
+	import GameBoxScoreLink from '$lib/components/GameBoxScoreLink.svelte';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -192,9 +193,14 @@
 				<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Latest game</h3>
 				<p class="mt-1 text-sm text-[#E6EDF3]">
 					vs {latestRatings.opponentName}
-					<span class="text-[#8B949E] tabular-nums">
+					<GameBoxScoreLink
+						orgSlug={params.orgSlug}
+						seasonSlug={season?.slug}
+						gameId={latestRatings.gameId}
+						class="text-[#8B949E]"
+					>
 						· {latestRatings.teamScore}–{latestRatings.oppScore}
-					</span>
+					</GameBoxScoreLink>
 				</p>
 				<div class="mt-4 overflow-x-auto">
 					<table class="w-full min-w-[520px] text-left text-sm">

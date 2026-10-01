@@ -3,6 +3,7 @@
 	import { getFamilyPlayerHome } from '$lib/api/family.remote';
 	import { formatRankPlace, type RankedStatKey } from '$lib/stats/stat-ranks';
 	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
+	import GameBoxScoreLink from '$lib/components/GameBoxScoreLink.svelte';
 	import GameRatingDetail, {
 		type GameRatingDetailModel,
 	} from '$lib/components/GameRatingDetail.svelte';
@@ -279,9 +280,14 @@
 										{gameTypeLabel(game.gameType)}
 									</span>
 									{#if game.scoreLabel}
-										<span class="mt-0.5 block text-xs {resultClass(game)}">
+										<GameBoxScoreLink
+											orgSlug={params.orgSlug}
+											seasonSlug={home.player.seasonSlug}
+											gameId={game.gameId}
+											class="mt-0.5 block text-xs {resultClass(game)}"
+										>
 											{game.scoreLabel}
-										</span>
+										</GameBoxScoreLink>
 									{/if}
 								</td>
 								<td class="py-2.5 font-medium tabular-nums">

@@ -3,6 +3,7 @@
 	import { getPortalTeamContext } from '$lib/api/coach-portal.remote';
 	import { getSeasonGames } from '$lib/api/league-manage.remote';
 	import { completedGameLabel, gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
+	import GameBoxScoreLink from '$lib/components/GameBoxScoreLink.svelte';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -102,15 +103,18 @@
 						{/if}
 					</div>
 					{#if game.status === 'completed' && game.scoreLabel}
-						<p
-							class="mt-2 text-sm font-medium tabular-nums {game.result === 'W'
+						<GameBoxScoreLink
+							orgSlug={params.orgSlug}
+							seasonSlug={seasonSlug}
+							gameId={game.id}
+							class="mt-2 block text-sm font-medium {game.result === 'W'
 								? 'text-[#3FB950]'
 								: game.result === 'L'
 									? 'text-[#F85149]'
 									: 'text-[#8B949E]'}"
 						>
 							{game.scoreLabel}
-						</p>
+						</GameBoxScoreLink>
 					{/if}
 				</li>
 			{/each}

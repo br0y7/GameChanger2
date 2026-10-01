@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getFamilyPlayerHome } from '$lib/api/family.remote';
 	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
+	import GameBoxScoreLink from '$lib/components/GameBoxScoreLink.svelte';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -46,8 +47,11 @@
 						{/if}
 					</div>
 					<div class="text-right">
-						{#if game.result && game.teamScore != null}
-							<p
+						{#if game.result && game.teamScore != null && game.scoreLabel}
+							<GameBoxScoreLink
+								orgSlug={params.orgSlug}
+								seasonSlug={home.player.seasonSlug}
+								gameId={game.id}
 								class="font-medium {game.result === 'W'
 									? 'text-[#3FB950]'
 									: game.result === 'L'
@@ -55,7 +59,7 @@
 										: 'text-[#8B949E]'}"
 							>
 								{game.scoreLabel}
-							</p>
+							</GameBoxScoreLink>
 						{:else}
 							<p class="text-[#8B949E]">Upcoming</p>
 						{/if}

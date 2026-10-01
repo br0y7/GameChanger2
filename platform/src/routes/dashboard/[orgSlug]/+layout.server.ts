@@ -16,6 +16,11 @@ const ADMIN_ONLY_SEGMENTS = new Set([
 	'invites',
 ]);
 
+/** Family and coach dashboards link scores here; the page itself is read-only. */
+function isDashboardGameBoxPath(parts: string[]) {
+	return parts[2] === 'seasons' && parts[4] === 'games' && Boolean(parts[5]);
+}
+
 export const load: LayoutServerLoad = async ({ params, url }) => {
 	const user = await getUser();
 	if (!user) return {};
@@ -47,6 +52,9 @@ export const load: LayoutServerLoad = async ({ params, url }) => {
 		}
 
 		if (ADMIN_ONLY_SEGMENTS.has(afterOrg)) {
+			if (isDashboardGameBoxPath(parts)) {
+				return {};
+			}
 			if (coachLanding.kind === 'single') {
 				redirect(
 					303,
@@ -86,6 +94,9 @@ export const load: LayoutServerLoad = async ({ params, url }) => {
 
 	// Allow public-ish season stats pages; block admin manage hubs
 	if (ADMIN_ONLY_SEGMENTS.has(afterOrg) || afterOrg === 'portal') {
+		if (isDashboardGameBoxPath(parts)) {
+			return {};
+		}
 		if (familyLanding.kind === 'single') {
 			redirect(
 				303,
