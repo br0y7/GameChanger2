@@ -219,6 +219,34 @@ describe('points only', () => {
 		expect(game.homeTeam.score).toBe(22);
 		expect(game.awayTeam.score).toBe(15);
 	});
+
+	test('keeps the sheet PTS and box columns on a full stat line', () => {
+		const game = parseSheet('White vs Yellow', [
+			['Category', '15-17 years old'],
+			['White', 59],
+			['Player No.', 'PTS', 'FGM', 'FGA', 'AST'],
+			[1, 12, 5, 10, 3],
+			[2, 8, 3, 8, 1],
+			['Yellow', 57],
+			['Player No.', 'PTS', 'FGM', 'FGA', 'AST'],
+			[3, 15, 6, 12, 2],
+			[4, 10, 4, 9, 4],
+		]);
+
+		expect(game.pointsOnly).toBe(false);
+		expect(game.homeTeam.score).toBe(59);
+		expect(game.awayTeam.score).toBe(57);
+		expect(game.homeTeam.playerStats[0]).toMatchObject({
+			jerseyNumber: '1',
+			recordedPts: 12,
+			stats: { fgm: 5, fga: 10, ast: 3 },
+		});
+		expect(game.awayTeam.playerStats[0]).toMatchObject({
+			jerseyNumber: '3',
+			recordedPts: 15,
+			stats: { fgm: 6, fga: 12, ast: 2 },
+		});
+	});
 });
 
 describe('notes typed into column A', () => {

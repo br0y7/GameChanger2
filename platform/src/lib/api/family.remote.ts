@@ -583,6 +583,7 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 					teamName: player.team?.name ?? 'Team',
 					divisionName: player.team?.division?.name ?? '',
 					seasonName: player.team?.division?.season?.name ?? '',
+					seasonSlug: player.team?.division?.season?.slug ?? null,
 					leagueName: player.team?.division?.season?.organization?.name ?? '',
 					seasonId: player.team?.division?.seasonId ?? null,
 				},

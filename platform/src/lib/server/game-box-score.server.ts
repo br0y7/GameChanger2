@@ -1,15 +1,9 @@
 import { db } from '$lib/server/db';
 import { notFound } from '$lib/server/fail';
-import { derivePlayerGameStats } from '$lib/stats/player-game-stats';
+import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { ratingMeaning } from '$lib/stats/game-rating';
 import { ensureGameBoxRatings } from '$lib/server/game-rating.server';
-import { rawStatKeys } from '$lib/schemas/player-game-stat';
 import type { RawPlayerGameStats } from '$lib/server/db/schema';
-
-function pointsFromRaw(stat: { fgm: number; fg3m: number; ftm: number; recordedPts: number | null }) {
-	if (stat.recordedPts != null) return stat.recordedPts;
-	return (stat.fgm - stat.fg3m) * 2 + stat.fg3m * 3 + stat.ftm;
-}
 
 type StatWithPlayer = RawPlayerGameStats & {
 	player?: {
@@ -20,13 +14,9 @@ type StatWithPlayer = RawPlayerGameStats & {
 	} | null;
 };
 
-function hasSheetStats(stat: StatWithPlayer) {
-	return stat.recordedPts != null || rawStatKeys.some((key) => Number(stat[key]) > 0);
-}
-
 function playerRowsForTeam(playerStats: StatWithPlayer[], teamId: string) {
 	return playerStats
-		.filter((stat) => stat.player?.teamId === teamId && hasSheetStats(stat))
+		.filter((stat) => stat.player?.teamId === teamId && playerAppearedOnSheet(stat))
 		.map((stat) => {
 			const derived = derivePlayerGameStats(stat);
 			return {
@@ -111,20 +101,8 @@ export async function loadBoxScore(gameId: string) {
 		);
 	}
 
-	const storedHome = game.homeTeamScore ?? 0;
-	const storedAway = game.awayTeamScore ?? 0;
-
-	let homeScore = storedHome;
-	let awayScore = storedAway;
-
-	if (homeScore === 0 && awayScore === 0) {
-		for (const stat of game.playerStats) {
-			if (!hasSheetStats(stat)) continue;
-			const pts = pointsFromRaw(stat);
-			if (stat.player?.teamId === game.homeTeamId) homeScore += pts;
-			else if (stat.player?.teamId === game.awayTeamId) awayScore += pts;
-		}
-	}
+	const homeScore = game.homeTeamScore ?? 0;
+	const awayScore = game.awayTeamScore ?? 0;
 
 	const homePlayers = playerRowsForTeam(game.playerStats, game.homeTeamId);
 	const awayPlayers = playerRowsForTeam(game.playerStats, game.awayTeamId);

@@ -27,9 +27,9 @@ import { calendarDay, staleDivisionGameIds } from '$lib/import/game-identity';
 import { resolveImportedGameType } from '$lib/schemas/game';
 import { pickExistingTeam, readableTeamName, isJerseyNumberTeamName } from '$lib/import/team-match';
 import { slugify } from '$lib/utils/string';
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
-import { RATING_VERSION, type CountingLine } from '$lib/stats/game-rating';
+import { type CountingLine } from '$lib/stats/game-rating';
 import {
 	loadApplicableScale,
 	ratingPatch,
@@ -37,6 +37,7 @@ import {
 	type ApplicableScale,
 } from '$lib/server/game-rating.server';
 import { clearedRating } from '$lib/stats/game-rating';
+import { isPointsOnlyLine, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { idField } from '$lib/schemas/common';
 import { z } from 'zod';
 
@@ -251,7 +252,6 @@ async function saveStats(
 ) {
 	for (const playerPreview of data.playerStats) {
 		const { jerseyNumber, stats: rawStats, recordedPts } = playerPreview;
-		const pointsOnly = recordedPts != null;
 
 		if (!jerseyNumber) {
 			throw new Error(`Team: ${team.name} — a player row has no jersey number`);
@@ -260,12 +260,11 @@ async function saveStats(
 		const stats = Object.fromEntries(
 			rawStatKeys.map((key) => [key, Number(rawStats?.[key]) || 0])
 		) as typeof rawStats;
-
-		// Skip players who appear with no recorded stats (not actually on the sheet box score)
-		const hasAnyStat = pointsOnly || rawStatKeys.some((key) => Number(stats?.[key]) > 0);
-		if (!hasAnyStat) {
+		const line = { ...stats, recordedPts };
+		if (!playerAppearedOnSheet(line)) {
 			continue;
 		}
+		const pointsOnly = isPointsOnlyLine(line);
 
 		let player = await tx.query.player.findFirst({
 			where: {
@@ -288,38 +287,17 @@ async function saveStats(
 		}
 
 		const playerId = player.id;
+		const rated = pointsOnly
+			? clearedRating()
+			: ratingPatch(stats as CountingLine, teamPoints, scale);
 
-		const gameStats = await tx.query.playerGameStat.findFirst({
-			where: {
-				playerId,
-				gameId,
-			},
+		await tx.insert(table.playerGameStat).values({
+			...stats,
+			recordedPts: recordedPts ?? null,
+			...rated,
+			gameId,
+			playerId,
 		});
-
-		const preserveExistingVersion =
-			gameStats?.ratingVersion != null && gameStats.ratingVersion !== RATING_VERSION;
-		const rated = preserveExistingVersion
-			? {}
-			: pointsOnly
-				? clearedRating()
-				: ratingPatch(stats as CountingLine, teamPoints, scale);
-
-		if (gameStats) {
-			await tx
-				.update(table.playerGameStat)
-				.set({ ...stats, recordedPts: pointsOnly ? recordedPts : null, ...rated })
-				.where(
-					and(eq(table.playerGameStat.gameId, gameId), eq(table.playerGameStat.playerId, playerId))
-				);
-		} else {
-			await tx.insert(table.playerGameStat).values({
-				...stats,
-				recordedPts: pointsOnly ? recordedPts : null,
-				...rated,
-				gameId,
-				playerId,
-			});
-		}
 	}
 }
 
@@ -499,6 +477,10 @@ export const savePreview = command(
 							timeZone
 						);
 						keptGameIds.add(gameId);
+
+						await tx
+							.delete(table.playerGameStat)
+							.where(eq(table.playerGameStat.gameId, gameId));
 
 						if (game.statsAvailable !== false) {
 							await saveStats(

@@ -180,8 +180,6 @@ function parseStatsRow(
 ): PlayerGameStatsPreview {
 	let jerseyNumber = '';
 	let recordedPts: number | null = pointsOnly ? 0 : null;
-	let sawPointsColumn = false;
-	let pointsFromColumn = 0;
 	const stats = Object.fromEntries(rawStatKeys.map((key) => [key, 0])) as Record<StatKey, number>;
 
 	for (let i = 0; i < headers.length; i++) {
@@ -189,12 +187,8 @@ function parseStatsRow(
 		if (typeof header !== 'string' || header.trim() === '') continue;
 
 		if (isPointsColumn(header)) {
-			sawPointsColumn = true;
-			pointsFromColumn = parseStatNumber(row[i]);
-			if (pointsOnly) {
-				recordedPts = pointsFromColumn;
-				continue;
-			}
+			recordedPts = parseStatNumber(row[i]);
+			if (pointsOnly) continue;
 		}
 
 		if (!ALLOWED_HEADERS.has(header)) {
@@ -230,11 +224,6 @@ function parseStatsRow(
 		}
 
 		stats[header] = statValue;
-	}
-
-	// A full header row with only the points cells filled is still points-only (no footage).
-	if (!pointsOnly && sawPointsColumn && rawStatKeys.every((key) => stats[key] === 0)) {
-		recordedPts = pointsFromColumn;
 	}
 
 	return {
@@ -500,11 +489,9 @@ function parseGameSheet(
 		if (!resultOnlyGame) {
 			for (const team of teams) {
 				if (team.score !== 0) continue;
-				const fromPlayers = team.playerStats.reduce((sum, row) => {
-					if (row.recordedPts != null) return sum + row.recordedPts;
-					const madeTwos = row.stats.fgm - row.stats.fg3m;
-					return sum + madeTwos * 2 + row.stats.fg3m * 3 + row.stats.ftm;
-				}, 0);
+				const sheetPts = team.playerStats;
+				if (sheetPts.length === 0 || sheetPts.some((row) => row.recordedPts == null)) continue;
+				const fromPlayers = sheetPts.reduce((sum, row) => sum + (row.recordedPts ?? 0), 0);
 				if (fromPlayers > 0) team.score = fromPlayers;
 			}
 		}
@@ -513,7 +500,10 @@ function parseGameSheet(
 		const pointsOnly =
 			!resultOnlyGame &&
 			playerRows.length > 0 &&
-			playerRows.every((row) => row.recordedPts != null);
+			playerRows.every(
+				(row) =>
+					row.recordedPts != null && rawStatKeys.every((key) => Number(row.stats[key]) === 0)
+			);
 
 		return {
 			name: gameName,
