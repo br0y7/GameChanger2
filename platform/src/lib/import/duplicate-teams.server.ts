@@ -122,10 +122,11 @@ async function mergeDuplicateTeams(divisionId: string) {
 					await tx.update(table.playerGameStat).set({ playerId: existing.id }).where(moveWhere);
 					await tx.delete(table.playerGameStat).where(eq(table.playerGameStat.playerId, player.id));
 
-					const keeperNote = await tx.query.playerCoachNote.findFirst({
-						where: { playerId: existing.id },
-						columns: { id: true },
-					});
+					const [keeperNote] = await tx
+						.select({ id: table.playerCoachNote.id })
+						.from(table.playerCoachNote)
+						.where(eq(table.playerCoachNote.playerId, existing.id))
+						.limit(1);
 					if (!keeperNote) {
 						await tx
 							.update(table.playerCoachNote)
