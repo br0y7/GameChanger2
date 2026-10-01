@@ -18,7 +18,7 @@ export async function resolvePostLoginPath(preferredRedirect?: string | null): P
 
 	if (user && (await isUserAdmin())) {
 		try {
-			const { switchToAdminHomeDashboard } = await import('./organization.remote');
+			const { switchToAdminHomeDashboard } = await import('./organization.server');
 			const home = await switchToAdminHomeDashboard();
 			return resolve('/dashboard/[orgSlug]', { orgSlug: home.slug });
 		} catch (err) {
@@ -29,7 +29,7 @@ export async function resolvePostLoginPath(preferredRedirect?: string | null): P
 	}
 
 	if (user) {
-		const { leagueOrganizerDashboardSlug } = await import('./organization.remote');
+		const { leagueOrganizerDashboardSlug } = await import('./organization.server');
 		const leagueSlug = await leagueOrganizerDashboardSlug(user.id);
 		if (leagueSlug) {
 			return resolve('/dashboard/[orgSlug]', { orgSlug: leagueSlug });
