@@ -14,6 +14,7 @@ import {
 	type ImpactParts,
 	type RatingScaleDistribution,
 } from '$lib/stats/game-rating';
+import { isPointsOnlyLine } from '$lib/stats/player-game-stats';
 
 export type { ApplicableScale };
 export { LEAGUE_SCALE_SLUG, ratingPatch } from '$lib/stats/game-rating';
@@ -119,7 +120,6 @@ async function organizationHasUnratedLines(organizationId: string) {
 			and(
 				eq(table.season.organizationId, organizationId),
 				isNull(table.playerGameStat.gameRating),
-				isNull(table.playerGameStat.recordedPts),
 				or(
 					isNull(table.playerGameStat.ratingVersion),
 					eq(table.playerGameStat.ratingVersion, RATING_VERSION)
@@ -192,7 +192,7 @@ export async function recalibrateOrganizationRatings(organizationId: string) {
 				: row.teamId === row.awayTeamId
 					? row.awayTeamScore
 					: null;
-		const empty = isEmptyLine(line) || row.recordedPts != null;
+		const empty = isEmptyLine(line) || isPointsOnlyLine({ ...line, recordedPts: row.recordedPts });
 		pending.push({
 			id: row.id,
 			line,

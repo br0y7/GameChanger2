@@ -8,6 +8,7 @@ import { idField } from '$lib/schemas/common';
 import { db } from '$lib/server/db';
 import { divisionPlaceForTeam, divisionPlaceLabel } from '$lib/stats/division-place';
 import { defaultResultLabel, isDefaultGame } from '$lib/schemas/game';
+import { isPointsOnlyLine } from '$lib/stats/player-game-stats';
 import { lineupPlayerFromGames, type LineupGame } from '$lib/ai/lineup';
 import { ensureSeasonGameRatings } from '$lib/server/game-rating.server';
 import { dedupeByMatchup, dedupeMatchups, matchupKey } from '$lib/stats/matchup';
@@ -305,7 +306,7 @@ export const getTeamOverview = query.live(
 					.map((player) => {
 						const stats = dedupeByMatchup(player.gameStats, (stat) => stat.game);
 						const games: LineupGame[] = stats.map((stat) => ({
-							pointsOnly: stat.recordedPts != null,
+							pointsOnly: isPointsOnlyLine(stat),
 							pts: pointsFromRaw(stat),
 							oreb: stat.oreb,
 							dreb: stat.dreb,
