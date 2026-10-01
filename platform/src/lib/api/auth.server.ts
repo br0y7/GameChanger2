@@ -1,13 +1,40 @@
 import { resolve } from '$app/paths';
-import { DASHBOARD_PATH } from '$lib/utils/url';
-import { AWAITING_INVITE_STEP, COACH_START_STEP } from '$lib/onboarding/steps';
+import { isRedirect } from '@sveltejs/kit';
+import { DASHBOARD_PATH, shouldHonorPreferredRedirect } from '$lib/utils/url';
 
-/** Where to send a signed-in user (coach portal → family → awaiting invite → dashboard). */
+export { shouldHonorPreferredRedirect };
+import { AWAITING_INVITE_STEP, COACH_START_STEP } from '$lib/onboarding/steps';
+import { serverLogger } from '$lib/server/logger';
+
+/**
+ * Home → Dashboard and post-login landing.
+ * Admin → admin org (clears view-as). League organizer → league. Then coach, then family.
+ */
 export async function resolvePostLoginPath(preferredRedirect?: string | null): Promise<string> {
-	const safeRedirect =
-		preferredRedirect &&
-		(preferredRedirect.startsWith(DASHBOARD_PATH) || preferredRedirect.startsWith('/invite/'));
-	if (safeRedirect) return preferredRedirect;
+	if (shouldHonorPreferredRedirect(preferredRedirect)) return preferredRedirect as string;
+
+	const { getUser, isUserAdmin } = await import('./auth.remote');
+	const user = await getUser();
+
+	if (user && (await isUserAdmin())) {
+		try {
+			const { switchToAdminHomeDashboard } = await import('./organization.remote');
+			const home = await switchToAdminHomeDashboard();
+			return resolve('/dashboard/[orgSlug]', { orgSlug: home.slug });
+		} catch (err) {
+			if (isRedirect(err)) throw err;
+			serverLogger.error(err);
+			return DASHBOARD_PATH;
+		}
+	}
+
+	if (user) {
+		const { leagueOrganizerDashboardSlug } = await import('./organization.remote');
+		const leagueSlug = await leagueOrganizerDashboardSlug(user.id);
+		if (leagueSlug) {
+			return resolve('/dashboard/[orgSlug]', { orgSlug: leagueSlug });
+		}
+	}
 
 	const { resolveCoachLanding } = await import('./coach.remote');
 	const coachLanding = await resolveCoachLanding();
@@ -37,8 +64,6 @@ export async function resolvePostLoginPath(preferredRedirect?: string | null): P
 		});
 	}
 
-	const { getUser, isUserAdmin, requireSession } = await import('./auth.remote');
-	const user = await getUser();
 	if (user) {
 		const { getOnboarding } = await import('./onboarding.remote');
 		const onboarding = await getOnboarding({ userId: user.id });
@@ -53,17 +78,6 @@ export async function resolvePostLoginPath(preferredRedirect?: string | null): P
 				return resolve('/onboarding/awaiting-invite');
 			}
 			return resolve('/onboarding');
-		}
-
-		if (await isUserAdmin()) {
-			const { ensureAdminSystemOrganization, getOrganization } =
-				await import('./organization.remote');
-			await ensureAdminSystemOrganization();
-			const session = await requireSession();
-			if (session.activeOrganizationId) {
-				const org = await getOrganization({ id: session.activeOrganizationId });
-				return resolve('/dashboard/[orgSlug]', { orgSlug: org.slug });
-			}
 		}
 	}
 

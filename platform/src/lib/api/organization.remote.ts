@@ -114,8 +114,8 @@ export const ensureAdminSystemOrganization = query(async () => {
 	return adminOrg;
 });
 
-/** Platform admin: switch active org back to the system admin dashboard. */
-export const goToAdminDashboard = command(async () => {
+/** Platform admin: system org, no leftover coach/player preview. */
+export async function switchToAdminHomeDashboard() {
 	const user = await requireAdmin();
 	const adminOrg = await ensureAdminSystemOrganization();
 	if (!adminOrg) {
@@ -135,7 +135,27 @@ export const goToAdminDashboard = command(async () => {
 	void getOrganizations({ userId: user.id }).refresh();
 
 	return { slug: adminOrg.slug };
-});
+}
+
+/** League the user organizes. Prefers the active org when it is one of those leagues. */
+export async function leagueOrganizerDashboardSlug(userId: string): Promise<string | null> {
+	const memberships = await db.query.member.findMany({
+		where: { userId },
+		with: { organization: { columns: { id: true, slug: true, type: true } } },
+	});
+	const leagues = memberships.filter(
+		(row) =>
+			row.organization?.type === 'league' && (row.role === 'owner' || row.role === 'admin')
+	);
+	if (leagues.length === 0) return null;
+
+	const session = await requireSession();
+	const active = leagues.find((row) => row.organizationId === session.activeOrganizationId);
+	return (active ?? leagues[0])?.organization?.slug ?? null;
+}
+
+/** Platform admin: switch active org back to the system admin dashboard. */
+export const goToAdminDashboard = command(async () => switchToAdminHomeDashboard());
 
 export const getOrganizations = query(
 	z.object({
