@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { dedupeByMatchup, dedupeMatchups, type MatchupIdentity } from './matchup';
+import {
+	correctFalsePlayoffTypes,
+	dedupeByMatchup,
+	dedupeMatchups,
+	type MatchupIdentity,
+} from './matchup';
 
 function game(overrides: Partial<MatchupIdentity> & Pick<MatchupIdentity, 'id'>): MatchupIdentity {
 	return {
@@ -42,6 +47,47 @@ describe('dedupeMatchups', () => {
 		]);
 
 		expect(kept.map((row) => row.id)).toEqual(['semi']);
+	});
+});
+
+describe('correctFalsePlayoffTypes', () => {
+	test('a regular-season rematch stays regular when the later meeting is semis', () => {
+		const corrected = correctFalsePlayoffTypes([
+			game({
+				id: 'aug2',
+				gameType: 'playoff',
+				completedAt: new Date('2026-08-02T21:00:00Z'),
+			}),
+			game({
+				id: 'aug23',
+				gameType: 'semifinal',
+				completedAt: new Date('2026-08-24T03:00:00Z'),
+			}),
+		]);
+
+		expect(corrected.find((row) => row.id === 'aug2')?.gameType).toBe('regular');
+		expect(corrected.find((row) => row.id === 'aug23')?.gameType).toBe('semifinal');
+	});
+
+	test('a real first-round playoff against a different team stays playoff', () => {
+		const corrected = correctFalsePlayoffTypes([
+			game({
+				id: 'first-round',
+				homeTeamId: 'team-1',
+				awayTeamId: 'team-4',
+				gameType: 'playoff',
+				completedAt: new Date('2026-08-16T15:00:00Z'),
+			}),
+			game({
+				id: 'semis',
+				homeTeamId: 'team-1',
+				awayTeamId: 'team-5',
+				gameType: 'semifinal',
+				completedAt: new Date('2026-08-24T03:00:00Z'),
+			}),
+		]);
+
+		expect(corrected.find((row) => row.id === 'first-round')?.gameType).toBe('playoff');
 	});
 });
 

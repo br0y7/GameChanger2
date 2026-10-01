@@ -11,7 +11,12 @@ import { defaultResultLabel, isDefaultGame } from '$lib/schemas/game';
 import { isPointsOnlyLine } from '$lib/stats/player-game-stats';
 import { lineupPlayerFromGames, type LineupGame } from '$lib/ai/lineup';
 import { ensureSeasonGameRatings } from '$lib/server/game-rating.server';
-import { dedupeByMatchup, dedupeMatchups, matchupKey } from '$lib/stats/matchup';
+import {
+	correctFalsePlayoffTypes,
+	dedupeByMatchup,
+	dedupeMatchups,
+	matchupKey,
+} from '$lib/stats/matchup';
 import { regularSeasonGames, regularSeasonStandings } from '$lib/stats/standings';
 import { teamColorFromId, teamInitials } from '$lib/utils/team-identity';
 import { z } from 'zod';
@@ -101,7 +106,9 @@ async function standingsForDivision(divisionId: string, seasonId: string) {
 	});
 
 	const teamIds = new Set(teams.map((t) => t.id));
-	const inDivision = games.filter((g) => teamIds.has(g.homeTeamId) && teamIds.has(g.awayTeamId));
+	const inDivision = correctFalsePlayoffTypes(
+		games.filter((g) => teamIds.has(g.homeTeamId) && teamIds.has(g.awayTeamId))
+	);
 	const divisionGames = dedupeMatchups(inDivision) as GameWithSides[];
 	const scoredGames = inDivision.map((game) => {
 		const scores = resolveScores(game as GameWithSides);

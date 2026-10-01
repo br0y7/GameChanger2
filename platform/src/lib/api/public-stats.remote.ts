@@ -8,7 +8,7 @@ import {
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { forbidden, notFound } from '$lib/server/fail';
-import { dedupeMatchups } from '$lib/stats/matchup';
+import { correctFalsePlayoffTypes, dedupeMatchups } from '$lib/stats/matchup';
 import { regularSeasonGames, regularSeasonStandings } from '$lib/stats/standings';
 import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { loadBoxScore } from '$lib/server/game-box-score.server';
@@ -523,14 +523,16 @@ export const getPublicGames = query(
 			}
 
 			const rows = dedupeMatchups(
-				await db.query.game.findMany({
-					where: { seasonId: season.id },
-					with: {
-						homeTeam: { columns: { name: true } },
-						awayTeam: { columns: { name: true } },
-					},
-					orderBy: { scheduledAt: 'desc' },
-				})
+				correctFalsePlayoffTypes(
+					await db.query.game.findMany({
+						where: { seasonId: season.id },
+						with: {
+							homeTeam: { columns: { name: true } },
+							awayTeam: { columns: { name: true } },
+						},
+						orderBy: { scheduledAt: 'desc' },
+					})
+				)
 			);
 
 			for (const g of rows) {
