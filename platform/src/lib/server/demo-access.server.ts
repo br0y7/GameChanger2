@@ -32,10 +32,22 @@ type DemoCookies = {
 			expires: Date;
 		}
 	) => void;
-	delete: (name: string, opts: { path: string }) => void;
+	delete: (
+		name: string,
+		opts: { path: string; httpOnly: boolean; sameSite: 'lax'; secure: boolean }
+	) => void;
 };
 
 const COOKIE_PATH = { path: '/' } as const;
+
+function demoCookieBase(secure: boolean) {
+	return {
+		...COOKIE_PATH,
+		httpOnly: true,
+		sameSite: 'lax' as const,
+		secure,
+	};
+}
 
 export function demoDashboardPath(access: Pick<DemoAccess, 'orgSlug'>) {
 	return resolve('/dashboard/[orgSlug]', { orgSlug: access.orgSlug });
@@ -48,16 +60,13 @@ export function writeDemoAccessCookie(
 	secure: boolean
 ) {
 	cookies.set(DEMO_ACCESS_COOKIE, token, {
-		...COOKIE_PATH,
-		httpOnly: true,
-		sameSite: 'lax',
-		secure,
+		...demoCookieBase(secure),
 		expires: expiresAt,
 	});
 }
 
-export function clearDemoAccessCookie(cookies: DemoCookies) {
-	cookies.delete(DEMO_ACCESS_COOKIE, COOKIE_PATH);
+export function clearDemoAccessCookie(cookies: DemoCookies, secure = false) {
+	cookies.delete(DEMO_ACCESS_COOKIE, demoCookieBase(secure));
 }
 
 export async function loadDemoAccessByToken(token: string): Promise<DemoAccess | null> {
@@ -110,7 +119,7 @@ export async function getValidDemoAccess(): Promise<DemoAccess | null> {
 	if (!access) {
 		event.locals.demoAccess = null;
 		try {
-			clearDemoAccessCookie(event.cookies);
+			clearDemoAccessCookie(event.cookies, event.url.protocol === 'https:');
 		} catch {
 			// Queries cannot mutate cookies; leave a stale value until a command/load clears it.
 		}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
 	const errorMessage = () => {
@@ -25,6 +26,11 @@
 		<p class="message text-center">
 			{errorMessage()}
 		</p>
+		<div class="flex flex-wrap items-center justify-center gap-4 text-sm">
+			<a href={resolve('/demo/exit')} class="underline" data-sveltekit-reload>Exit demo</a>
+			<a href={resolve('/logout')} class="underline" data-sveltekit-reload>Log out</a>
+			<a href={resolve('/')} class="underline" data-sveltekit-reload>Go to homepage</a>
+		</div>
 	</div>
 </div>
 

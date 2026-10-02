@@ -19,8 +19,9 @@ function absoluteDemoUrl(token: string) {
 export const getDemoAccess = query(async () => getValidDemoAccess());
 
 export const exitDemo = command(async () => {
-	clearDemoAccessCookie(getRequestEvent().cookies);
-	getRequestEvent().locals.demoAccess = null;
+	const event = getRequestEvent();
+	clearDemoAccessCookie(event.cookies, event.url.protocol === 'https:');
+	event.locals.demoAccess = null;
 	return { ok: true as const };
 });
 
