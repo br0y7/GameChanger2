@@ -7,7 +7,7 @@ import { auth } from '$lib/server/auth';
 import { forbidden } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { DASHBOARD_PATH, REDIRECT_TO_PARAM } from '$lib/utils/url';
-import { getValidDemoAccess } from '$lib/server/demo-access.server';
+import { demoDashboardPath, getValidDemoAccess } from '$lib/server/demo-access.server';
 import { invalid, isRedirect, redirect } from '@sveltejs/kit';
 import { isAPIError } from 'better-auth/api';
 import { z } from 'zod';
@@ -144,11 +144,14 @@ const getAuthSession = async () =>
 export const getUser = query(async () => (await getAuthSession())?.user);
 
 const requireAuth = async () => {
-	if (await getValidDemoAccess()) {
-		forbidden({ resource: 'user' }, { message: 'Demo is view-only.' });
-	}
-
+	const demo = await getValidDemoAccess();
 	const authSession = await getAuthSession();
+
+	// A leftover demo cookie plus a real login used to 403 the public site.
+	// Never fail the page for being in demo — send demo-only visitors back to the demo.
+	if (demo && !authSession) {
+		redirect(303, demoDashboardPath(demo));
+	}
 
 	if (!authSession) {
 		const { url } = getRequestEvent();
@@ -168,7 +171,10 @@ const requireAuth = async () => {
 export const requireUser = query(async () => (await requireAuth()).user);
 export const requireSession = query(async () => (await requireAuth()).session);
 
-export const isAuthenticated = query(async () => !!(await getAuthSession()));
+export const isAuthenticated = query(async () => {
+	if (await getValidDemoAccess()) return false;
+	return !!(await getAuthSession());
+});
 export const isUserAdmin = query(async () => {
 	if (await getValidDemoAccess()) {
 		return false;
@@ -184,6 +190,11 @@ export const isUserAdmin = query(async () => {
 });
 
 export const requireAdmin = query(async () => {
+	const demo = await getValidDemoAccess();
+	if (demo) {
+		redirect(303, demoDashboardPath(demo));
+	}
+
 	const user = await requireUser();
 
 	if (!(await isUserAdmin())) {
