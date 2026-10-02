@@ -65,7 +65,7 @@ export const getCoach = query(
 
 export const getMyCoachAssignments = query(async () => {
 	const demo = await getValidDemoAccess();
-	if (demo?.kind === 'coach' && demo.teamId) {
+	if (demo?.teamId) {
 		const assignment = await db.query.coach.findFirst({
 			where: { teamId: demo.teamId, status: COACH_STATUS.active },
 			with: {
@@ -85,6 +85,7 @@ export const getMyCoachAssignments = query(async () => {
 		if (assignment) return [assignment];
 		return [];
 	}
+	if (demo) return [];
 
 	const user = await requireUser();
 	return getActiveCoachAssignments(user.id);
@@ -517,14 +518,14 @@ export const acceptCoachInvite = form(z.object({ token: z.uuid() }), async ({ to
 /** Portal landing helper: where a coach-only user should go. */
 export const resolveCoachLanding = query(async () => {
 	const demo = await getValidDemoAccess();
-	if (demo?.kind === 'coach' && demo.teamId) {
+	if (demo?.teamId) {
 		return {
 			kind: 'single' as const,
 			orgSlug: demo.orgSlug,
 			teamId: demo.teamId,
 		};
 	}
-	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
+	if (demo || (await isUserAdmin()) || (await isUserLeagueOrganizer())) {
 		return { kind: 'admin' as const };
 	}
 

@@ -144,6 +144,10 @@ const getAuthSession = async () =>
 export const getUser = query(async () => (await getAuthSession())?.user);
 
 const requireAuth = async () => {
+	if (await getValidDemoAccess()) {
+		forbidden({ resource: 'user' }, { message: 'Demo is view-only.' });
+	}
+
 	const authSession = await getAuthSession();
 
 	if (!authSession) {
