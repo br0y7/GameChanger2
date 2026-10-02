@@ -7,6 +7,7 @@ import { auth } from '$lib/server/auth';
 import { forbidden } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { DASHBOARD_PATH, REDIRECT_TO_PARAM } from '$lib/utils/url';
+import { getValidDemoAccess } from '$lib/server/demo-access.server';
 import { invalid, isRedirect, redirect } from '@sveltejs/kit';
 import { isAPIError } from 'better-auth/api';
 import { z } from 'zod';
@@ -32,8 +33,7 @@ export const loginWithEmail = form(loginFormSchema, async (data) => {
 		const { url } = getRequestEvent();
 		const redirectTo = data.redirectTo || url.searchParams.get(REDIRECT_TO_PARAM);
 		const safeRedirect =
-			redirectTo &&
-			(redirectTo.startsWith(DASHBOARD_PATH) || redirectTo.startsWith('/invite/'));
+			redirectTo && (redirectTo.startsWith(DASHBOARD_PATH) || redirectTo.startsWith('/invite/'));
 
 		// Session cookie is applied on the next request — send to /dashboard (or a
 		// safe deep link) and let layout resolve coach/family portal landing.
@@ -70,8 +70,7 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 		serverLogger.info('new user', { id, role });
 
 		const safeRedirect =
-			redirectTo &&
-			(redirectTo.startsWith(DASHBOARD_PATH) || redirectTo.startsWith('/invite/'));
+			redirectTo && (redirectTo.startsWith(DASHBOARD_PATH) || redirectTo.startsWith('/invite/'));
 
 		// Invite accept flow should return to the invite link.
 		if (safeRedirect) {
@@ -167,6 +166,10 @@ export const requireSession = query(async () => (await requireAuth()).session);
 
 export const isAuthenticated = query(async () => !!(await getAuthSession()));
 export const isUserAdmin = query(async () => {
+	if (await getValidDemoAccess()) {
+		return false;
+	}
+
 	const authSession = await getAuthSession();
 
 	if (!authSession) {

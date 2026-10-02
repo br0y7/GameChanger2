@@ -1,6 +1,7 @@
 import type { PlayerGameStats, WithGame } from '$lib/schemas/player-game-stat';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
 import type { RawPlayerGameStats } from '$lib/server/db/schema';
+import { shootingPct } from '$lib/utils/collection';
 
 /** True when this row is a box-score appearance, not a leftover DNP / empty line. */
 export function playerAppearedOnSheet(stat: {
@@ -28,9 +29,9 @@ export function derivePlayerGameStats(
 	const pointsOnly = isPointsOnlyLine(rawStats);
 	const fromShots = (fgm - fg3m) * 2 + fg3m * 3 + ftm;
 	const pts = rawStats.recordedPts ?? fromShots;
-	const fgPct = fga > 0 ? fgm / fga : 0;
-	const fg3Pct = fg3a > 0 ? fg3m / fg3a : 0;
-	const ftPct = fta > 0 ? ftm / fta : 0;
+	const fgPct = shootingPct(fgm, fga);
+	const fg3Pct = shootingPct(fg3m, fg3a);
+	const ftPct = shootingPct(ftm, fta);
 	const reb = oreb + dreb;
 	const eff = pts + reb + ast + stl + blk - (tov + pf);
 

@@ -34,29 +34,23 @@ function gameAt(game: MatchupIdentity) {
 }
 
 /**
- * A Playoff label against a team they later meet in semis, finals, or third place
- * is the regular-season rematch, not a playoff game.
+ * Same two teams on a later date keep the postseason label.
+ * An earlier meeting is its own regular-season game, even if it was stored as
+ * Playoff, Semis, or Finals because those teams later met in the bracket.
  */
 export function correctFalsePlayoffTypes<T extends MatchupIdentity>(games: T[]): T[] {
-	const laterRoundByPair = new Map<string, number>();
+	const latestByPair = new Map<string, number>();
 	for (const game of games) {
-		if (
-			game.gameType !== 'semifinal' &&
-			game.gameType !== 'finals' &&
-			game.gameType !== 'third_place'
-		) {
-			continue;
-		}
 		const key = pairKey(game.homeTeamId, game.awayTeamId);
 		const at = gameAt(game);
-		const previous = laterRoundByPair.get(key) ?? 0;
-		if (at > previous) laterRoundByPair.set(key, at);
+		const previous = latestByPair.get(key) ?? 0;
+		if (at > previous) latestByPair.set(key, at);
 	}
 
 	return games.map((game) => {
-		if (game.gameType !== 'playoff') return game;
-		const laterRound = laterRoundByPair.get(pairKey(game.homeTeamId, game.awayTeamId));
-		if (laterRound == null || gameAt(game) >= laterRound) return game;
+		if (!isPostseasonGameType(game.gameType)) return game;
+		const latest = latestByPair.get(pairKey(game.homeTeamId, game.awayTeamId)) ?? 0;
+		if (gameAt(game) >= latest) return game;
 		return { ...game, gameType: 'regular' };
 	});
 }

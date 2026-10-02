@@ -12,7 +12,7 @@ import { forbidden, notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { ONBOARDING_DONE_STEP } from '$lib/onboarding/steps';
 import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
-import { dedupeByMatchup, dedupeMatchups } from '$lib/stats/matchup';
+import { dedupeByMatchup, dedupeMatchups, correctFalsePlayoffTypes } from '$lib/stats/matchup';
 import { derivePlayerStats } from '$lib/stats/player-stats';
 import { ranksForPlayer, type RankRow } from '$lib/stats/stat-ranks';
 import { averageGameRating, ratingMeaning, trendVersusAverage } from '$lib/stats/game-rating';
@@ -26,6 +26,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { isUserAdmin, requireUser } from './auth.remote';
 import { isUserLeagueOrganizer } from './league.remote';
+import { getValidDemoAccess } from '$lib/server/demo-access.server';
 
 const INVITE_DAYS = 14;
 
@@ -40,6 +41,38 @@ async function requireOrganizerOrAdmin() {
 }
 
 export const getMyFamilyPlayers = query(async () => {
+	const demo = await getValidDemoAccess();
+	if (demo?.kind === 'family' && demo.playerId) {
+		const player = await db.query.player.findFirst({
+			where: { id: demo.playerId },
+			with: {
+				team: {
+					with: {
+						division: {
+							with: {
+								season: { with: { organization: true } },
+							},
+						},
+					},
+				},
+			},
+		});
+		if (!player) return [];
+		return [
+			{
+				playerId: player.id,
+				name: player.name,
+				jerseyNumber: player.jerseyNumber,
+				teamName: player.team?.name ?? 'Team',
+				divisionName: player.team?.division?.name ?? '',
+				seasonName: player.team?.division?.season?.name ?? '',
+				orgSlug: player.team?.division?.season?.organization?.slug ?? demo.orgSlug,
+				orgName: player.team?.division?.season?.organization?.name ?? demo.orgName,
+				relationship: 'fan' as const,
+			},
+		];
+	}
+
 	const user = await requireUser();
 	const links = await getActiveFamilyLinks(user.id);
 	const claimed = await db.query.player.findMany({
@@ -89,6 +122,14 @@ export const getMyFamilyPlayers = query(async () => {
 });
 
 export const resolveFamilyLanding = query(async () => {
+	const demo = await getValidDemoAccess();
+	if (demo?.kind === 'family' && demo.playerId) {
+		return {
+			kind: 'single' as const,
+			orgSlug: demo.orgSlug,
+			playerId: demo.playerId,
+		};
+	}
 	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
 		return { kind: 'admin' as const };
 	}
@@ -427,19 +468,22 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 						] as const;
 					})
 			);
-			const scheduleGames = seasonId
-				? await db.query.game.findMany({
-						where: { seasonId },
-						with: {
-							homeTeam: { columns: { id: true, name: true } },
-							awayTeam: { columns: { id: true, name: true } },
-							playerStats: {
-								with: { player: { columns: { teamId: true } } },
+			const scheduleGames = correctFalsePlayoffTypes(
+				seasonId
+					? await db.query.game.findMany({
+							where: { seasonId },
+							with: {
+								homeTeam: { columns: { id: true, name: true } },
+								awayTeam: { columns: { id: true, name: true } },
+								playerStats: {
+									with: { player: { columns: { teamId: true } } },
+								},
 							},
-						},
-						orderBy: { scheduledAt: 'asc' },
-					})
-				: [];
+							orderBy: { scheduledAt: 'asc' },
+						})
+					: []
+			);
+			const typeById = new Map(scheduleGames.map((game) => [game.id, game.gameType]));
 
 			const scoreByGameId = new Map(
 				scheduleGames.map((game) => [game.id, scoresForTeam(game, teamId)] as const)
@@ -478,7 +522,7 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 							teamScore: completed ? teamScore : null,
 							oppScore: completed ? oppScore : null,
 						}),
-						gameType: game.gameType,
+						gameType: typeById.get(game.id) ?? game.gameType,
 						pts: stat.pts,
 						pointsOnly: stat.pointsOnly,
 						reb: stat.reb,
@@ -542,7 +586,7 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 						teamScore: completed ? teamScore : null,
 						oppScore: completed ? oppScore : null,
 						playerLine: completed ? (lineByGameId.get(game.id) ?? null) : null,
-						gameType: game.gameType,
+						gameType: typeById.get(game.id) ?? game.gameType,
 					};
 				});
 

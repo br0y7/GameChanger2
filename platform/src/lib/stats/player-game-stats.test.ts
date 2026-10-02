@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { derivePlayerGameStats, isPointsOnlyLine, playerAppearedOnSheet } from './player-game-stats';
+import {
+	derivePlayerGameStats,
+	isPointsOnlyLine,
+	playerAppearedOnSheet,
+} from './player-game-stats';
 
 describe('playerAppearedOnSheet', () => {
 	test('counts a points-only line, including a zero', () => {
@@ -69,6 +73,27 @@ describe('playerAppearedOnSheet', () => {
 				pf: 0,
 			})
 		).toBe(true);
+	});
+
+	test('caps FG% at 100% when attempts were left blank', () => {
+		expect(
+			derivePlayerGameStats({
+				recordedPts: null,
+				fgm: 11,
+				fga: 0,
+				fg3m: 1,
+				fg3a: 3,
+				ftm: 2,
+				fta: 4,
+				oreb: 0,
+				dreb: 0,
+				ast: 0,
+				stl: 0,
+				blk: 0,
+				tov: 0,
+				pf: 0,
+			} as Parameters<typeof derivePlayerGameStats>[0]).fgPct
+		).toBe(1);
 	});
 
 	test('drops an empty row from a game the player missed', () => {

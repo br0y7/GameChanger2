@@ -96,4 +96,24 @@ export const relations = defineRelationsPart(schema, (r) => ({
 			to: r.organization.id,
 		}),
 	},
+	demoLink: {
+		organization: r.one.organization({
+			from: r.demoLink.organizationId,
+			to: r.organization.id,
+		}),
+		player: r.one.player({
+			from: r.demoLink.playerId,
+			to: r.player.id,
+			optional: true,
+		}),
+		team: r.one.team({
+			from: r.demoLink.teamId,
+			to: r.team.id,
+			optional: true,
+		}),
+		createdBy: r.one.user({
+			from: r.demoLink.createdByUserId,
+			to: r.user.id,
+		}),
+	},
 }));

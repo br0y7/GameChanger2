@@ -69,6 +69,62 @@ describe('correctFalsePlayoffTypes', () => {
 		expect(corrected.find((row) => row.id === 'aug23')?.gameType).toBe('semifinal');
 	});
 
+	test('an earlier meeting stays regular when the later meeting is finals', () => {
+		const corrected = correctFalsePlayoffTypes([
+			game({
+				id: 'july',
+				gameType: 'finals',
+				completedAt: new Date('2026-07-05T22:00:00Z'),
+			}),
+			game({
+				id: 'aug30',
+				gameType: 'finals',
+				completedAt: new Date('2026-08-30T19:00:00Z'),
+			}),
+		]);
+
+		expect(corrected.find((row) => row.id === 'july')?.gameType).toBe('regular');
+		expect(corrected.find((row) => row.id === 'aug30')?.gameType).toBe('finals');
+	});
+
+	test('an earlier meeting stays regular for any pairing, not only one division', () => {
+		const corrected = correctFalsePlayoffTypes([
+			game({
+				id: 'u17-regular',
+				homeTeamId: 'yellow',
+				awayTeamId: 'blue',
+				gameType: 'finals',
+				completedAt: new Date('2026-07-12T22:00:00Z'),
+			}),
+			game({
+				id: 'u17-finals',
+				homeTeamId: 'blue',
+				awayTeamId: 'yellow',
+				gameType: 'finals',
+				completedAt: new Date('2026-08-30T22:00:00Z'),
+			}),
+			game({
+				id: 'u12-regular',
+				homeTeamId: 'white',
+				awayTeamId: 'green',
+				gameType: 'semifinal',
+				completedAt: new Date('2026-08-01T22:00:00Z'),
+			}),
+			game({
+				id: 'u12-semi',
+				homeTeamId: 'green',
+				awayTeamId: 'white',
+				gameType: 'semifinal',
+				completedAt: new Date('2026-08-23T22:00:00Z'),
+			}),
+		]);
+
+		expect(corrected.find((row) => row.id === 'u17-regular')?.gameType).toBe('regular');
+		expect(corrected.find((row) => row.id === 'u17-finals')?.gameType).toBe('finals');
+		expect(corrected.find((row) => row.id === 'u12-regular')?.gameType).toBe('regular');
+		expect(corrected.find((row) => row.id === 'u12-semi')?.gameType).toBe('semifinal');
+	});
+
 	test('a real first-round playoff against a different team stays playoff', () => {
 		const corrected = correctFalsePlayoffTypes([
 			game({

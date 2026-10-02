@@ -1,5 +1,10 @@
 import { averageGameRating } from '$lib/stats/game-rating';
-import { averageBy, percentageBy, sumBy, trueShootingPercentage } from '$lib/utils/collection';
+import {
+	averageBy,
+	shootingPercentageBy,
+	sumBy,
+	trueShootingPercentage,
+} from '$lib/utils/collection';
 
 /** One player-game reduced to the fields a starting lineup needs. */
 export type LineupGame = {
@@ -159,7 +164,6 @@ export function lineupPlayerFromGames(
 			: roundTo(recentAverage - averageRating, 1);
 
 	const fga = sumBy(box, (game) => game.fga);
-	const fg3a = sumBy(box, (game) => game.fg3a);
 	const fta = sumBy(box, (game) => game.fta);
 	const shotOpportunities = fga + 0.44 * fta;
 
@@ -178,30 +182,27 @@ export function lineupPlayerFromGames(
 		blocks: hasBoxScore ? (averageBy(box, (game) => game.blk) ?? 0) : null,
 		turnovers: hasBoxScore ? (averageBy(box, (game) => game.tov) ?? 0) : null,
 		fouls: hasBoxScore ? (averageBy(box, (game) => game.pf) ?? 0) : null,
-		fgPct:
-			fga > 0
-				? percentageBy(
-						box,
-						(game) => game.fgm,
-						(game) => game.fga
-					)
-				: null,
-		fg3Pct:
-			fg3a > 0
-				? percentageBy(
-						box,
-						(game) => game.fg3m,
-						(game) => game.fg3a
-					)
-				: null,
-		ftPct:
-			fta > 0
-				? percentageBy(
-						box,
-						(game) => game.ftm,
-						(game) => game.fta
-					)
-				: null,
+		fgPct: hasBoxScore
+			? shootingPercentageBy(
+					box,
+					(game) => game.fgm,
+					(game) => game.fga
+				)
+			: null,
+		fg3Pct: hasBoxScore
+			? shootingPercentageBy(
+					box,
+					(game) => game.fg3m,
+					(game) => game.fg3a
+				)
+			: null,
+		ftPct: hasBoxScore
+			? shootingPercentageBy(
+					box,
+					(game) => game.ftm,
+					(game) => game.fta
+				)
+			: null,
 		trueShootingPct:
 			shotOpportunities > 0
 				? trueShootingPercentage(

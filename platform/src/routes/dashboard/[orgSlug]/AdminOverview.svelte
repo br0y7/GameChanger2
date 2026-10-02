@@ -21,6 +21,7 @@
 	import { loadPage } from '$lib/navigation/load-page';
 	import { getAdminViewAs } from '$lib/api/view-as.remote';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
+	import DemoLinksPanel from './DemoLinksPanel.svelte';
 
 	let { org }: { org: Organization } = $props();
 	await requireAdmin();
@@ -187,6 +188,8 @@
 			<ErrorAlert errors={deleteLeague.fields.issues()} />
 		{/if}
 	</section>
+
+	<DemoLinksPanel />
 
 	{#if homepageLeague}
 		<section class="max-w-xl">

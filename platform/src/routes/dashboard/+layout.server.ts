@@ -8,10 +8,19 @@ import { getOnboarding } from '$lib/api/onboarding.remote.js';
 import { DASHBOARD_PATH, REDIRECT_TO_PARAM } from '$lib/utils/url.js';
 import { resolveCoachLanding } from '$lib/api/coach.remote';
 import { resolveFamilyLanding } from '$lib/api/family.remote';
+import { demoDashboardPath, getValidDemoAccess } from '$lib/server/demo-access.server';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async (event) => {
+	const demo = await getValidDemoAccess();
 	const user = await getUser();
+
+	if (demo) {
+		if (event.url.pathname === DASHBOARD_PATH) {
+			redirect(303, demoDashboardPath(demo));
+		}
+		return;
+	}
 
 	if (!user) {
 		const loginURL = new URL(resolve('/login'), event.url.origin);

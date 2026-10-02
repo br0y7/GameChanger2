@@ -18,6 +18,12 @@ import { isUserLeagueOrganizer } from './league.remote';
 import { getOrganization } from './organization.remote';
 import { EmptyFilter, and, count, countDistinct, desc, eq, inArray, ne } from 'drizzle-orm';
 import type { CrudAction, ResourceTarget } from '$lib/forms/types';
+import { isJerseyNumberTeamName } from '$lib/import/team-match';
+import { mergeDuplicateTeamsForSeason } from '$lib/import/duplicate-teams.server';
+import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
+import { regularSeasonStandings } from '$lib/stats/standings';
+import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
+import { seasonAveragesFromGames } from '$lib/stats/season-averages';
 
 const includes = {
 	organization: z.boolean().optional(),
@@ -252,6 +258,158 @@ export const getSeasonStats = query(z.object({ seasonId: idField }), async ({ se
 		statsSubmittedPct,
 	};
 });
+
+export const getSeasonPlayerStats = query(
+	z.object({
+		seasonId: idField,
+		divisionSlug: z.string().optional(),
+		teamSlug: z.string().optional(),
+	}),
+	async ({ seasonId, divisionSlug, teamSlug }) => {
+		await mergeDuplicateTeamsForSeason(seasonId);
+
+		const divisions = await db.query.division.findMany({
+			where: { seasonId },
+			with: {
+				teams: {
+					columns: { id: true, name: true, slug: true },
+					with: {
+						players: {
+							columns: { id: true, name: true, jerseyNumber: true },
+							with: {
+								gameStats: {
+									with: { game: { columns: { id: true, seasonId: true, status: true } } },
+								},
+							},
+						},
+					},
+				},
+			},
+			orderBy: { name: 'asc' },
+		});
+
+		const scoped = divisionSlug ? divisions.filter((d) => d.slug === divisionSlug) : divisions;
+
+		return scoped
+			.flatMap((division) =>
+				division.teams
+					.filter((team) => !isJerseyNumberTeamName(team.name))
+					.filter((team) => (teamSlug ? team.slug === teamSlug : true))
+					.flatMap((team) =>
+						team.players.map((player) => {
+							const derived = player.gameStats
+								.filter(
+									(stat) =>
+										stat.game?.seasonId === seasonId &&
+										stat.game.status === 'completed' &&
+										playerAppearedOnSheet(stat)
+								)
+								.map((stat) =>
+									derivePlayerGameStats(stat as Parameters<typeof derivePlayerGameStats>[0])
+								);
+							if (!derived.length) return null;
+							const averages = seasonAveragesFromGames(derived);
+							return {
+								playerId: player.id,
+								name: player.name,
+								jerseyNumber: player.jerseyNumber,
+								teamId: team.id,
+								teamName: team.name,
+								teamSlug: team.slug,
+								divisionName: division.name,
+								divisionSlug: division.slug,
+								gp: averages.gamesPlayed,
+								ppg: averages.points,
+								rpg: averages.rebounds,
+								apg: averages.assists,
+								spg: averages.steals,
+								bpg: averages.blocks,
+								topg: averages.turnovers,
+								fgPct: averages.fgPct,
+								fg3Pct: averages.fg3Pct,
+								ftPct: averages.ftPct,
+							};
+						})
+					)
+			)
+			.filter((player) => player !== null)
+			.sort((a, b) => b.ppg - a.ppg);
+	}
+);
+
+export const getSeasonStandings = query(
+	z.object({
+		seasonId: idField,
+		divisionSlug: z.string().optional(),
+	}),
+	async ({ seasonId, divisionSlug }) => {
+		await mergeDuplicateTeamsForSeason(seasonId);
+
+		const divisions = await db.query.division.findMany({
+			where: { seasonId },
+			with: { teams: { columns: { id: true, name: true, slug: true } } },
+			orderBy: { name: 'asc' },
+		});
+
+		const scoped = (
+			divisionSlug ? divisions.filter((d) => d.slug === divisionSlug) : divisions
+		).map((division) => ({
+			...division,
+			teams: division.teams.filter((team) => !isJerseyNumberTeamName(team.name)),
+		}));
+
+		const seasonGames = correctFalsePlayoffTypes(
+			await db.query.game.findMany({
+				where: { seasonId, status: 'completed' },
+				columns: {
+					id: true,
+					homeTeamId: true,
+					awayTeamId: true,
+					homeTeamScore: true,
+					awayTeamScore: true,
+					gameType: true,
+					status: true,
+					statsAvailable: true,
+					completedAt: true,
+					scheduledAt: true,
+				},
+			})
+		);
+		const scoredGames = seasonGames.flatMap((game) => {
+			const homeTeamScore = game.homeTeamScore ?? 0;
+			const awayTeamScore = game.awayTeamScore ?? 0;
+			if (homeTeamScore === 0 && awayTeamScore === 0) return [];
+			return [{ ...game, homeTeamScore, awayTeamScore }];
+		});
+
+		return scoped.map((division) => {
+			const ranked = regularSeasonStandings(
+				division.teams.map((team) => team.id),
+				scoredGames
+			);
+			const teamById = new Map(division.teams.map((team) => [team.id, team]));
+			return {
+				id: division.id,
+				name: division.name,
+				slug: division.slug,
+				rows: ranked.flatMap((standing) => {
+					const team = teamById.get(standing.teamId);
+					if (!team) return [];
+					return [
+						{
+							teamId: team.id,
+							name: team.name,
+							slug: team.slug,
+							wins: standing.wins,
+							losses: standing.losses,
+							rank: standing.rank,
+						},
+					];
+				}),
+			};
+		});
+	}
+);
 
 export const getLeagueRecentActivity = query.live(
 	z.object({

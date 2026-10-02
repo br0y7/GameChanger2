@@ -2,7 +2,9 @@
 // for information about these interfaces
 declare global {
 	namespace App {
-		// interface Locals {}
+		interface Locals {
+			demoAccess?: import('$lib/server/demo-access.server').DemoAccess | null;
+		}
 		// interface Error {}
 		// interface PageData {}
 		// interface PageState {}

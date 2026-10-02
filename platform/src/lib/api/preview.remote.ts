@@ -24,7 +24,8 @@ import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { publishScheduleChange } from '$lib/server/dashboard-sync.server';
 import { calendarDay, staleDivisionGameIds } from '$lib/import/game-identity';
-import { resolveImportedGameType } from '$lib/schemas/game';
+import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
+import { isPostseasonGameType, resolveImportedGameType } from '$lib/schemas/game';
 import { pickExistingTeam, readableTeamName, isJerseyNumberTeamName } from '$lib/import/team-match';
 import { slugify } from '$lib/utils/string';
 import { eq, inArray } from 'drizzle-orm';
@@ -175,13 +176,23 @@ async function saveGame(
 		(row) => calendarDay(row.completedAt ?? row.scheduledAt, timeZone) === day
 	);
 
+	const pairGames = [...asStoredHome, ...asStoredAway];
+	const incomingAt = gamePreview.completedAt?.getTime() ?? 0;
+	const laterMeeting = pairGames.some((row) => {
+		if (game && row.id === game.id) return false;
+		const at = (row.completedAt ?? row.scheduledAt)?.getTime() ?? 0;
+		return at > incomingAt;
+	});
+
 	if (game) {
 		const flipped = game.homeTeamId === awayTeam.id;
-		const nextType = resolveImportedGameType(
+		let nextType = resolveImportedGameType(
 			game.gameType,
 			gamePreview.gameType ?? 'regular',
 			gamePreview.gameTypeExplicit
 		);
+		// Same teams on a later date already have their own game. This date stays regular.
+		if (laterMeeting) nextType = 'regular';
 		const nextStatsAvailable = gamePreview.statsAvailable ?? true;
 		const nextPointsOnly = gamePreview.pointsOnly ?? false;
 		const patch: {
@@ -218,9 +229,13 @@ async function saveGame(
 		if (Object.keys(patch).length > 0) {
 			await tx.update(table.game).set(patch).where(eq(table.game.id, game.id));
 		}
+		if (isPostseasonGameType(nextType)) {
+			await demoteEarlierMeetings(tx, pairGames, game.id, incomingAt);
+		}
 		return { id: game.id };
 	}
 
+	const createdType = laterMeeting ? 'regular' : (gamePreview.gameType ?? 'regular');
 	const [createdGame] = await tx
 		.insert(table.game)
 		.values({
@@ -232,14 +247,59 @@ async function saveGame(
 			homeTeamScore: gamePreview.homeTeam.score,
 			awayTeamScore: gamePreview.awayTeam.score,
 			status: 'completed',
-			gameType: gamePreview.gameType ?? 'regular',
+			gameType: createdType,
 			statsAvailable: gamePreview.statsAvailable ?? true,
 			pointsOnly: gamePreview.pointsOnly ?? false,
 			defaultLossSide: gamePreview.defaultLossSide ?? null,
 		})
 		.returning({ id: table.game.id });
 
+	if (createdGame && isPostseasonGameType(createdType)) {
+		await demoteEarlierMeetings(tx, pairGames, createdGame.id, incomingAt);
+	}
+
 	return createdGame;
+}
+
+async function demoteEarlierMeetings(
+	tx: Transaction,
+	pairGames: Array<{
+		id: string;
+		gameType: string | null;
+		completedAt: Date | null;
+		scheduledAt: Date | null;
+	}>,
+	thisId: string,
+	thisAt: number
+) {
+	for (const row of pairGames) {
+		if (row.id === thisId) continue;
+		const at = (row.completedAt ?? row.scheduledAt)?.getTime() ?? 0;
+		if (at >= thisAt) continue;
+		if (!isPostseasonGameType(row.gameType)) continue;
+		await tx.update(table.game).set({ gameType: 'regular' }).where(eq(table.game.id, row.id));
+	}
+}
+
+/** Every pairing in the season: earlier meetings stay regular, the latest keeps its type. */
+async function persistRematchGameTypes(tx: Transaction, seasonId: string) {
+	const rows = await tx.query.game.findMany({
+		where: { seasonId },
+		columns: {
+			id: true,
+			homeTeamId: true,
+			awayTeamId: true,
+			gameType: true,
+			completedAt: true,
+			scheduledAt: true,
+		},
+	});
+	const corrected = correctFalsePlayoffTypes(rows);
+	for (const next of corrected) {
+		const stored = rows.find((row) => row.id === next.id);
+		if (!stored || stored.gameType === next.gameType) continue;
+		await tx.update(table.game).set({ gameType: next.gameType }).where(eq(table.game.id, next.id));
+	}
 }
 
 async function saveStats(
@@ -478,9 +538,7 @@ export const savePreview = command(
 						);
 						keptGameIds.add(gameId);
 
-						await tx
-							.delete(table.playerGameStat)
-							.where(eq(table.playerGameStat.gameId, gameId));
+						await tx.delete(table.playerGameStat).where(eq(table.playerGameStat.gameId, gameId));
 
 						if (game.statsAvailable !== false) {
 							await saveStats(
@@ -524,6 +582,8 @@ export const savePreview = command(
 				if (staleIds.length > 0) {
 					await tx.delete(table.game).where(inArray(table.game.id, staleIds));
 				}
+
+				await persistRematchGameTypes(tx, season.id);
 
 				const leftoverTeams = await tx.query.team.findMany({
 					where: { divisionId },

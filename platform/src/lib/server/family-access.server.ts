@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { forbidden } from '$lib/server/fail';
 import { isUserAdmin, requireUser } from '$lib/api/auth.remote';
 import { isUserLeagueOrganizer } from '$lib/api/league.remote';
+import { demoCanViewFamilyPlayer, getValidDemoAccess } from '$lib/server/demo-access.server';
 
 export async function getActiveFamilyLinks(userId: string) {
 	return db.query.playerFollower.findMany({
@@ -42,6 +43,9 @@ export async function getFamilyLinkForPlayer(userId: string, playerId: string) {
 
 /** Player account claim OR active family follower. */
 export async function canAccessFamilyPlayer(playerId: string): Promise<boolean> {
+	if (await getValidDemoAccess()) {
+		return demoCanViewFamilyPlayer(playerId);
+	}
 	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
 		return true;
 	}
@@ -62,6 +66,9 @@ export async function requireFamilyPlayerAccess(playerId: string) {
 }
 
 export async function isFamilyOnlyUser(userId?: string): Promise<boolean> {
+	if (await getValidDemoAccess()) {
+		return false;
+	}
 	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
 		return false;
 	}

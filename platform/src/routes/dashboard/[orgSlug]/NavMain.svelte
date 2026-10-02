@@ -16,6 +16,7 @@
 	import { isAuthenticated, isUserAdmin } from '$lib/api/auth.remote';
 	import { isCoachOnlyUser } from '$lib/api/coach-nav.remote';
 	import { isFamilyOnlyUser } from '$lib/api/family-nav.remote';
+	import { getDemoAccess } from '$lib/api/demo.remote';
 	import { getOrganization, goToAdminDashboard } from '$lib/api/organization.remote';
 	import { getCurrentSeason } from '$lib/api/season.remote';
 	import { getAdminViewAs, setAdminViewAs } from '$lib/api/view-as.remote';
@@ -28,11 +29,12 @@
 	const currentSeason = $derived(
 		org.type === 'league' ? await getCurrentSeason({ organizationId: org.id }) : null
 	);
-	const isAdmin = $derived(await isUserAdmin());
+	const demo = $derived(await getDemoAccess());
+	const isAdmin = $derived((await isUserAdmin()) && !demo);
 	const viewAs = $derived(await getAdminViewAs());
 	/** An admin previewing a dashboard gets that dashboard's menu instead of their own. */
-	const coachOnly = $derived((await isCoachOnlyUser()) || viewAs === 'coach');
-	const familyOnly = $derived((await isFamilyOnlyUser()) || viewAs === 'family');
+	const coachOnly = $derived(!demo && ((await isCoachOnlyUser()) || viewAs === 'coach'));
+	const familyOnly = $derived(!demo && ((await isFamilyOnlyUser()) || viewAs === 'family'));
 	const sidebar = Sidebar.useSidebar();
 	let goingToAdmin = $state(false);
 	let switchingView = $state(false);
@@ -78,7 +80,33 @@
 	</Sidebar.Group>
 {/snippet}
 
-{#if org.type === 'league' && familyOnly}
+{#if org.type === 'league' && demo}
+	<Sidebar.Group>
+		<Sidebar.GroupLabel>Demo</Sidebar.GroupLabel>
+		<Sidebar.Menu>
+			<NavItem label="Demo home" href={resolve('/dashboard/[orgSlug]', { orgSlug })}>
+				{#snippet icon()}
+					<HouseIcon />
+				{/snippet}
+			</NavItem>
+			<NavItem label="Player dashboards" href={resolve('/dashboard/[orgSlug]/family', { orgSlug })}>
+				{#snippet icon()}
+					<UserIcon />
+				{/snippet}
+			</NavItem>
+			<NavItem label="Coach dashboards" href={resolve('/dashboard/[orgSlug]/portal', { orgSlug })}>
+				{#snippet icon()}
+					<UsersIcon />
+				{/snippet}
+			</NavItem>
+			<NavItem label="Season stats" href={statsHref}>
+				{#snippet icon()}
+					<TrophyIcon />
+				{/snippet}
+			</NavItem>
+		</Sidebar.Menu>
+	</Sidebar.Group>
+{:else if org.type === 'league' && familyOnly}
 	{#if viewAs === 'family'}
 		{@render backToAdmin()}
 	{/if}
@@ -98,7 +126,7 @@
 		</Sidebar.Menu>
 	</Sidebar.Group>
 
-	{#if await isAuthenticated()}
+	{#if (await isAuthenticated()) && !demo}
 		<Sidebar.Group>
 			<Sidebar.Menu>
 				<NavItem label="Settings" href={resolve('/dashboard/[orgSlug]/settings', { orgSlug })}>
@@ -124,7 +152,7 @@
 		</Sidebar.Menu>
 	</Sidebar.Group>
 
-	{#if await isAuthenticated()}
+	{#if (await isAuthenticated()) && !demo}
 		<Sidebar.Group>
 			<Sidebar.Menu>
 				<NavItem label="Settings" href={resolve('/dashboard/[orgSlug]/settings', { orgSlug })}>
@@ -241,7 +269,7 @@
 		</Sidebar.Menu>
 	</Sidebar.Group>
 
-	{#if await isAuthenticated()}
+	{#if (await isAuthenticated()) && !demo}
 		<Sidebar.Group>
 			<Sidebar.Menu>
 				<NavItem label="Settings" href={resolve('/dashboard/[orgSlug]/settings', { orgSlug })}>
@@ -277,7 +305,7 @@
 				</NavItem>
 			{/if}
 
-			{#if await isAuthenticated()}
+			{#if (await isAuthenticated()) && !demo}
 				<NavItem label="Settings" href={resolve('/dashboard/[orgSlug]/settings', { orgSlug })}>
 					{#snippet icon()}
 						<SettingsIcon />

@@ -6,6 +6,7 @@ import { db } from '$lib/server/db';
 import { notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { getUser, isUserAdmin, requireAdmin, requireSession } from './auth.remote';
+import { getValidDemoAccess } from '$lib/server/demo-access.server';
 import { writeAdminViewAsCookie } from './view-as';
 import * as table from '$lib/server/db/schema';
 import { count, countDistinct, eq } from 'drizzle-orm';
@@ -13,6 +14,10 @@ import { z } from 'zod';
 import { idField } from '$lib/schemas/common';
 
 export const isUserOrgAdmin = query(async () => {
+	if (await getValidDemoAccess()) {
+		return false;
+	}
+
 	const user = await getUser();
 
 	if (!user) {
@@ -125,7 +130,9 @@ export const getOrganizations = query(
 		userId: idField,
 	}),
 	async ({ userId }) => {
-		const orgs = (await db.query.member.findMany({ where: { userId }, with: { organization: true } }))
+		const orgs = (
+			await db.query.member.findMany({ where: { userId }, with: { organization: true } })
+		)
 			.map((m) => m.organization)
 			.filter((o) => o !== null);
 

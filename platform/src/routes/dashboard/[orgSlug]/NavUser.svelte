@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { loadPage } from '$lib/navigation/load-page';
 	import { getUser, isAuthenticated } from '$lib/api/auth.remote';
+	import { exitDemo, getDemoAccess } from '$lib/api/demo.remote';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
@@ -13,9 +14,16 @@
 	import { page } from '$app/state';
 	import { REDIRECT_TO_PARAM } from '$lib/utils/url';
 
-	const user = (await getUser()) ?? { name: 'Guest', email: '', image: undefined };
+	const authedUser = $derived(await getUser());
+	const demo = $derived(await getDemoAccess());
+	const user = $derived(
+		demo
+			? { name: 'Demo viewer', email: 'View-only preview', image: undefined as string | undefined }
+			: (authedUser ?? { name: 'Guest', email: '', image: undefined as string | undefined })
+	);
 
 	function getUserInitials() {
+		if (demo) return 'D';
 		const [first, second] = user.name.split(' ');
 
 		let secondInitial = '';
@@ -71,7 +79,21 @@
 				align="end"
 				sideOffset={4}
 			>
-				{#if await isAuthenticated()}
+				{#if demo}
+					{@render dropdownLabel()}
+
+					<DropdownMenu.Separator />
+					<DropdownMenu.Item
+						onclick={async () => {
+							await exitDemo();
+							await getDemoAccess().refresh();
+							loadPage(resolve('/'));
+						}}
+					>
+						<LogOutIcon />
+						Exit demo
+					</DropdownMenu.Item>
+				{:else if await isAuthenticated()}
 					{@render dropdownLabel()}
 
 					<DropdownMenu.Separator />
