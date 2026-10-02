@@ -42,7 +42,7 @@ async function requireOrganizerOrAdmin() {
 
 export const getMyFamilyPlayers = query(async () => {
 	const demo = await getValidDemoAccess();
-	if (demo?.kind === 'family' && demo.playerId) {
+	if (demo?.playerId) {
 		const player = await db.query.player.findFirst({
 			where: { id: demo.playerId },
 			with: {
@@ -72,6 +72,7 @@ export const getMyFamilyPlayers = query(async () => {
 			},
 		];
 	}
+	if (demo) return [];
 
 	const user = await requireUser();
 	const links = await getActiveFamilyLinks(user.id);
@@ -123,14 +124,14 @@ export const getMyFamilyPlayers = query(async () => {
 
 export const resolveFamilyLanding = query(async () => {
 	const demo = await getValidDemoAccess();
-	if (demo?.kind === 'family' && demo.playerId) {
+	if (demo?.playerId) {
 		return {
 			kind: 'single' as const,
 			orgSlug: demo.orgSlug,
 			playerId: demo.playerId,
 		};
 	}
-	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
+	if (demo || (await isUserAdmin()) || (await isUserLeagueOrganizer())) {
 		return { kind: 'admin' as const };
 	}
 	const players = await getMyFamilyPlayers();
