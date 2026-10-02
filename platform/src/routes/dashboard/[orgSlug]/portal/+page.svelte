@@ -4,6 +4,8 @@
 	import { getOrganization } from '$lib/api/organization.remote';
 	import { getMyCoachAssignments } from '$lib/api/coach.remote';
 	import { isUserAdmin } from '$lib/api/auth.remote';
+	import { getDemoAccess } from '$lib/api/demo.remote';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import { getSeasonTeams } from '$lib/api/league-manage.remote';
 	import { getCurrentSeason } from '$lib/api/season.remote';
 	import { coachRoleLabels } from '$lib/schemas/coach';
@@ -11,7 +13,9 @@
 
 	let { params }: PageProps = $props();
 	const org = $derived(await getOrganization({ slug: params.orgSlug }));
-	const canViewAll = $derived(await isUserAdmin());
+	const demo = $derived(await getDemoAccess());
+	const canViewAll = $derived((await isUserAdmin()) || !!demo);
+	const demoHomeHref = $derived(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
 	const currentSeason = $derived(
 		canViewAll ? await getCurrentSeason({ organizationId: org.id }) : null
 	);
@@ -31,6 +35,9 @@
 
 <div class="min-h-full bg-[#0D1117] text-[#E6EDF3]">
 	<div class="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
+		{#if demo}
+			<BackLink fallbackHref={demoHomeHref} fallbackLabel="Demo home" />
+		{/if}
 		<header>
 			<p class="text-xs font-semibold tracking-wide text-[#8B949E] uppercase">{org.name}</p>
 			<h1 class="mt-1 text-2xl font-bold tracking-tight">Coach Portal</h1>
@@ -71,7 +78,9 @@
 				</ul>
 			{/if}
 		{:else if orgAssignments.length === 0}
-			<p class="text-sm text-[#8B949E]">You don't have any active team assignments in this league.</p>
+			<p class="text-sm text-[#8B949E]">
+				You don't have any active team assignments in this league.
+			</p>
 		{:else}
 			<ul class="space-y-3">
 				{#each orgAssignments as assignment (assignment.id)}

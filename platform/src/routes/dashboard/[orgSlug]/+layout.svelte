@@ -14,6 +14,7 @@
 	import { loadPage } from '$lib/navigation/load-page';
 	import { isUserAdmin } from '$lib/api/auth.remote';
 	import { getAdminViewAs, setAdminViewAs } from '$lib/api/view-as.remote';
+	import { exitDemo, getDemoAccess } from '$lib/api/demo.remote';
 
 	// import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 
@@ -27,6 +28,10 @@
 
 	const allPlayersHref = $derived(
 		resolve('/dashboard/[orgSlug]/family', { orgSlug: params.orgSlug })
+	);
+	const demoHomeHref = $derived(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
+	const onDemoHome = $derived(
+		page.url.pathname.replace(/\/$/, '') === demoHomeHref.replace(/\/$/, '')
 	);
 	const onFamilyPlayer = $derived(
 		page.url.pathname.includes('/family/') &&
@@ -45,9 +50,10 @@
 		resolve('/dashboard/[orgSlug]/portal', { orgSlug: params.orgSlug })
 	);
 	const isAdmin = $derived(await isUserAdmin());
-
+	const demo = $derived(await getDemoAccess());
 	const viewAs = $derived(await getAdminViewAs());
 	let leavingPreview = $state(false);
+	let leavingDemo = $state(false);
 
 	async function leavePreview() {
 		if (leavingPreview) return;
@@ -58,6 +64,18 @@
 			loadPage(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
 		} finally {
 			leavingPreview = false;
+		}
+	}
+
+	async function leaveDemo() {
+		if (leavingDemo) return;
+		leavingDemo = true;
+		try {
+			await exitDemo();
+			await getDemoAccess().refresh();
+			loadPage(resolve('/'));
+		} finally {
+			leavingDemo = false;
 		}
 	}
 </script>
@@ -73,21 +91,30 @@
 				<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
 				<!-- TODO: Add Breadcrumbs, the child pages uses context 
 				Replaces this back button -->
-				<Button variant="ghost" href={resolve('/')} data-sveltekit-reload>
-					<HouseIcon />
-					Home
-				</Button>
+				{#if demo}
+					{#if !onDemoHome}
+						<Button variant="ghost" href={demoHomeHref}>
+							<ArrowLeft />
+							Demo home
+						</Button>
+					{/if}
+				{:else}
+					<Button variant="ghost" href={resolve('/')} data-sveltekit-reload>
+						<HouseIcon />
+						Home
+					</Button>
+				{/if}
 				{#if onFamilyPlayer}
 					<Button variant="ghost" href={allPlayersHref}>
 						<ArrowLeft />
 						All players
 					</Button>
-				{:else if isAdmin && onCoachTeam}
+				{:else if (isAdmin || demo) && onCoachTeam}
 					<Button variant="ghost" href={coachTeamsHref}>
 						<ArrowLeft />
-						Back
+						All teams
 					</Button>
-				{:else if showBackButton}
+				{:else if !demo && showBackButton}
 					<Button variant="ghost" onclick={() => history.back()}>
 						<ArrowLeft />
 						Back
@@ -95,7 +122,19 @@
 				{/if}
 			</div>
 		</header>
-		{#if viewAs !== 'admin'}
+		{#if demo}
+			<div
+				class="flex flex-wrap items-center justify-between gap-2 border-y border-[#58A6FF]/40 bg-[#58A6FF]/10 px-4 py-2"
+			>
+				<p class="text-sm text-[#E6EDF3]">
+					<span class="font-semibold text-[#58A6FF]">Demo</span>
+					· View-only preview of player dashboards, coach dashboards, and stats for {demo.orgName}.
+				</p>
+				<Button variant="outline" size="sm" onclick={leaveDemo} disabled={leavingDemo}>
+					{leavingDemo ? 'Leaving…' : 'Exit demo'}
+				</Button>
+			</div>
+		{:else if viewAs !== 'admin'}
 			<div
 				class="flex flex-wrap items-center justify-between gap-2 border-y border-[#F0A020]/40 bg-[#F0A020]/10 px-4 py-2"
 			>
@@ -112,6 +151,8 @@
 		<main class="min-h-[calc(100svh-4rem)] bg-[#0D1117] text-[#E6EDF3]">
 			{@render children()}
 		</main>
-		<AskAiAssistant />
+		{#if !demo}
+			<AskAiAssistant />
+		{/if}
 	</Sidebar.Inset>
 </Sidebar.Provider>

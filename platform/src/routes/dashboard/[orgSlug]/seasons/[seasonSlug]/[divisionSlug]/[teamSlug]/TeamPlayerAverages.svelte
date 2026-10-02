@@ -17,7 +17,9 @@
 		value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 	const formatPct = (value: number) =>
-		`${(value * 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}%`;
+		`${(Math.min(1, Math.max(0, value)) * 100).toLocaleString('en-US', {
+			maximumFractionDigits: 0,
+		})}%`;
 </script>
 
 <section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">

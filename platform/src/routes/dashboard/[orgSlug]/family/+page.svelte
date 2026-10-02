@@ -4,6 +4,8 @@
 	import { getOrganization } from '$lib/api/organization.remote';
 	import { getMyFamilyPlayers } from '$lib/api/family.remote';
 	import { isUserAdmin } from '$lib/api/auth.remote';
+	import { getDemoAccess } from '$lib/api/demo.remote';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import { getSeasonPlayers, getSeasonTeams } from '$lib/api/league-manage.remote';
 	import { getDivisions } from '$lib/api/division.remote';
 	import { getSeasons } from '$lib/api/season.remote';
@@ -11,7 +13,9 @@
 
 	let { params }: PageProps = $props();
 	const org = $derived(await getOrganization({ slug: params.orgSlug }));
-	const canViewAll = $derived(await isUserAdmin());
+	const demo = $derived(await getDemoAccess());
+	const canViewAll = $derived((await isUserAdmin()) || !!demo);
+	const demoHomeHref = $derived(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
 	const seasons = $derived(
 		canViewAll
 			? [...(await getSeasons({ organizationId: org.id }))].sort(
@@ -71,6 +75,9 @@
 
 <div class="min-h-full bg-[#0D1117] text-[#E6EDF3]">
 	<div class="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">
+		{#if demo}
+			<BackLink fallbackHref={demoHomeHref} fallbackLabel="Demo home" />
+		{/if}
 		<header class="text-center">
 			<p class="text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">Family Portal</p>
 			<h1 class="mt-2 text-2xl font-bold tracking-tight">

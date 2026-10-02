@@ -8,7 +8,7 @@ import { db } from '$lib/server/db';
 import { forbidden } from '$lib/server/fail';
 import { isUserAdmin, requireUser } from '$lib/api/auth.remote';
 import { isUserLeagueOrganizer } from '$lib/api/league.remote';
-
+import { demoCanViewTeam, getValidDemoAccess } from '$lib/server/demo-access.server';
 
 export type TeamCapability = 'view' | 'edit_roster' | 'delete_player' | 'edit_team' | 'enter_stats';
 
@@ -18,17 +18,11 @@ const roleCapabilities: Record<CoachAssignmentRole, readonly TeamCapability[]> =
 	stat_keeper: ['view', 'enter_stats'],
 };
 
-export function roleHasCapability(
-	role: CoachAssignmentRole,
-	capability: TeamCapability
-): boolean {
+export function roleHasCapability(role: CoachAssignmentRole, capability: TeamCapability): boolean {
 	return roleCapabilities[role].includes(capability);
 }
 
-export function meetsMinRole(
-	role: CoachAssignmentRole,
-	minRole: CoachAssignmentRole
-): boolean {
+export function meetsMinRole(role: CoachAssignmentRole, minRole: CoachAssignmentRole): boolean {
 	return coachRoleRank[role] >= coachRoleRank[minRole];
 }
 
@@ -86,6 +80,15 @@ export async function canAccessTeam(
 		return { ok: true, as: 'admin' };
 	}
 
+	if (capability === 'view' && (await demoCanViewTeam(teamId))) {
+		const demo = await getValidDemoAccess();
+		return { ok: true, as: demo?.kind === 'league' ? 'admin' : 'coach' };
+	}
+
+	if (await getValidDemoAccess()) {
+		return { ok: false };
+	}
+
 	const user = await requireUser();
 	const assignment = await getCoachAssignmentForTeam(user.id, teamId);
 
@@ -119,6 +122,10 @@ export async function canAccessGameStats(
 		return { ok: true as const, as: 'admin' as const };
 	}
 
+	if (await getValidDemoAccess()) {
+		return { ok: false as const };
+	}
+
 	const user = await requireUser();
 	const assignments = await getCoachAssignmentsForUserOnTeams(user.id, [
 		game.homeTeamId,
@@ -145,6 +152,9 @@ export async function requireGameStatsAccess(
 }
 
 export async function isCoachOnlyUser(userId?: string): Promise<boolean> {
+	if (await getValidDemoAccess()) {
+		return false;
+	}
 	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
 		return false;
 	}

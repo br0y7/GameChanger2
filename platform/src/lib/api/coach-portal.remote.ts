@@ -2,14 +2,15 @@ import { query } from '$app/server';
 import { idField } from '$lib/schemas/common';
 import { COACH_STATUS } from '$lib/schemas/coach';
 import { canAccessTeam } from '$lib/server/coach-access.server';
-import { getUser, requireUser } from './auth.remote';
+import { getUser } from './auth.remote';
 import { db } from '$lib/server/db';
 import { z } from 'zod';
 
 export const getCoachAssignmentForTeamQuery = query(
 	z.object({ teamId: idField }),
 	async ({ teamId }) => {
-		const user = await requireUser();
+		const user = await getUser();
+		if (!user) return null;
 		return db.query.coach.findFirst({
 			where: {
 				userId: user.id,

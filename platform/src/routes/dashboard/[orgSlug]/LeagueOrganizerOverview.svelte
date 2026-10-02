@@ -11,6 +11,7 @@
 	import { listLeagueCoaches } from '$lib/api/coach.remote';
 	import { getTopGamePerformances } from '$lib/api/game.remote';
 	import { isUserAdmin } from '$lib/api/auth.remote';
+	import { getDemoAccess } from '$lib/api/demo.remote';
 	import type { Organization } from '$lib/server/db/auth-schema';
 	import AnimatedNumber from '$lib/components/AnimatedNumber.svelte';
 
@@ -18,6 +19,7 @@
 
 	const orgSlug = $derived(page.params.orgSlug!);
 	const isAdmin = $derived(await isUserAdmin());
+	const demo = $derived(await getDemoAccess());
 	const currentSeason = $derived(await getCurrentSeason({ organizationId: org.id }));
 	const seasons = $derived(await getSeasons({ organizationId: org.id }));
 	const seasonStats = $derived(
@@ -81,10 +83,7 @@
 		if (seasonStats.missingStatsCount > 0) {
 			items.push({
 				count: seasonStats.missingStatsCount,
-				label:
-					seasonStats.missingStatsCount === 1
-						? 'game missing stats'
-						: 'games missing stats',
+				label: seasonStats.missingStatsCount === 1 ? 'game missing stats' : 'games missing stats',
 				href: gamesHref,
 			});
 		}
@@ -256,7 +255,7 @@
 				<button
 					type="button"
 					class="mt-4 inline-flex items-center rounded-md bg-[#F0A020] px-3 py-2 text-sm font-semibold text-[#0D1117] disabled:opacity-60"
-					disabled={settingActive}
+					disabled={settingActive || !!demo}
 					onclick={() => activateSeason(suggestedSeason.id)}
 				>
 					{settingActive ? 'Setting…' : `Set ${suggestedSeason.name} as Active`}
@@ -276,7 +275,9 @@
 
 		{#if actionItems.length > 0}
 			<section class="rounded-2xl border border-[#F0A020]/40 bg-[#161B22] p-5 sm:p-6">
-				<h2 class="text-sm font-semibold tracking-wide text-[#F0A020] uppercase">Action Required</h2>
+				<h2 class="text-sm font-semibold tracking-wide text-[#F0A020] uppercase">
+					Action Required
+				</h2>
 				<ul class="mt-4 space-y-2">
 					{#each actionItems as item (item.label)}
 						<li>
@@ -285,7 +286,7 @@
 								class="flex items-center justify-between rounded-xl border border-[#2A3038] bg-[#0D1117] px-4 py-3 text-sm transition-colors hover:border-[#F0A020]"
 							>
 								<span>
-									<span class="font-bold tabular-nums text-[#F0A020]">{item.count}</span>
+									<span class="font-bold text-[#F0A020] tabular-nums">{item.count}</span>
 									{item.label}
 								</span>
 								<span class="text-[#58A6FF]">Review →</span>
@@ -313,7 +314,9 @@
 		{/if}
 
 		<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
-			<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">League Management</h2>
+			<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
+				League Management
+			</h2>
 			<p class="mt-1 text-sm text-[#8B949E]">Seasons, structure, people, and access.</p>
 			<div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
 				{#each leagueManagement as item (item.label)}
@@ -366,9 +369,7 @@
 					Top Game Performances
 				</h2>
 				{#if topPerformances.length === 0}
-					<p class="mt-3 text-sm text-[#8B949E]">
-						Ratings appear here after games are calibrated.
-					</p>
+					<p class="mt-3 text-sm text-[#8B949E]">Ratings appear here after games are calibrated.</p>
 				{:else}
 					<ul class="mt-3 space-y-2">
 						{#each topPerformances as row (`${row.gameId}-${row.playerId}`)}

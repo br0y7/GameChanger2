@@ -4,16 +4,21 @@
 	import type { PageProps } from './$types';
 	import AdminOverview from './AdminOverview.svelte';
 	import LeagueOrganizerOverview from './LeagueOrganizerOverview.svelte';
+	import DemoHub from './DemoHub.svelte';
+	import { getDemoAccess } from '$lib/api/demo.remote';
 
 	let { params }: PageProps = $props();
 	const org = $derived(await getOrganization({ slug: params.orgSlug }));
+	const demo = $derived(await getDemoAccess());
 </script>
 
 <svelte:head>
 	<title>{org.name} Dashboard | {PUBLIC_APP_NAME}</title>
 </svelte:head>
 
-{#if org.type === 'league'}
+{#if demo && org.type === 'league'}
+	<DemoHub {org} />
+{:else if org.type === 'league'}
 	<LeagueOrganizerOverview {org} />
 {:else if org.type === 'system'}
 	<AdminOverview {org} />

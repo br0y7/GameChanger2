@@ -3,6 +3,7 @@ import { notFound } from '$lib/server/fail';
 import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { ratingMeaning } from '$lib/stats/game-rating';
 import { ensureGameBoxRatings } from '$lib/server/game-rating.server';
+import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
 import type { RawPlayerGameStats } from '$lib/server/db/schema';
 
 type StatWithPlayer = RawPlayerGameStats & {
@@ -95,10 +96,7 @@ export async function loadBoxScore(gameId: string) {
 	}
 
 	if (!game.homeTeam || !game.awayTeam) {
-		notFound(
-			{ resource: 'game', id: gameId },
-			{ message: 'Game is missing home or away team' }
-		);
+		notFound({ resource: 'game', id: gameId }, { message: 'Game is missing home or away team' });
 	}
 
 	const homeScore = game.homeTeamScore ?? 0;
@@ -114,12 +112,27 @@ export async function loadBoxScore(gameId: string) {
 				? game.awayTeam
 				: null;
 
+	const seasonMeetings = await db.query.game.findMany({
+		where: { seasonId: game.seasonId },
+		columns: {
+			id: true,
+			homeTeamId: true,
+			awayTeamId: true,
+			gameType: true,
+			completedAt: true,
+			scheduledAt: true,
+		},
+	});
+	const gameType =
+		correctFalsePlayoffTypes(seasonMeetings).find((row) => row.id === game.id)?.gameType ??
+		game.gameType;
+
 	return {
 		id: game.id,
 		seasonId: game.seasonId,
 		name: game.name,
 		status: game.status,
-		gameType: game.gameType,
+		gameType,
 		statsAvailable: game.statsAvailable,
 		pointsOnly: game.pointsOnly,
 		defaultLossSide: game.defaultLossSide,

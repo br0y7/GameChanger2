@@ -3,23 +3,30 @@
 	import { resolve } from '$app/paths';
 	import { getOrganization } from '$lib/api/organization.remote';
 	import { getTeam } from '$lib/api/team.remote';
-	import { getCoachAssignmentForTeamQuery, getPortalTeamContext } from '$lib/api/coach-portal.remote';
+	import {
+		getCoachAssignmentForTeamQuery,
+		getPortalTeamContext,
+	} from '$lib/api/coach-portal.remote';
 	import { getAdminViewAs } from '$lib/api/view-as.remote';
+	import { getDemoAccess } from '$lib/api/demo.remote';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import { coachRoleLabels } from '$lib/schemas/coach';
 	import type { LayoutProps } from './$types';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 
 	let { children, params }: LayoutProps = $props();
 
 	const org = $derived(await getOrganization({ slug: params.orgSlug }));
 	const assignment = $derived(await getCoachAssignmentForTeamQuery({ teamId: params.teamId }));
 	const viewAs = $derived(await getAdminViewAs());
+	const demo = $derived(await getDemoAccess());
+	const demoHomeHref = $derived(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
+	const allTeamsHref = $derived(
+		resolve('/dashboard/[orgSlug]/portal', { orgSlug: params.orgSlug })
+	);
 	const roleLabel = $derived(
-		assignment
-			? coachRoleLabels[assignment.assignmentRole]
-			: viewAs === 'coach'
-				? 'Coach'
-				: 'Admin'
+		assignment ? coachRoleLabels[assignment.assignmentRole] : viewAs === 'coach' ? 'Coach' : 'Admin'
 	);
 	const context = $derived(await getPortalTeamContext({ teamId: params.teamId }));
 	const team = $derived(await getTeam({ id: params.teamId }));
@@ -56,12 +63,26 @@
 
 	function isActive(href: string, match: 'exact' | 'prefix') {
 		const normalized = href.replace(/\/$/, '');
-		return match === 'prefix' ? path === normalized || path.startsWith(`${normalized}/`) : path === normalized;
+		return match === 'prefix'
+			? path === normalized || path.startsWith(`${normalized}/`)
+			: path === normalized;
 	}
 </script>
 
 <div class="min-h-full bg-[#0D1117] text-[#E6EDF3]">
 	<div class="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 sm:px-6">
+		<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+			{#if demo}
+				<BackLink fallbackHref={demoHomeHref} fallbackLabel="Demo home" />
+			{/if}
+			<a
+				href={allTeamsHref}
+				class="inline-flex items-center gap-1 text-sm text-[#8B949E] transition-colors hover:text-[#58A6FF]"
+			>
+				<ChevronLeftIcon class="size-4" />
+				All teams
+			</a>
+		</div>
 		<header class="space-y-1">
 			<p class="text-xs font-semibold tracking-wide text-[#8B949E] uppercase">{org.name}</p>
 			<p class="text-xs font-semibold tracking-wide text-[#58A6FF] uppercase">Coach Portal</p>

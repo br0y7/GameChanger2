@@ -8,7 +8,8 @@ import {
 import { idField } from '$lib/schemas/common';
 import { COACH_STATUS } from '$lib/schemas/coach';
 import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
-import { dedupeByMatchup } from '$lib/stats/matchup';
+import { shootingPercentageBy } from '$lib/utils/collection';
+import { dedupeByMatchup, correctFalsePlayoffTypes } from '$lib/stats/matchup';
 import {
 	averageGameRating,
 	ratingMeaning,
@@ -24,6 +25,7 @@ import { forbidden, notFound } from '$lib/server/fail';
 import { z } from 'zod';
 import { isUserAdmin, requireUser } from './auth.remote';
 import { isUserLeagueOrganizer } from './league.remote';
+import { demoCanViewTeam } from '$lib/server/demo-access.server';
 import type { PlayerGameStats, WithGame } from '$lib/schemas/player-game-stat';
 import type { Game } from '$lib/server/db/schema';
 
@@ -38,6 +40,9 @@ function coachViewChange(
 
 async function assertCoachTeamView(teamId: string) {
 	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
+		return;
+	}
+	if (await demoCanViewTeam(teamId)) {
 		return;
 	}
 	const user = await requireUser();
@@ -57,10 +62,6 @@ function sumBy(stats: PlayerGameStats[], pick: (s: PlayerGameStats) => number) {
 	return stats.reduce((acc, s) => acc + pick(s), 0);
 }
 
-function pct(made: number, att: number) {
-	return att > 0 ? made / att : 0;
-}
-
 function buildRow(
 	player: { id: string; name: string; jerseyNumber: string },
 	stats: WithGame<PlayerGameStats>[]
@@ -72,12 +73,6 @@ function buildRow(
 	const stl = sumBy(stats, (s) => s.stl);
 	const blk = sumBy(stats, (s) => s.blk);
 	const tov = sumBy(stats, (s) => s.tov);
-	const fgm = sumBy(stats, (s) => s.fgm);
-	const fga = sumBy(stats, (s) => s.fga);
-	const fg3m = sumBy(stats, (s) => s.fg3m);
-	const fg3a = sumBy(stats, (s) => s.fg3a);
-	const ftm = sumBy(stats, (s) => s.ftm);
-	const fta = sumBy(stats, (s) => s.fta);
 
 	return {
 		playerId: player.id,
@@ -96,9 +91,21 @@ function buildRow(
 		bpg: gp ? blk / gp : 0,
 		tov,
 		topg: gp ? tov / gp : 0,
-		fgPct: pct(fgm, fga),
-		fg3Pct: pct(fg3m, fg3a),
-		ftPct: pct(ftm, fta),
+		fgPct: shootingPercentageBy(
+			stats,
+			(s) => s.fgm,
+			(s) => s.fga
+		),
+		fg3Pct: shootingPercentageBy(
+			stats,
+			(s) => s.fg3m,
+			(s) => s.fg3a
+		),
+		ftPct: shootingPercentageBy(
+			stats,
+			(s) => s.ftm,
+			(s) => s.fta
+		),
 		updatedAt: stats.reduce<Date | null>((latest, s) => {
 			const at = s.updatedAt ?? s.game?.completedAt ?? s.game?.scheduledAt ?? null;
 			if (!at) return latest;
@@ -123,6 +130,13 @@ type GameLogStat = WithGame<PlayerGameStats> & {
 };
 
 function formatGameLog(teamId: string, stats: GameLogStat[]) {
+	const meetings = correctFalsePlayoffTypes([
+		...new Map(
+			stats.filter((stat) => stat.game).map((stat) => [stat.game.id, stat.game] as const)
+		).values(),
+	]);
+	const typeById = new Map(meetings.map((game) => [game.id, game.gameType]));
+
 	return stats
 		.filter((stat) => playerAppearedOnSheet(stat))
 		.map((stat) => {
@@ -148,7 +162,7 @@ function formatGameLog(teamId: string, stats: GameLogStat[]) {
 				result,
 				teamScore,
 				oppScore,
-				gameType: game.gameType,
+				gameType: typeById.get(game.id) ?? game.gameType,
 				pts: stat.pts,
 				pointsOnly: stat.pointsOnly,
 				reb: stat.reb,

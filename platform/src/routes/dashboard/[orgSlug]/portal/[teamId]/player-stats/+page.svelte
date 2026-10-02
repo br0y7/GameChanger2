@@ -28,7 +28,7 @@
 	}
 
 	function fmtPct(n: number) {
-		return `${(n * 100).toFixed(1)}%`;
+		return `${(Math.min(1, Math.max(0, n)) * 100).toFixed(1)}%`;
 	}
 
 	function formatUpdated(d: Date | null) {

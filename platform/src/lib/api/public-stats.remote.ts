@@ -358,21 +358,23 @@ export const getPublicStandings = query(
 			? filters.divisions.filter((d) => d.slug === divisionSlug)
 			: filters.divisions;
 
-		const seasonGames = await db.query.game.findMany({
-			where: { seasonId: filters.season.id, status: 'completed' },
-			columns: {
-				id: true,
-				homeTeamId: true,
-				awayTeamId: true,
-				homeTeamScore: true,
-				awayTeamScore: true,
-				gameType: true,
-				status: true,
-				statsAvailable: true,
-				completedAt: true,
-				scheduledAt: true,
-			},
-		});
+		const seasonGames = correctFalsePlayoffTypes(
+			await db.query.game.findMany({
+				where: { seasonId: filters.season.id, status: 'completed' },
+				columns: {
+					id: true,
+					homeTeamId: true,
+					awayTeamId: true,
+					homeTeamScore: true,
+					awayTeamScore: true,
+					gameType: true,
+					status: true,
+					statsAvailable: true,
+					completedAt: true,
+					scheduledAt: true,
+				},
+			})
+		);
 		const scoredGames = seasonGames.flatMap((game) => {
 			const homeTeamScore = game.homeTeamScore ?? 0;
 			const awayTeamScore = game.awayTeamScore ?? 0;
@@ -596,21 +598,23 @@ export const getPublicTeamStats = query(
 			? filters.divisions.filter((d) => d.slug === divisionSlug)
 			: filters.divisions;
 
-		const loadedGames = await db.query.game.findMany({
-			where: { seasonId: filters.season.id, status: 'completed' },
-			columns: {
-				id: true,
-				homeTeamId: true,
-				awayTeamId: true,
-				homeTeamScore: true,
-				awayTeamScore: true,
-				gameType: true,
-				status: true,
-				statsAvailable: true,
-				completedAt: true,
-				scheduledAt: true,
-			},
-		});
+		const loadedGames = correctFalsePlayoffTypes(
+			await db.query.game.findMany({
+				where: { seasonId: filters.season.id, status: 'completed' },
+				columns: {
+					id: true,
+					homeTeamId: true,
+					awayTeamId: true,
+					homeTeamScore: true,
+					awayTeamScore: true,
+					gameType: true,
+					status: true,
+					statsAvailable: true,
+					completedAt: true,
+					scheduledAt: true,
+				},
+			})
+		);
 		const participantIds = new Set<string>();
 		for (const game of loadedGames) {
 			participantIds.add(game.homeTeamId);

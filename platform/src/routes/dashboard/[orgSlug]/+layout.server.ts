@@ -4,6 +4,7 @@ import { getUser, isUserAdmin } from '$lib/api/auth.remote';
 import { resolveCoachLanding } from '$lib/api/coach.remote';
 import { resolveFamilyLanding } from '$lib/api/family.remote';
 import { isUserLeagueOrganizer } from '$lib/api/league.remote';
+import { demoDashboardPath, getValidDemoAccess } from '$lib/server/demo-access.server';
 import type { LayoutServerLoad } from './$types';
 
 const ADMIN_ONLY_SEGMENTS = new Set([
@@ -22,6 +23,20 @@ function isDashboardGameBoxPath(parts: string[]) {
 }
 
 export const load: LayoutServerLoad = async ({ params, url }) => {
+	const demo = await getValidDemoAccess();
+	if (demo) {
+		if (params.orgSlug !== demo.orgSlug) {
+			redirect(303, demoDashboardPath(demo));
+		}
+
+		const parts = url.pathname.split('/').filter(Boolean);
+		const afterOrg = parts[2];
+		if (afterOrg === 'import' || afterOrg === 'invites') {
+			redirect(303, resolve('/dashboard/[orgSlug]', { orgSlug: demo.orgSlug }));
+		}
+		return {};
+	}
+
 	const user = await getUser();
 	if (!user) return {};
 

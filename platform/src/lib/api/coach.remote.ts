@@ -8,10 +8,7 @@ import {
 	inviteCoachSchema,
 } from '$lib/schemas/coach';
 import { auth } from '$lib/server/auth';
-import {
-	getActiveCoachAssignments,
-	getLeagueOrgIdForTeam,
-} from '$lib/server/coach-access.server';
+import { getActiveCoachAssignments, getLeagueOrgIdForTeam } from '$lib/server/coach-access.server';
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { forbidden, notFound } from '$lib/server/fail';
@@ -22,6 +19,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { isUserAdmin, getUser, requireUser } from './auth.remote';
 import { isUserLeagueOrganizer } from './league.remote';
+import { demoCanViewLeague, getValidDemoAccess } from '$lib/server/demo-access.server';
 
 const INVITE_DAYS = 14;
 
@@ -36,6 +34,16 @@ function absoluteInviteUrl(token: string) {
 
 async function requireOrganizerOrAdmin() {
 	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
+		return;
+	}
+	forbidden({ resource: 'coach' });
+}
+
+async function requireOrganizerAdminOrDemo(organizationId: string) {
+	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
+		return;
+	}
+	if (await demoCanViewLeague(organizationId)) {
 		return;
 	}
 	forbidden({ resource: 'coach' });
@@ -56,6 +64,28 @@ export const getCoach = query(
 );
 
 export const getMyCoachAssignments = query(async () => {
+	const demo = await getValidDemoAccess();
+	if (demo?.kind === 'coach' && demo.teamId) {
+		const assignment = await db.query.coach.findFirst({
+			where: { teamId: demo.teamId, status: COACH_STATUS.active },
+			with: {
+				team: {
+					with: {
+						division: {
+							with: {
+								season: {
+									with: { organization: true },
+								},
+							},
+						},
+					},
+				},
+			},
+		});
+		if (assignment) return [assignment];
+		return [];
+	}
+
 	const user = await requireUser();
 	return getActiveCoachAssignments(user.id);
 });
@@ -66,7 +96,7 @@ export const listLeagueCoaches = query(
 		seasonId: idField.optional(),
 	}),
 	async ({ organizationId, seasonId }) => {
-		await requireOrganizerOrAdmin();
+		await requireOrganizerAdminOrDemo(organizationId);
 
 		const seasons = await db.query.season.findMany({
 			where: seasonId ? { id: seasonId, organizationId } : { organizationId },
@@ -85,7 +115,13 @@ export const listLeagueCoaches = query(
 
 		const teamMeta = new Map<
 			string,
-			{ teamName: string; teamSlug: string; seasonId: string; seasonName: string; seasonSlug: string }
+			{
+				teamName: string;
+				teamSlug: string;
+				seasonId: string;
+				seasonName: string;
+				seasonSlug: string;
+			}
 		>();
 
 		for (const season of seasons) {
@@ -113,14 +149,17 @@ export const listLeagueCoaches = query(
 			orderBy: { createdAt: 'desc' },
 		});
 
+		const demo = await getValidDemoAccess();
 		return coaches.map((coach) => {
 			const meta = teamMeta.get(coach.teamId)!;
 			return {
 				...coach,
 				...meta,
+				email: demo ? null : coach.email,
+				inviteToken: demo ? null : coach.inviteToken,
 				statusLabel: coachStatusLabels[coach.status],
 				inviteUrl:
-					coach.status === COACH_STATUS.invited && coach.inviteToken
+					!demo && coach.status === COACH_STATUS.invited && coach.inviteToken
 						? absoluteInviteUrl(coach.inviteToken)
 						: null,
 			};
@@ -139,10 +178,13 @@ export const getTeamCoach = query(z.object({ teamId: idField }), async ({ teamId
 
 	if (!coach) return null;
 
+	const demo = await getValidDemoAccess();
 	return {
 		...coach,
+		email: demo ? null : coach.email,
+		inviteToken: demo ? null : coach.inviteToken,
 		inviteUrl:
-			coach.status === COACH_STATUS.invited && coach.inviteToken
+			!demo && coach.status === COACH_STATUS.invited && coach.inviteToken
 				? absoluteInviteUrl(coach.inviteToken)
 				: null,
 	};
@@ -392,91 +434,96 @@ export const getCoachInviteByToken = query(z.object({ token: z.uuid() }), async 
 	};
 });
 
-export const acceptCoachInvite = form(
-	z.object({ token: z.uuid() }),
-	async ({ token }) => {
-		const user = await requireUser();
-		const invite = await getCoachInviteByToken({ token });
+export const acceptCoachInvite = form(z.object({ token: z.uuid() }), async ({ token }) => {
+	const user = await requireUser();
+	const invite = await getCoachInviteByToken({ token });
 
-		if (!invite.valid) {
-			return invalid('This invitation is no longer valid.');
-		}
-
-		if (invite.email && user.email.toLowerCase() !== invite.email.toLowerCase()) {
-			return invalid(
-				`Sign in with ${invite.email} to accept this invitation (you are signed in as ${user.email}).`
-			);
-		}
-
-		if (!invite.organizationId || !invite.orgSlug) {
-			return invalid('Invitation is missing league information.');
-		}
-
-		const {
-			request: { headers },
-		} = getRequestEvent();
-
-		try {
-			const existingMember = await db.query.member.findFirst({
-				where: { organizationId: invite.organizationId, userId: user.id },
-			});
-
-			if (!existingMember) {
-				await db.insert(table.member).values({
-					organizationId: invite.organizationId,
-					userId: user.id,
-					role: 'member',
-				});
-			}
-
-			await auth.api.setActiveOrganization({
-				headers,
-				body: { organizationId: invite.organizationId },
-			});
-
-			await db
-				.update(table.coach)
-				.set({
-					userId: user.id,
-					name: user.name || invite.name,
-					status: COACH_STATUS.active,
-					acceptedAt: new Date(),
-					inviteToken: null,
-				})
-				.where(eq(table.coach.id, invite.id));
-
-			await db
-				.update(table.userOnboarding)
-				.set({
-					status: 'complete',
-					currentStep: ONBOARDING_DONE_STEP,
-					role: 'coach',
-				})
-				.where(eq(table.userOnboarding.userId, user.id));
-
-			serverLogger.info('coach accepted invite', {
-				coachId: invite.id,
-				userId: user.id,
-				teamId: invite.teamId,
-			});
-
-			redirect(
-				303,
-				resolve('/dashboard/[orgSlug]/portal/[teamId]', {
-					orgSlug: invite.orgSlug,
-					teamId: invite.teamId,
-				})
-			);
-		} catch (err) {
-			if (isRedirect(err)) throw err;
-			serverLogger.error(err);
-			return invalid('Something went wrong accepting the invitation.');
-		}
+	if (!invite.valid) {
+		return invalid('This invitation is no longer valid.');
 	}
-);
+
+	if (invite.email && user.email.toLowerCase() !== invite.email.toLowerCase()) {
+		return invalid(
+			`Sign in with ${invite.email} to accept this invitation (you are signed in as ${user.email}).`
+		);
+	}
+
+	if (!invite.organizationId || !invite.orgSlug) {
+		return invalid('Invitation is missing league information.');
+	}
+
+	const {
+		request: { headers },
+	} = getRequestEvent();
+
+	try {
+		const existingMember = await db.query.member.findFirst({
+			where: { organizationId: invite.organizationId, userId: user.id },
+		});
+
+		if (!existingMember) {
+			await db.insert(table.member).values({
+				organizationId: invite.organizationId,
+				userId: user.id,
+				role: 'member',
+			});
+		}
+
+		await auth.api.setActiveOrganization({
+			headers,
+			body: { organizationId: invite.organizationId },
+		});
+
+		await db
+			.update(table.coach)
+			.set({
+				userId: user.id,
+				name: user.name || invite.name,
+				status: COACH_STATUS.active,
+				acceptedAt: new Date(),
+				inviteToken: null,
+			})
+			.where(eq(table.coach.id, invite.id));
+
+		await db
+			.update(table.userOnboarding)
+			.set({
+				status: 'complete',
+				currentStep: ONBOARDING_DONE_STEP,
+				role: 'coach',
+			})
+			.where(eq(table.userOnboarding.userId, user.id));
+
+		serverLogger.info('coach accepted invite', {
+			coachId: invite.id,
+			userId: user.id,
+			teamId: invite.teamId,
+		});
+
+		redirect(
+			303,
+			resolve('/dashboard/[orgSlug]/portal/[teamId]', {
+				orgSlug: invite.orgSlug,
+				teamId: invite.teamId,
+			})
+		);
+	} catch (err) {
+		if (isRedirect(err)) throw err;
+		serverLogger.error(err);
+		return invalid('Something went wrong accepting the invitation.');
+	}
+});
 
 /** Portal landing helper: where a coach-only user should go. */
 export const resolveCoachLanding = query(async () => {
+	const demo = await getValidDemoAccess();
+	if (demo?.kind === 'coach' && demo.teamId) {
+		return {
+			kind: 'single' as const,
+			orgSlug: demo.orgSlug,
+			teamId: demo.teamId,
+		};
+	}
 	if ((await isUserAdmin()) || (await isUserLeagueOrganizer())) {
 		return { kind: 'admin' as const };
 	}

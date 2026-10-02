@@ -21,6 +21,7 @@ import { seasonStatuses } from '$lib/schemas/season';
 import { gameTypes } from '$lib/schemas/game';
 import { coachAssignmentRoles, coachStatuses } from '$lib/schemas/coach';
 import { gameStatsStatuses } from '$lib/schemas/game-stats';
+import { demoLinkKinds } from '$lib/schemas/demo';
 
 export const seasonStatusEnum = pgEnum('season_status', seasonStatuses);
 
@@ -254,7 +255,6 @@ export const playerFollower = snakeCase.table(
 	]
 );
 
-
 export const playerGameStat = snakeCase.table(
 	'player_game_stat',
 	{
@@ -391,5 +391,36 @@ export const leagueVisibility = snakeCase.table(
 );
 
 export type LeagueVisibility = typeof leagueVisibility.$inferSelect;
+
+export const demoLinkKindEnum = pgEnum('demo_link_kind', demoLinkKinds);
+
+/** Admin-created shareable preview of a player, coach, or league dashboard. */
+export const demoLink = snakeCase.table(
+	'demo_link',
+	{
+		...creationFields,
+		token: uuid().notNull(),
+		kind: demoLinkKindEnum().notNull(),
+		organizationId: uuid()
+			.notNull()
+			.references(() => organization.id, { onDelete: 'cascade' }),
+		playerId: uuid().references(() => player.id, { onDelete: 'cascade' }),
+		teamId: uuid().references(() => team.id, { onDelete: 'cascade' }),
+		createdByUserId: uuid()
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		expiresAt: timestamp().notNull(),
+		revokedAt: timestamp(),
+		label: text(),
+	},
+	(table) => [
+		unique('demo_link_token_uq').on(table.token),
+		index('demoLink_token_idx').on(table.token),
+		index('demoLink_organizationId_idx').on(table.organizationId),
+		index('demoLink_createdByUserId_idx').on(table.createdByUserId),
+	]
+);
+
+export type DemoLink = typeof demoLink.$inferSelect;
 
 export * from './auth-schema.ts';
