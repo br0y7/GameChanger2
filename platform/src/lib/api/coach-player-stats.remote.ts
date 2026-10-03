@@ -17,9 +17,7 @@ import {
 	trendVersusAverage,
 } from '$lib/stats/game-rating';
 import { ensureTeamGameRatings } from '$lib/server/game-rating.server';
-import { derivePlayerStats } from '$lib/stats/player-stats';
-import { derivePlayerStrengths } from '$lib/player-analysis/player-strengths';
-import { derivePlayerWeaknesses } from '$lib/player-analysis/player-weaknesses';
+import { playerImprovementFromGames } from '$lib/player-analysis/player-improvement';
 import { db } from '$lib/server/db';
 import { forbidden, notFound } from '$lib/server/fail';
 import { z } from 'zod';
@@ -415,9 +413,7 @@ export const getCoachTeamDevelopment = query.live(z.object({ teamId: idField }),
 					}
 
 					const summary = buildRow(player, derived);
-					const stats = derivePlayerStats(derived);
-					const strengths = derivePlayerStrengths(stats);
-					const weaknesses = derivePlayerWeaknesses(stats);
+					const improvement = playerImprovementFromGames(derived);
 
 					return {
 						playerId: player.id,
@@ -427,8 +423,8 @@ export const getCoachTeamDevelopment = query.live(z.object({ teamId: idField }),
 						rpg: summary.rpg,
 						apg: summary.apg,
 						gp: summary.gp,
-						strengths: strengths.slice(0, 3).map((s) => s.description),
-						developmentAreas: weaknesses.slice(0, 3).map((w) => w.description),
+						strengths: improvement.strengths.slice(0, 3).map((s) => s.description),
+						developmentAreas: improvement.weaknesses.slice(0, 3).map((w) => w.description),
 					};
 				})
 				.filter((p) => p.gp > 0)

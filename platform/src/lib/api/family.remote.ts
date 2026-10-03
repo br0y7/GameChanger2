@@ -19,8 +19,7 @@ import { averageGameRating, ratingMeaning, trendVersusAverage } from '$lib/stats
 import { ensurePlayerGameRatings } from '$lib/server/game-rating.server';
 import { loadSeasonPlayerLines } from '$lib/server/season-player-directory.server';
 import { scoresForTeam } from '$lib/stats/game-scores';
-import { derivePlayerStrengths } from '$lib/player-analysis/player-strengths';
-import { derivePlayerWeaknesses } from '$lib/player-analysis/player-weaknesses';
+import { playerImprovementFromGames } from '$lib/player-analysis/player-improvement';
 import { invalid, isRedirect, redirect } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -613,12 +612,9 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 				.where(eq(table.playerCoachNote.playerId, playerId))
 				.limit(1);
 
-			const strengths = derivePlayerStrengths(analysisStats)
-				.slice(0, 3)
-				.map((s) => s.description);
-			const focusAreas = derivePlayerWeaknesses(analysisStats)
-				.slice(0, 3)
-				.map((w) => w.description);
+			const improvement = playerImprovementFromGames(chronological);
+			const strengths = improvement.strengths.slice(0, 3).map((s) => s.description);
+			const focusAreas = improvement.weaknesses.slice(0, 3).map((w) => w.description);
 
 			return {
 				player: {

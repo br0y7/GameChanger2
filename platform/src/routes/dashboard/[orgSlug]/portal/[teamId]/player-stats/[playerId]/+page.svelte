@@ -12,6 +12,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
 	import GameBoxScoreLink from '$lib/components/GameBoxScoreLink.svelte';
+	import PlayerImprovementReport from '$lib/components/PlayerImprovementReport.svelte';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -244,6 +245,8 @@
 			{/if}
 		</section>
 	{/if}
+
+	<PlayerImprovementReport playerId={detail.player.id} />
 
 	<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5">
 		<h3 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Game-by-Game</h3>

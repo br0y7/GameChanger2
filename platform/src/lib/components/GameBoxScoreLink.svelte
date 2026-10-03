@@ -20,7 +20,6 @@
 {#if seasonSlug}
 	<a
 		href={dashboardGameBoxHref(orgSlug, seasonSlug, gameId)}
-		data-sveltekit-reload
 		class="tabular-nums underline-offset-2 hover:underline {className}"
 	>
 		{@render children()}

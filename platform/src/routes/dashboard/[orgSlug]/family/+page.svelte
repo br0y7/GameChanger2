@@ -6,8 +6,7 @@
 	import { isUserAdmin } from '$lib/api/auth.remote';
 	import { getDemoAccess } from '$lib/api/demo.remote';
 	import BackLink from '$lib/components/BackLink.svelte';
-	import { getSeasonPlayers, getSeasonTeams } from '$lib/api/league-manage.remote';
-	import { getDivisions } from '$lib/api/division.remote';
+	import { listSeasonPlayerPicker } from '$lib/api/league-manage.remote';
 	import { getSeasons } from '$lib/api/season.remote';
 	import type { PageProps } from './$types';
 
@@ -34,15 +33,14 @@
 	const selectedSeasonId = $derived(
 		seasonId ?? seasons.find((season) => season.status === 'active')?.id ?? seasons[0]?.id ?? null
 	);
-	const divisions = $derived(
-		canViewAll && selectedSeasonId ? await getDivisions({ seasonId: selectedSeasonId }) : []
+	const picker = $derived(
+		canViewAll && selectedSeasonId
+			? await listSeasonPlayerPicker({ seasonId: selectedSeasonId })
+			: { divisions: [], teams: [], players: [] }
 	);
-	const seasonTeams = $derived(
-		canViewAll && selectedSeasonId ? await getSeasonTeams({ seasonId: selectedSeasonId }) : []
-	);
-	const seasonPlayers = $derived(
-		canViewAll && selectedSeasonId ? await getSeasonPlayers({ seasonId: selectedSeasonId }) : []
-	);
+	const divisions = $derived(picker.divisions);
+	const seasonTeams = $derived(picker.teams);
+	const seasonPlayers = $derived(picker.players);
 	const teamsInDivision = $derived(
 		divisionId ? seasonTeams.filter((team) => team.divisionId === divisionId) : seasonTeams
 	);

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getFamilyPlayerHome } from '$lib/api/family.remote';
+	import PlayerImprovementReport from '$lib/components/PlayerImprovementReport.svelte';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();
@@ -48,34 +49,7 @@
 		</section>
 	{/if}
 
-	<div class="grid gap-3 sm:grid-cols-2">
-		<section class="rounded-2xl border border-[#3FB950]/25 bg-[#161B22]/80 p-5">
-			<p class="text-xs font-semibold tracking-wide text-[#3FB950] uppercase">Your Strengths</p>
-			{#if home.strengths.length}
-				<ul class="mt-3 space-y-2 text-sm">
-					{#each home.strengths as item (item)}
-						<li>{item}</li>
-					{/each}
-				</ul>
-			{:else}
-				<p class="mt-3 text-sm text-[#8B949E]">More games will reveal strengths.</p>
-			{/if}
-		</section>
-		<section class="rounded-2xl border border-[#F0A020]/25 bg-[#161B22]/80 p-5">
-			<p class="text-xs font-semibold tracking-wide text-[#F0A020] uppercase">
-				Areas to Improve
-			</p>
-			{#if home.focusAreas.length}
-				<ul class="mt-3 space-y-2 text-sm">
-					{#each home.focusAreas as item (item)}
-						<li>{item}</li>
-					{/each}
-				</ul>
-			{:else}
-				<p class="mt-3 text-sm text-[#8B949E]">No focus flags yet.</p>
-			{/if}
-		</section>
-	</div>
+	<PlayerImprovementReport playerId={home.player.id} />
 
 	<section class="rounded-2xl border border-[#2A3038] bg-[#161B22]/80 p-5">
 		<p class="text-xs font-semibold tracking-wide text-[#8B949E] uppercase">Coach Feedback</p>

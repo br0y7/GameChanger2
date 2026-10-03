@@ -6,7 +6,7 @@
 	import { isUserAdmin } from '$lib/api/auth.remote';
 	import { getDemoAccess } from '$lib/api/demo.remote';
 	import BackLink from '$lib/components/BackLink.svelte';
-	import { getSeasonTeams } from '$lib/api/league-manage.remote';
+	import { listSeasonPlayerPicker } from '$lib/api/league-manage.remote';
 	import { getCurrentSeason } from '$lib/api/season.remote';
 	import { coachRoleLabels } from '$lib/schemas/coach';
 	import type { PageProps } from './$types';
@@ -20,7 +20,9 @@
 		canViewAll ? await getCurrentSeason({ organizationId: org.id }) : null
 	);
 	const teams = $derived(
-		canViewAll && currentSeason ? await getSeasonTeams({ seasonId: currentSeason.id }) : []
+		canViewAll && currentSeason
+			? (await listSeasonPlayerPicker({ seasonId: currentSeason.id })).teams
+			: []
 	);
 	const assignments = $derived(canViewAll ? [] : await getMyCoachAssignments());
 

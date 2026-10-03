@@ -4,6 +4,7 @@
 	import { formatRankPlace, type RankedStatKey } from '$lib/stats/stat-ranks';
 	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
 	import GameBoxScoreLink from '$lib/components/GameBoxScoreLink.svelte';
+	import PlayerImprovementReport from '$lib/components/PlayerImprovementReport.svelte';
 	import GameRatingDetail, {
 		type GameRatingDetailModel,
 	} from '$lib/components/GameRatingDetail.svelte';
@@ -320,36 +321,10 @@
 		{/if}
 	</section>
 
-	<section class="grid gap-3 sm:grid-cols-2">
-		<div class="rounded-2xl border border-[#3FB950]/25 bg-[#161B22]/80 p-5">
-			<p class="text-xs font-semibold tracking-wide text-[#3FB950] uppercase">Your Strengths</p>
-			{#if home.strengths.length}
-				<ul class="mt-3 space-y-1.5 text-sm">
-					{#each home.strengths as item (item)}
-						<li>{item}</li>
-					{/each}
-				</ul>
-			{:else}
-				<p class="mt-3 text-sm text-[#8B949E]">Keep playing — strengths appear with more games.</p>
-			{/if}
-			<a
-				href={`${base}/development`}
-				class="mt-3 inline-block text-xs text-[#58A6FF] hover:underline">Full development →</a
-			>
-		</div>
-		<div class="rounded-2xl border border-[#F0A020]/25 bg-[#161B22]/80 p-5">
-			<p class="text-xs font-semibold tracking-wide text-[#F0A020] uppercase">Focus Areas</p>
-			{#if home.focusAreas.length}
-				<ul class="mt-3 space-y-1.5 text-sm">
-					{#each home.focusAreas as item (item)}
-						<li>{item}</li>
-					{/each}
-				</ul>
-			{:else}
-				<p class="mt-3 text-sm text-[#8B949E]">No clear focus flags yet.</p>
-			{/if}
-		</div>
-	</section>
+	<PlayerImprovementReport playerId={home.player.id} />
+	<p class="text-xs">
+		<a href={`${base}/development`} class="text-[#58A6FF] hover:underline">Full development →</a>
+	</p>
 
 	<section class="rounded-2xl border border-[#2A3038] bg-[#161B22]/80 p-5">
 		<p class="text-xs font-semibold tracking-wide text-[#8B949E] uppercase">Coach Feedback</p>
