@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { loadPage } from '$lib/navigation/load-page';
 	import { getUser, isAuthenticated } from '$lib/api/auth.remote';
-	import { exitDemo, getDemoAccess } from '$lib/api/demo.remote';
+	import { getDemoAccess } from '$lib/api/demo.remote';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
@@ -83,13 +83,7 @@
 					{@render dropdownLabel()}
 
 					<DropdownMenu.Separator />
-					<DropdownMenu.Item
-						onclick={async () => {
-							await exitDemo();
-							await getDemoAccess().refresh();
-							loadPage(resolve('/'));
-						}}
-					>
+					<DropdownMenu.Item onclick={() => window.location.assign(resolve('/demo/exit'))}>
 						<LogOutIcon />
 						Exit demo
 					</DropdownMenu.Item>

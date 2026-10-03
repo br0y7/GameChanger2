@@ -12,10 +12,7 @@
 	import AnimatedNumber from '$lib/components/AnimatedNumber.svelte';
 	import PlayerStatDataTable from './PlayerStatDataTable.svelte';
 	import { columns } from './columns';
-	import { analyzePlayer } from '$lib/api/player-analysis.remote';
-	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { DRILLS_BY_WEAKNESS } from '$lib/player-analysis/drills-by-weakness';
-	import DrillCard from './DrillCard.svelte';
+	import PlayerImprovementReport from '$lib/components/PlayerImprovementReport.svelte';
 	import { getOrganization } from '$lib/api/organization.remote';
 	import { PUBLIC_APP_NAME } from '$env/static/public';
 	import { askAiPanel } from '$lib/ai/ask-ai-state.svelte';
@@ -229,47 +226,9 @@
 				</div>
 			</section>
 
-			<section
-				class="flex min-h-[25svh] flex-col gap-4 rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6 xl:col-span-2"
-			>
-				<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">Analysis</h2>
-				{#await analyzePlayer({ id: player.id })}
-					<Skeleton class="h-32 w-full bg-[#0D1117]" />
-				{:then playerAnalysis}
-					{@const topStrength = playerAnalysis.strengths[0]}
-					{@const [firstWeakness] = playerAnalysis.weaknesses}
-					<p class="text-base text-[#E6EDF3]">
-						Strength:
-						<span class="font-bold">{topStrength?.description ?? 'Versatile player'}</span>
-						{#if topStrength?.stat}
-							<span class="font-medium text-[#8B949E]">
-								· {topStrength.stat.display}
-								{topStrength.stat.label}
-							</span>
-						{/if}
-					</p>
-					<div class="flex flex-col gap-4">
-						<h3 class="text-base text-[#E6EDF3]">
-							Area to improve:
-							<span class="font-bold">{firstWeakness?.description ?? 'Consistency'}</span>
-							{#if firstWeakness?.stat}
-								<span class="font-medium text-[#8B949E]">
-									· {firstWeakness.stat.display}
-									{firstWeakness.stat.label}
-								</span>
-							{/if}
-						</h3>
-						{#if firstWeakness}
-							<p class="text-sm font-medium text-[#8B949E]">Suggested drills</p>
-							<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-								{#each DRILLS_BY_WEAKNESS[firstWeakness.category] as drill (drill.name)}
-									<DrillCard {drill} />
-								{/each}
-							</div>
-						{/if}
-					</div>
-				{/await}
-			</section>
+			<div class="xl:col-span-2">
+				<PlayerImprovementReport playerId={player.id} heading="Analysis" />
+			</div>
 		</div>
 	</div>
 </div>

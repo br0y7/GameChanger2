@@ -22,7 +22,7 @@
 	const label = $derived(demo ? 'Demo home' : fallbackLabel);
 </script>
 
-{#if !demo && appHistory.canGoBack}
+{#if appHistory.canGoBack}
 	<button
 		type="button"
 		class="inline-flex items-center gap-1 text-sm text-[#8B949E] transition-colors hover:text-[#58A6FF] {className}"

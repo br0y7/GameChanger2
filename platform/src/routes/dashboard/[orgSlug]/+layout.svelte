@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Button } from '$lib/components/ui/button';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import { appHistory, noteNavigation } from '$lib/navigation/app-history.svelte';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
@@ -11,19 +11,18 @@
 	import HouseIcon from '@lucide/svelte/icons/house';
 	import AskAiAssistant from '$lib/components/ask-ai/AskAiAssistant.svelte';
 	import { resolve } from '$app/paths';
-	import { loadPage } from '$lib/navigation/load-page';
 	import { isUserAdmin } from '$lib/api/auth.remote';
-	import { getAdminViewAs, setAdminViewAs } from '$lib/api/view-as.remote';
-	import { exitDemo, getDemoAccess } from '$lib/api/demo.remote';
+	import { getAdminViewAs } from '$lib/api/view-as.remote';
+	import { getDemoAccess } from '$lib/api/demo.remote';
 
 	// import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 
 	let { children, params }: LayoutProps = $props();
 
 	afterNavigate(({ from, to }) => {
-		const fromPath = from?.url.pathname ?? null;
-		const toPath = to?.url.pathname ?? null;
-		noteNavigation(!!fromPath && fromPath !== toPath);
+		const fromPath = from ? from.url.pathname + from.url.search : null;
+		const toPath = to ? to.url.pathname + to.url.search : null;
+		noteNavigation(fromPath, toPath);
 	});
 
 	const allPlayersHref = $derived(
@@ -52,32 +51,10 @@
 	const isAdmin = $derived(await isUserAdmin());
 	const demo = $derived(await getDemoAccess());
 	const viewAs = $derived(await getAdminViewAs());
-	let leavingPreview = $state(false);
-	let leavingDemo = $state(false);
-
-	async function leavePreview() {
-		if (leavingPreview) return;
-		leavingPreview = true;
-		try {
-			await setAdminViewAs({ mode: 'admin' });
-			await getAdminViewAs().refresh();
-			loadPage(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
-		} finally {
-			leavingPreview = false;
-		}
-	}
-
-	async function leaveDemo() {
-		if (leavingDemo) return;
-		leavingDemo = true;
-		try {
-			await exitDemo();
-			await getDemoAccess().refresh();
-			loadPage(resolve('/'));
-		} finally {
-			leavingDemo = false;
-		}
-	}
+	const exitDemoHref = resolve('/demo/exit');
+	const exitPreviewHref = $derived(
+		resolve('/dashboard/[orgSlug]/exit-preview', { orgSlug: params.orgSlug })
+	);
 </script>
 
 <Sidebar.Provider>
@@ -93,10 +70,10 @@
 				Replaces this back button -->
 				{#if demo}
 					{#if !onDemoHome}
-						<Button variant="ghost" href={demoHomeHref}>
+						<a href={demoHomeHref} class={buttonVariants({ variant: 'ghost' })}>
 							<ArrowLeft />
 							Demo home
-						</Button>
+						</a>
 					{/if}
 				{:else}
 					<Button variant="ghost" href={resolve('/')} data-sveltekit-reload>
@@ -105,15 +82,15 @@
 					</Button>
 				{/if}
 				{#if onFamilyPlayer}
-					<Button variant="ghost" href={allPlayersHref}>
+					<a href={allPlayersHref} class={buttonVariants({ variant: 'ghost' })}>
 						<ArrowLeft />
 						All players
-					</Button>
+					</a>
 				{:else if (isAdmin || demo) && onCoachTeam}
-					<Button variant="ghost" href={coachTeamsHref}>
+					<a href={coachTeamsHref} class={buttonVariants({ variant: 'ghost' })}>
 						<ArrowLeft />
 						All teams
-					</Button>
+					</a>
 				{:else if !demo && showBackButton}
 					<Button variant="ghost" onclick={() => history.back()}>
 						<ArrowLeft />
@@ -130,8 +107,8 @@
 					<span class="font-semibold text-[#58A6FF]">Demo</span>
 					· View-only preview of player dashboards, coach dashboards, and stats for {demo.orgName}.
 				</p>
-				<Button variant="outline" size="sm" onclick={leaveDemo} disabled={leavingDemo}>
-					{leavingDemo ? 'Leaving…' : 'Exit demo'}
+				<Button variant="outline" size="sm" href={exitDemoHref} data-sveltekit-reload>
+					Exit demo
 				</Button>
 			</div>
 		{:else if viewAs !== 'admin'}
@@ -143,8 +120,8 @@
 					· You are seeing the {viewAs === 'coach' ? 'coach' : 'player'} dashboard as they see it. Your
 					admin access has not changed.
 				</p>
-				<Button variant="outline" size="sm" onclick={leavePreview} disabled={leavingPreview}>
-					{leavingPreview ? 'Leaving…' : 'Back to admin view'}
+				<Button variant="outline" size="sm" href={exitPreviewHref} data-sveltekit-reload>
+					Back to admin view
 				</Button>
 			</div>
 		{/if}

@@ -44,6 +44,62 @@ export const getSeasonTeams = query(z.object({ seasonId: idField }), async ({ se
 	);
 });
 
+/** Read-only picker for admin/demo family lists. Skips merge/purge and live updates. */
+export const listSeasonPlayerPicker = query(z.object({ seasonId: idField }), async ({ seasonId }) => {
+	const divisions = await db.query.division.findMany({
+		where: { seasonId },
+		columns: { id: true, name: true, slug: true },
+		with: {
+			teams: {
+				columns: { id: true, name: true, slug: true },
+				with: {
+					players: { columns: { id: true, name: true, jerseyNumber: true } },
+				},
+				orderBy: { name: 'asc' },
+			},
+		},
+		orderBy: { name: 'asc' },
+	});
+
+	const scoped = divisions.map((division) => ({
+		...division,
+		teams: division.teams.filter((team) => !isJerseyNumberTeamName(team.name)),
+	}));
+
+	return {
+		divisions: scoped.map((division) => ({
+			id: division.id,
+			name: division.name,
+			slug: division.slug,
+		})),
+		teams: scoped.flatMap((division) =>
+			division.teams.map((team) => ({
+				id: team.id,
+				name: team.name,
+				slug: team.slug,
+				divisionId: division.id,
+				divisionName: division.name,
+				playerCount: team.players.length,
+			}))
+		),
+		players: scoped
+			.flatMap((division) =>
+				division.teams.flatMap((team) =>
+					team.players.map((player) => ({
+						id: player.id,
+						name: player.name,
+						jerseyNumber: player.jerseyNumber,
+						teamId: team.id,
+						teamName: team.name,
+						divisionId: division.id,
+						divisionName: division.name,
+					}))
+				)
+			)
+			.sort((a, b) => a.name.localeCompare(b.name)),
+	};
+});
+
 export const getSeasonPlayers = query.live(z.object({ seasonId: idField }), ({ seasonId }) =>
 	relayDashboard(
 		async () => {

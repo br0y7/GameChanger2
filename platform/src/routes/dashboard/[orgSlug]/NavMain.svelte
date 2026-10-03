@@ -11,7 +11,6 @@
 	import ShieldIcon from '@lucide/svelte/icons/shield';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import { resolve } from '$app/paths';
-	import type { ResolvedPathname } from '$app/types';
 	import { loadPage } from '$lib/navigation/load-page';
 	import { isAuthenticated, isUserAdmin } from '$lib/api/auth.remote';
 	import { isCoachOnlyUser } from '$lib/api/coach-nav.remote';
@@ -19,8 +18,7 @@
 	import { getDemoAccess } from '$lib/api/demo.remote';
 	import { getOrganization, goToAdminDashboard } from '$lib/api/organization.remote';
 	import { getCurrentSeason } from '$lib/api/season.remote';
-	import { getAdminViewAs, setAdminViewAs } from '$lib/api/view-as.remote';
-	import type { AdminViewMode } from '$lib/api/view-as';
+	import { getAdminViewAs } from '$lib/api/view-as.remote';
 	import NavItem from './NavItem.svelte';
 
 	let { orgSlug }: { orgSlug: string } = $props();
@@ -37,20 +35,15 @@
 	const familyOnly = $derived(!demo && ((await isFamilyOnlyUser()) || viewAs === 'family'));
 	const sidebar = Sidebar.useSidebar();
 	let goingToAdmin = $state(false);
-	let switchingView = $state(false);
-
-	async function switchView(mode: AdminViewMode, href: ResolvedPathname) {
-		if (switchingView) return;
-		sidebar.setOpenMobile(false);
-		switchingView = true;
-		try {
-			await setAdminViewAs({ mode });
-			await getAdminViewAs().refresh();
-			loadPage(href);
-		} finally {
-			switchingView = false;
-		}
-	}
+	const exitPreviewHref = $derived(
+		resolve('/dashboard/[orgSlug]/exit-preview', { orgSlug })
+	);
+	const viewAsCoachHref = $derived(
+		resolve('/dashboard/[orgSlug]/preview/[mode]', { orgSlug, mode: 'coach' })
+	);
+	const viewAsFamilyHref = $derived(
+		resolve('/dashboard/[orgSlug]/preview/[mode]', { orgSlug, mode: 'family' })
+	);
 
 	const statsHref = $derived(
 		currentSeason
@@ -67,13 +60,18 @@
 		<Sidebar.GroupLabel>Admin preview</Sidebar.GroupLabel>
 		<Sidebar.Menu>
 			<Sidebar.MenuItem>
-				<Sidebar.MenuButton
-					tooltipContent="Back to admin view"
-					aria-disabled={switchingView}
-					onclick={() => switchView('admin', resolve('/dashboard/[orgSlug]', { orgSlug }))}
-				>
-					<ShieldIcon />
-					<span>{switchingView ? 'Switching…' : 'Back to admin view'}</span>
+				<Sidebar.MenuButton tooltipContent="Back to admin view">
+					{#snippet child({ props })}
+						<a
+							href={exitPreviewHref}
+							{...props}
+							data-sveltekit-reload
+							onclick={() => sidebar.setOpenMobile(false)}
+						>
+							<ShieldIcon />
+							<span>Back to admin view</span>
+						</a>
+					{/snippet}
 				</Sidebar.MenuButton>
 			</Sidebar.MenuItem>
 		</Sidebar.Menu>
@@ -84,22 +82,30 @@
 	<Sidebar.Group>
 		<Sidebar.GroupLabel>Demo</Sidebar.GroupLabel>
 		<Sidebar.Menu>
-			<NavItem label="Demo home" href={resolve('/dashboard/[orgSlug]', { orgSlug })}>
+			<NavItem label="Demo home" href={resolve('/dashboard/[orgSlug]', { orgSlug })} reload={false}>
 				{#snippet icon()}
 					<HouseIcon />
 				{/snippet}
 			</NavItem>
-			<NavItem label="Player dashboards" href={resolve('/dashboard/[orgSlug]/family', { orgSlug })}>
+			<NavItem
+				label="Player dashboards"
+				href={resolve('/dashboard/[orgSlug]/family', { orgSlug })}
+				reload={false}
+			>
 				{#snippet icon()}
 					<UserIcon />
 				{/snippet}
 			</NavItem>
-			<NavItem label="Coach dashboards" href={resolve('/dashboard/[orgSlug]/portal', { orgSlug })}>
+			<NavItem
+				label="Coach dashboards"
+				href={resolve('/dashboard/[orgSlug]/portal', { orgSlug })}
+				reload={false}
+			>
 				{#snippet icon()}
 					<UsersIcon />
 				{/snippet}
 			</NavItem>
-			<NavItem label="Season stats" href={statsHref}>
+			<NavItem label="Season stats" href={statsHref} reload={false}>
 				{#snippet icon()}
 					<TrophyIcon />
 				{/snippet}
@@ -198,24 +204,33 @@
 					{/snippet}
 				</NavItem>
 				<Sidebar.MenuItem>
-					<Sidebar.MenuButton
-						tooltipContent="See the coach dashboard as a coach sees it"
-						aria-disabled={switchingView}
-						onclick={() => switchView('coach', resolve('/dashboard/[orgSlug]/portal', { orgSlug }))}
-					>
-						<EyeIcon />
-						<span>View as coach</span>
+					<Sidebar.MenuButton tooltipContent="See the coach dashboard as a coach sees it">
+						{#snippet child({ props })}
+							<a
+								href={viewAsCoachHref}
+								{...props}
+								data-sveltekit-reload
+								onclick={() => sidebar.setOpenMobile(false)}
+							>
+								<EyeIcon />
+								<span>View as coach</span>
+							</a>
+						{/snippet}
 					</Sidebar.MenuButton>
 				</Sidebar.MenuItem>
 				<Sidebar.MenuItem>
-					<Sidebar.MenuButton
-						tooltipContent="See the player dashboard as a player sees it"
-						aria-disabled={switchingView}
-						onclick={() =>
-							switchView('family', resolve('/dashboard/[orgSlug]/family', { orgSlug }))}
-					>
-						<EyeIcon />
-						<span>View as player</span>
+					<Sidebar.MenuButton tooltipContent="See the player dashboard as a player sees it">
+						{#snippet child({ props })}
+							<a
+								href={viewAsFamilyHref}
+								{...props}
+								data-sveltekit-reload
+								onclick={() => sidebar.setOpenMobile(false)}
+							>
+								<EyeIcon />
+								<span>View as player</span>
+							</a>
+						{/snippet}
 					</Sidebar.MenuButton>
 				</Sidebar.MenuItem>
 			</Sidebar.Menu>

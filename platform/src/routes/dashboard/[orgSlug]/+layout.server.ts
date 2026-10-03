@@ -22,6 +22,18 @@ function isDashboardGameBoxPath(parts: string[]) {
 	return parts[2] === 'seasons' && parts[4] === 'games' && Boolean(parts[5]);
 }
 
+/** Season stats hub, public team page, and player stat sheet. */
+function isDashboardReadableStatsPath(parts: string[]) {
+	if (parts[2] !== 'seasons' || !parts[3]) return false;
+	if (parts[4] === 'stats') return true;
+	// /seasons/[season]/[division]/[team] and optional /[jerseyNumber]
+	return Boolean(parts[4] && parts[4] !== 'games' && parts[5]);
+}
+
+function isDashboardReadOnlySeasonPath(parts: string[]) {
+	return isDashboardGameBoxPath(parts) || isDashboardReadableStatsPath(parts);
+}
+
 export const load: LayoutServerLoad = async ({ params, url }) => {
 	const demo = await getValidDemoAccess();
 	if (demo) {
@@ -67,7 +79,7 @@ export const load: LayoutServerLoad = async ({ params, url }) => {
 		}
 
 		if (ADMIN_ONLY_SEGMENTS.has(afterOrg)) {
-			if (isDashboardGameBoxPath(parts)) {
+			if (isDashboardReadOnlySeasonPath(parts)) {
 				return {};
 			}
 			if (coachLanding.kind === 'single') {
@@ -109,7 +121,7 @@ export const load: LayoutServerLoad = async ({ params, url }) => {
 
 	// Allow public-ish season stats pages; block admin manage hubs
 	if (ADMIN_ONLY_SEGMENTS.has(afterOrg) || afterOrg === 'portal') {
-		if (isDashboardGameBoxPath(parts)) {
+		if (isDashboardReadOnlySeasonPath(parts)) {
 			return {};
 		}
 		if (familyLanding.kind === 'single') {
