@@ -2,6 +2,7 @@ import { db } from '$lib/server/db';
 import { notFound } from '$lib/server/fail';
 import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { ratingMeaning } from '$lib/stats/game-rating';
+import { decideMvp } from '$lib/stats/player-of-the-game';
 import { ensureGameBoxRatings } from '$lib/server/game-rating.server';
 import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
 import type { RawPlayerGameStats } from '$lib/server/db/schema';
@@ -56,24 +57,36 @@ function playerRowsForTeam(playerStats: StatWithPlayer[], teamId: string) {
 
 type BoxPlayer = ReturnType<typeof playerRowsForTeam>[number];
 
-function pickPlayerOfTheGame(players: BoxPlayer[]) {
-	if (!players.length) return null;
-
-	const rated = players.filter((player) => player.gameRating != null);
-	if (rated.length) {
-		return [...rated].sort((a, b) => {
-			if (b.gameRating !== a.gameRating) return (b.gameRating ?? 0) - (a.gameRating ?? 0);
-			if (b.pts !== a.pts) return b.pts - a.pts;
-			return b.eff - a.eff;
-		})[0];
+function mvpCard(
+	player: BoxPlayer,
+	teams: {
+		homeTeamId: string;
+		awayTeamId: string;
+		homeTeam: { name: string; slug: string; division?: { slug: string } | null };
+		awayTeam: { name: string; slug: string; division?: { slug: string } | null };
 	}
-
-	return [...players].sort((a, b) => {
-		if (b.pts !== a.pts) return b.pts - a.pts;
-		if (b.reb !== a.reb) return b.reb - a.reb;
-		if (b.ast !== a.ast) return b.ast - a.ast;
-		return b.eff - a.eff;
-	})[0];
+) {
+	const team =
+		player.teamId === teams.homeTeamId
+			? teams.homeTeam
+			: player.teamId === teams.awayTeamId
+				? teams.awayTeam
+				: null;
+	return {
+		playerId: player.playerId,
+		name: player.name,
+		jerseyNumber: player.jerseyNumber,
+		pts: player.pts,
+		reb: player.reb,
+		ast: player.ast,
+		stl: player.stl,
+		gameRating: player.gameRating,
+		ratingMeaning: player.gameRating == null ? null : ratingMeaning(player.gameRating),
+		teamId: player.teamId,
+		teamName: team?.name ?? '',
+		teamSlug: team?.slug ?? '',
+		divisionSlug: team?.division?.slug ?? '',
+	};
 }
 
 export async function loadBoxScore(gameId: string) {
@@ -104,13 +117,15 @@ export async function loadBoxScore(gameId: string) {
 
 	const homePlayers = playerRowsForTeam(game.playerStats, game.homeTeamId);
 	const awayPlayers = playerRowsForTeam(game.playerStats, game.awayTeamId);
-	const playerOfTheGame = pickPlayerOfTheGame([...homePlayers, ...awayPlayers]);
-	const potgTeam =
-		playerOfTheGame?.teamId === game.homeTeamId
-			? game.homeTeam
-			: playerOfTheGame?.teamId === game.awayTeamId
-				? game.awayTeam
-				: null;
+	const mvpDecision = decideMvp([...homePlayers, ...awayPlayers]);
+	const mvp =
+		mvpDecision.kind === 'none'
+			? null
+			: {
+					kind: mvpDecision.kind,
+					players: mvpDecision.players.map((player) => mvpCard(player, game)),
+				};
+	const playerOfTheGame = mvp?.players[0] ?? null;
 
 	const seasonMeetings = await db.query.game.findMany({
 		where: { seasonId: game.seasonId },
@@ -138,20 +153,8 @@ export async function loadBoxScore(gameId: string) {
 		defaultLossSide: game.defaultLossSide,
 		completedAt: game.completedAt,
 		scheduledAt: game.scheduledAt,
-		playerOfTheGame: playerOfTheGame
-			? {
-					playerId: playerOfTheGame.playerId,
-					name: playerOfTheGame.name,
-					jerseyNumber: playerOfTheGame.jerseyNumber,
-					pts: playerOfTheGame.pts,
-					reb: playerOfTheGame.reb,
-					ast: playerOfTheGame.ast,
-					teamId: playerOfTheGame.teamId,
-					teamName: potgTeam?.name ?? '',
-					teamSlug: potgTeam?.slug ?? '',
-					divisionSlug: potgTeam?.division?.slug ?? '',
-				}
-			: null,
+		mvp,
+		playerOfTheGame,
 		homeTeam: {
 			id: game.homeTeam.id,
 			name: game.homeTeam.name,

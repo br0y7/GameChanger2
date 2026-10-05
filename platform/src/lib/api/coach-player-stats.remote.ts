@@ -60,6 +60,23 @@ function sumBy(stats: PlayerGameStats[], pick: (s: PlayerGameStats) => number) {
 	return stats.reduce((acc, s) => acc + pick(s), 0);
 }
 
+async function teamSeasonId(teamId: string) {
+	const row = await db.query.team.findFirst({
+		where: { id: teamId },
+		columns: { id: true },
+		with: { division: { columns: { seasonId: true } } },
+	});
+	return row?.division?.seasonId ?? null;
+}
+
+function inTeamSeason<T extends { game?: { seasonId?: string | null } | null }>(
+	stats: T[],
+	seasonId: string | null
+) {
+	if (!seasonId) return stats;
+	return stats.filter((stat) => stat.game?.seasonId === seasonId);
+}
+
 function buildRow(
 	player: { id: string; name: string; jerseyNumber: string },
 	stats: WithGame<PlayerGameStats>[]
@@ -191,6 +208,7 @@ export const getCoachTeamPlayerStats = query.live(z.object({ teamId: idField }),
 	relayDashboard(
 		async () => {
 			await assertCoachTeamView(teamId);
+			const seasonId = await teamSeasonId(teamId);
 
 			const players = await db.query.player.findMany({
 				where: { teamId },
@@ -205,9 +223,10 @@ export const getCoachTeamPlayerStats = query.live(z.object({ teamId: idField }),
 			const rows = players
 				.map((player) => {
 					const derived = dedupeByMatchup(
-						player.gameStats
-							.filter((s) => s.game && playerAppearedOnSheet(s))
-							.map(derivePlayerGameStats),
+						inTeamSeason(
+							player.gameStats.filter((s) => s.game && playerAppearedOnSheet(s)),
+							seasonId
+						).map(derivePlayerGameStats),
 						(stat) => stat.game
 					);
 					return buildRow(player, derived);
@@ -266,10 +285,12 @@ export const getCoachPlayerDetail = query.live(
 					notFound({ resource: 'player' });
 				}
 
+				const seasonId = player.team?.division?.seasonId ?? null;
 				const derived = dedupeByMatchup(
-					player.gameStats
-						.filter((s) => s.game && playerAppearedOnSheet(s))
-						.map(derivePlayerGameStats) as GameLogStat[],
+					inTeamSeason(
+						player.gameStats.filter((s) => s.game && playerAppearedOnSheet(s)),
+						seasonId
+					).map(derivePlayerGameStats) as GameLogStat[],
 					(stat) => stat.game
 				);
 
@@ -286,9 +307,10 @@ export const getCoachPlayerDetail = query.live(
 
 				const teamRows = teamPlayers.map((p) => {
 					const stats = dedupeByMatchup(
-						p.gameStats
-							.filter((s) => s.game && playerAppearedOnSheet(s))
-							.map(derivePlayerGameStats),
+						inTeamSeason(
+							p.gameStats.filter((s) => s.game && playerAppearedOnSheet(s)),
+							seasonId
+						).map(derivePlayerGameStats),
 						(stat) => stat.game
 					);
 					return buildRow(p, stats);
@@ -383,6 +405,7 @@ export const getCoachTeamDevelopment = query.live(z.object({ teamId: idField }),
 	relayDashboard(
 		async () => {
 			await assertCoachTeamView(teamId);
+			const seasonId = await teamSeasonId(teamId);
 
 			const players = await db.query.player.findMany({
 				where: { teamId },
@@ -393,9 +416,10 @@ export const getCoachTeamDevelopment = query.live(z.object({ teamId: idField }),
 			return players
 				.map((player) => {
 					const derived = dedupeByMatchup(
-						player.gameStats
-							.filter((s) => s.game && playerAppearedOnSheet(s))
-							.map(derivePlayerGameStats),
+						inTeamSeason(
+							player.gameStats.filter((s) => s.game && playerAppearedOnSheet(s)),
+							seasonId
+						).map(derivePlayerGameStats),
 						(stat) => stat.game
 					);
 					if (!derived.length) {
@@ -413,7 +437,7 @@ export const getCoachTeamDevelopment = query.live(z.object({ teamId: idField }),
 					}
 
 					const summary = buildRow(player, derived);
-					const improvement = playerImprovementFromGames(derived);
+					const improvement = playerImprovementFromGames(derived, seasonId);
 
 					return {
 						playerId: player.id,

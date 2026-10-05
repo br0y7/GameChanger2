@@ -453,6 +453,7 @@ export const getPublicGameBoxScore = query(
 				fta: player.fta,
 				gameRating: player.gameRating,
 				ratingMeaning: player.ratingMeaning,
+				ratingBreakdown: player.ratingBreakdown,
 			})),
 		});
 
@@ -465,6 +466,15 @@ export const getPublicGameBoxScore = query(
 			pointsOnly: box.pointsOnly,
 			defaultLossSide: box.defaultLossSide,
 			completedAt: box.completedAt,
+			mvp: box.mvp
+				? {
+						kind: box.mvp.kind,
+						players: box.mvp.players.map((player) => ({
+							...player,
+							name: displayName(player.name, showFull),
+						})),
+					}
+				: null,
 			awayTeam: publishPlayers(box.awayTeam),
 			homeTeam: publishPlayers(box.homeTeam),
 		};

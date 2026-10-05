@@ -47,7 +47,9 @@
 	}
 
 	const trueShootingPct = $derived(
-		trueShootingPercentage(home.season.ppg, home.season.fga, home.season.fta)
+		home.season.fga <= 0 && home.season.fta <= 0
+			? null
+			: trueShootingPercentage(home.season.ppg, home.season.fga, home.season.fta)
 	);
 
 	const countingAverages = $derived([
@@ -122,9 +124,13 @@
 		<div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
 			{#each shootingAverages as stat (stat.label)}
 				<div class="rounded-xl border border-[#2A3038] bg-[#0D1117]/50 p-4 text-center">
-					<p class="text-2xl font-bold tabular-nums">{fmtPct(stat.value)}</p>
+					<p class="text-2xl font-bold tabular-nums">
+						{stat.value == null ? '—' : fmtPct(stat.value)}
+					</p>
 					<p class="mt-1 text-xs text-[#8B949E]">{stat.label}</p>
-					{@render rankMarks(stat.rank)}
+					{#if stat.value != null}
+						{@render rankMarks(stat.rank)}
+					{/if}
 				</div>
 			{/each}
 		</div>

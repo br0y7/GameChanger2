@@ -31,7 +31,29 @@ export type PlayerWeakness = {
 	stat: PlayerAnalysisStat;
 };
 
+export type TrendDirection = 'up' | 'down' | 'flat';
+
+export type ImprovementMetric = {
+	key: 'points' | 'rebounds' | 'assists' | 'fgPct' | 'fg3Pct' | 'ftPct';
+	label: string;
+	format: 'count' | 'percent';
+	season: number | null;
+	recent: number | null;
+	recentSampleSize: number;
+	/** Relative % for counting stats; percentage points for shooting. */
+	changePct: number | null;
+	trend: TrendDirection | null;
+};
+
+export type PlayerProgress = {
+	recentWindow: 3 | 5 | null;
+	seasonGameCount: number;
+	summary: string | null;
+	metrics: ImprovementMetric[];
+};
+
 export type PlayerAnalysis = {
 	strengths: PlayerStrength[];
 	weaknesses: PlayerWeakness[];
+	progress: PlayerProgress;
 };

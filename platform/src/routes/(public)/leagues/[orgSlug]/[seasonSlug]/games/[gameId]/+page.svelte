@@ -52,7 +52,7 @@
 			steals: player.stl,
 			blocks: player.blk,
 			turnovers: player.tov,
-			breakdown: null,
+			breakdown: player.ratingBreakdown,
 		};
 		ratingOpen = true;
 	}
@@ -106,6 +106,34 @@
 		<p class="mt-2 text-sm text-[#8FA398]">
 			Points only. Other stats were not on the sheet, so there is no game rating.
 		</p>
+	{/if}
+
+	{#if box.mvp}
+		<section class="mt-8 rounded-2xl border border-white/10 bg-white/5 p-5">
+			<p class="text-xs font-semibold tracking-[0.18em] text-[#B8E05C] uppercase">
+				{box.mvp.kind === 'candidates' ? 'MVP Candidates' : 'Player of the Game'}
+			</p>
+			<div class={box.mvp.players.length > 1 ? 'mt-3 grid gap-4 sm:grid-cols-2' : 'mt-3'}>
+				{#each box.mvp.players as player (player.playerId)}
+					<div>
+						<p class="text-xl font-bold">
+							#{player.jerseyNumber}
+							{player.name}
+						</p>
+						<p class="text-sm text-[#8FA398]">{player.teamName}</p>
+						<p class="mt-1 text-sm tabular-nums text-[#E8F0EA]">
+							{player.gameRating == null ? '—' : player.gameRating.toFixed(1)} rating · {player.pts} PTS
+							· {player.reb} REB · {player.ast} AST
+						</p>
+					</div>
+				{/each}
+			</div>
+			{#if box.mvp.kind === 'candidates'}
+				<p class="mt-3 text-xs text-[#8FA398]">
+					These Game Ratings are within 0.3. The stats explain the different impacts.
+				</p>
+			{/if}
+		</section>
 	{/if}
 
 	{#if box.statsAvailable !== false || box.pointsOnly}
