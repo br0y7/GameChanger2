@@ -53,16 +53,11 @@
 			{ label: '3P%', value: home.season.fg3Pct, baseline: 0.3 },
 			{ label: 'FT%', value: home.season.ftPct, baseline: 0.7 },
 		]
-			.map((stat) => ({ ...stat, score: stat.value / stat.baseline }))
+			.filter((stat) => stat.value != null)
+			.map((stat) => ({ ...stat, value: stat.value as number, score: stat.value / stat.baseline }))
 			.sort((a, b) => b.score - a.score)
 			.slice(0, 2)
 	);
-
-	function progressLabel(pct: number | null) {
-		if (pct == null) return null;
-		const sign = pct > 0 ? '+' : '';
-		return `${sign}${pct}%`;
-	}
 
 	let ratingOpen = $state(false);
 	let ratingDetail = $state<GameRatingDetailModel | null>(null);
@@ -89,13 +84,6 @@
 	const formArrow = $derived(
 		home.ratingSummary.trend === 'up' ? '↑' : home.ratingSummary.trend === 'down' ? '↓' : '→'
 	);
-
-	function progressClass(pct: number | null) {
-		if (pct == null) return 'text-[#8B949E]';
-		if (pct > 0) return 'text-[#3FB950]';
-		if (pct < 0) return 'text-[#F85149]';
-		return 'text-[#8B949E]';
-	}
 
 	/** A forfeit is scored 1–0, but the label is what the reader sees, so colour from it. */
 	function resultClass(game: (typeof home.recentGames)[number]) {
@@ -202,54 +190,31 @@
 				</div>
 			{/each}
 		</div>
-		<p class="mt-5 mb-3 text-center text-xs font-semibold tracking-wide text-[#8B949E] uppercase">
-			Shooting
-		</p>
-		<div class="grid grid-cols-2 gap-3">
-			{#each strongestShooting as stat (stat.label)}
-				<div
-					class="rounded-2xl border border-[#2A3038] bg-[#161B22]/80 px-3 py-5 text-center backdrop-blur"
-				>
-					<p class="text-3xl font-extrabold tracking-tight text-[#E6EDF3] tabular-nums">
-						{fmtPct(stat.value)}
-					</p>
-					<p class="mt-1 text-xs font-semibold tracking-wide text-[#8B949E] uppercase">
-						{stat.label}
-					</p>
-					{@render rankMarks(stat.label)}
-				</div>
-			{/each}
-		</div>
+		{#if strongestShooting.length}
+			<p class="mt-5 mb-3 text-center text-xs font-semibold tracking-wide text-[#8B949E] uppercase">
+				Shooting
+			</p>
+			<div class="grid grid-cols-2 gap-3">
+				{#each strongestShooting as stat (stat.label)}
+					<div
+						class="rounded-2xl border border-[#2A3038] bg-[#161B22]/80 px-3 py-5 text-center backdrop-blur"
+					>
+						<p class="text-3xl font-extrabold tracking-tight text-[#E6EDF3] tabular-nums">
+							{fmtPct(stat.value)}
+						</p>
+						<p class="mt-1 text-xs font-semibold tracking-wide text-[#8B949E] uppercase">
+							{stat.label}
+						</p>
+						{@render rankMarks(stat.label)}
+					</div>
+				{/each}
+			</div>
+		{/if}
 		<p class="mt-2 text-center text-xs text-[#8B949E]">
 			{home.season.gp} games played ·
 			<a href={`${base}/stats`} class="text-[#58A6FF] hover:underline">All averages</a>
 		</p>
 	</section>
-
-	{#if home.season.gp >= 2}
-		<section class="rounded-2xl border border-[#2A3038] bg-[#161B22]/80 p-5">
-			<p class="text-xs font-semibold tracking-wide text-[#8B949E] uppercase">Season Progress</p>
-			<p class="mt-1 text-sm text-[#8B949E]">Early season vs recent form</p>
-			<ul class="mt-4 space-y-4">
-				{#each [{ label: 'Points per game', ...home.progress.points }, { label: 'Rebounds per game', ...home.progress.rebounds }, { label: 'Assists per game', ...home.progress.assists }] as row (row.label)}
-					<li>
-						<p class="text-sm font-medium">{row.label}</p>
-						<p class="mt-1 text-sm text-[#8B949E]">
-							Season beginning: <span class="text-[#E6EDF3] tabular-nums">{fmt(row.beginning)}</span
-							>
-							· Current:
-							<span class="text-[#E6EDF3] tabular-nums">{fmt(row.current)}</span>
-							{#if progressLabel(row.improvementPct)}
-								<span class="ml-1 font-semibold {progressClass(row.improvementPct)}">
-									{progressLabel(row.improvementPct)} improvement
-								</span>
-							{/if}
-						</p>
-					</li>
-				{/each}
-			</ul>
-		</section>
-	{/if}
 
 	<section class="rounded-2xl border border-[#2A3038] bg-[#161B22]/80 p-5">
 		<div class="flex items-center justify-between gap-2">

@@ -341,6 +341,22 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 				`Game: ${box.awayTeam.name} ${box.awayTeam.score} – ${box.homeTeam.score} ${box.homeTeam.name}`
 			);
 			parts.push('Team result is context only. It is not an input to the GameChanger Rating.');
+			if (box.mvp?.kind === 'mvp' && box.mvp.players[0]) {
+				const player = box.mvp.players[0];
+				parts.push(
+					`Official Player of the Game: #${player.jerseyNumber} ${player.name} — Game Rating ${player.gameRating?.toFixed(1)}. This is the official MVP. Explain why. Do not pick someone else.`
+				);
+			} else if (box.mvp?.kind === 'candidates') {
+				const names = box.mvp.players
+					.map(
+						(player) =>
+							`#${player.jerseyNumber} ${player.name} — ${player.gameRating?.toFixed(1)}`
+					)
+					.join('; ');
+				parts.push(
+					`Official MVP candidates (ratings within 0.3): ${names}. Present both. Explain the different impacts. Do not declare a single MVP.`
+				);
+			}
 			for (const side of [box.awayTeam, box.homeTeam]) {
 				const opponentScore = side.id === box.homeTeam.id ? box.awayTeam.score : box.homeTeam.score;
 				parts.push(`${side.name} players:`);

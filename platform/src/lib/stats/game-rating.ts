@@ -1,5 +1,5 @@
-/** Official GameChanger Rating. GC-v1 is frozen; later formulas use a new version. */
-export const RATING_VERSION = 'GC-v1' as const;
+/** Official GameChanger Rating. GC-v2 uses a Game Score–style impact. */
+export const RATING_VERSION = 'GC-v2' as const;
 
 /** Division scales thinner than this fall back to the league-wide scale. */
 export const MIN_DIVISION_SAMPLE = 40;
@@ -11,6 +11,11 @@ export const LEAGUE_SCALE_SLUG = '';
 export const TREND_DELTA = 0.3;
 
 export type RatingVersion = typeof RATING_VERSION;
+
+/** True when a stored row is on a newer formula than the one being written. */
+export function isLaterRatingVersion(stored: string, current: string) {
+	return stored !== current && stored.localeCompare(current, undefined, { numeric: true }) > 0;
+}
 
 export type CountingLine = {
 	fgm: number;
@@ -83,16 +88,16 @@ type RatingBand = {
 	ratingMax: number;
 };
 
-/** Percentile of player-games → base rating, before the scoring-share bonus. */
+/** Percentile of player-games → rating. A 10 is reserved for the top 0.5%. */
 const RATING_BANDS: RatingBand[] = [
-	{ min: 0, max: 10, ratingMin: 3.5, ratingMax: 5.2 },
-	{ min: 10, max: 25, ratingMin: 5.2, ratingMax: 6.0 },
-	{ min: 25, max: 50, ratingMin: 6.0, ratingMax: 6.8 },
-	{ min: 50, max: 75, ratingMin: 6.8, ratingMax: 7.7 },
-	{ min: 75, max: 90, ratingMin: 7.7, ratingMax: 8.5 },
-	{ min: 90, max: 97, ratingMin: 8.5, ratingMax: 9.2 },
-	{ min: 97, max: 99.5, ratingMin: 9.2, ratingMax: 9.7 },
-	{ min: 99.5, max: 100, ratingMin: 9.7, ratingMax: 10.0 },
+	{ min: 0, max: 10, ratingMin: 3.0, ratingMax: 4.8 },
+	{ min: 10, max: 25, ratingMin: 4.8, ratingMax: 5.8 },
+	{ min: 25, max: 50, ratingMin: 5.8, ratingMax: 7.0 },
+	{ min: 50, max: 75, ratingMin: 7.0, ratingMax: 7.8 },
+	{ min: 75, max: 90, ratingMin: 7.8, ratingMax: 8.6 },
+	{ min: 90, max: 97, ratingMin: 8.6, ratingMax: 9.3 },
+	{ min: 97, max: 99.5, ratingMin: 9.3, ratingMax: 9.8 },
+	{ min: 99.5, max: 100, ratingMin: 9.8, ratingMax: 10.0 },
 ];
 
 const LABEL_RANK: Record<ImpactLabel, number> = {
@@ -128,20 +133,20 @@ export function isEmptyLine(line: CountingLine) {
 
 export function impactParts(line: CountingLine): ImpactParts {
 	const points = pointsFromLine(line);
-	const missedFieldGoals = Math.max(0, line.fga - line.fgm);
 	const missedFreeThrows = Math.max(0, line.fta - line.ftm);
-	const rebounding = line.oreb * 1.25 + line.dreb * 0.8;
-	const playmaking = line.ast * 1.35;
-	const defence = line.stl * 2 + line.blk * 1.75;
+	const rebounding = line.oreb * 0.7 + line.dreb * 0.3;
+	const playmaking = line.ast * 0.7;
+	const defence = line.stl * 1.0 + line.blk * 0.7;
 	const impact =
 		points +
+		line.fgm * 0.4 -
+		line.fga * 0.7 -
+		missedFreeThrows * 0.4 +
 		rebounding +
 		playmaking +
 		defence -
-		line.tov * 1.6 -
-		line.pf * 0.3 -
-		missedFieldGoals * 0.55 -
-		missedFreeThrows * 0.25;
+		line.tov * 1.0 -
+		line.pf * 0.4;
 
 	return {
 		points,
@@ -158,6 +163,7 @@ export function impactParts(line: CountingLine): ImpactParts {
 	};
 }
 
+/** Stored for explanation of scoring share. Not added to the official rating. */
 export function scoringContextBonus(points: number, teamPoints: number | null | undefined) {
 	if (teamPoints == null || teamPoints <= 0) return 0;
 	const share = points / teamPoints;
@@ -205,7 +211,7 @@ export function baseRatingFromPercentile(percentile: number) {
 			return band.ratingMin + t * (band.ratingMax - band.ratingMin);
 		}
 	}
-	return 3.5;
+	return 3.0;
 }
 
 export function ratingMeaning(rating: number) {
@@ -331,8 +337,7 @@ export function computeGameRating(input: {
 
 	const parts = impactParts(input.line);
 	const percentile = percentileRank(input.scale.impacts, parts.impact);
-	const contextBonus = roundTo(scoringContextBonus(parts.points, input.teamPoints), 1);
-	const rating = roundRating(baseRatingFromPercentile(percentile) + contextBonus);
+	const rating = roundRating(baseRatingFromPercentile(percentile));
 
 	const turnoverPercentile = percentileRank(input.scale.turnovers, parts.turnovers);
 	const ballSecurity = labelFromPercentile(Math.min(100, Math.max(0, 100 - turnoverPercentile)));
@@ -355,25 +360,34 @@ export function computeGameRating(input: {
 		ratingVersion: RATING_VERSION,
 		impactScore: roundTo(parts.impact, 2),
 		percentile: roundTo(percentile, 2),
-		contextBonus,
+		contextBonus: 0,
 		meaning: ratingMeaning(rating),
 		breakdown,
 	};
 }
 
-const BREAKDOWN_FIELDS = [
+export const BREAKDOWN_BAR_FIELDS = [
 	{ key: 'scoring', label: 'Scoring' },
+	{ key: 'efficiency', label: 'Efficiency' },
 	{ key: 'rebounding', label: 'Rebounding' },
 	{ key: 'playmaking', label: 'Playmaking' },
 	{ key: 'defence', label: 'Defence' },
-	{ key: 'efficiency', label: 'Efficiency' },
 	{ key: 'ballSecurity', label: 'Ball security' },
+] as const satisfies ReadonlyArray<{ key: keyof RatingBreakdown; label: string }>;
+
+const BREAKDOWN_FIELDS = [
+	...BREAKDOWN_BAR_FIELDS,
 	{ key: 'gameContext', label: 'Game context' },
 ] as const satisfies ReadonlyArray<{ key: keyof RatingBreakdown; label: string }>;
+
+export function breakdownBarWidth(label: ImpactLabel) {
+	return ((LABEL_RANK[label] + 1) / 7) * 100;
+}
 
 export function strongestCategory(breakdown: RatingBreakdown) {
 	let best: { key: keyof RatingBreakdown; label: string; rank: number } | null = null;
 	for (const field of BREAKDOWN_FIELDS) {
+		if (field.key === 'gameContext') continue;
 		const value = breakdown[field.key];
 		if (value == null) continue;
 		const rank = LABEL_RANK[value];
@@ -440,21 +454,20 @@ export function formatOfficialRatingBlock(input: {
 		`Rating version: ${RATING_VERSION}`,
 		`Impact score: ${input.impactScore}`,
 		`Division percentile: ${input.percentile}`,
-		`Context bonus: ${input.contextBonus}`,
 		'Breakdown:',
 		`Scoring impact: ${input.breakdown.scoring}`,
+		`Efficiency: ${efficiency}`,
 		`Rebounding impact: ${input.breakdown.rebounding}`,
 		`Playmaking impact: ${input.breakdown.playmaking}`,
 		`Defensive impact: ${input.breakdown.defence}`,
-		`Efficiency: ${efficiency}`,
 		`Ball security: ${input.breakdown.ballSecurity}`,
-		`Game context: ${gameContext}`,
+		`Game context (explanation only, not added to the rating): ${gameContext}`,
 		`Stats: ${input.points} PTS, ${input.rebounds} REB, ${input.offensiveRebounds} OREB, ${input.assists} AST, ${input.steals} STL, ${input.blocks} BLK, ${input.turnovers} TO`,
 	];
 	if (input.teamPoints != null) lines.push(`Team score: ${input.teamPoints}`);
 	if (input.opponentPoints != null) lines.push(`Opponent score: ${input.opponentPoints}`);
 	lines.push(
-		'These figures are the official rating. Explain them. Do not recalculate or invent a different rating. The team result is context only and is not part of the rating.'
+		'These figures are the official rating. Explain them. Do not recalculate or invent a different rating. Team score, win/loss, and scoring share are explanation only and are not part of the rating.'
 	);
 	return lines.join('\n');
 }

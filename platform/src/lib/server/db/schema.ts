@@ -295,7 +295,7 @@ export const playerGameStat = snakeCase.table(
 		/** Set when the sheet recorded points without a shot breakdown. Other columns stay 0. */
 		recordedPts: integer(),
 
-		// GC-v1 game rating. Null until a scale exists or the line is empty.
+		// Official Game Rating. Null until a scale exists or the line is empty.
 		gameRating: real(),
 		ratingVersion: text(),
 		impactScore: real(),

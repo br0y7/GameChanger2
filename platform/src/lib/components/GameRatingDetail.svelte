@@ -2,6 +2,8 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { askAiPanel } from '$lib/ai/ask-ai-state.svelte';
 	import {
+		BREAKDOWN_BAR_FIELDS,
+		breakdownBarWidth,
 		developmentFocus,
 		strongestCategory,
 		type RatingBreakdown,
@@ -68,6 +70,25 @@
 				{detail.points} PTS · {detail.rebounds} REB · {detail.offensiveRebounds} OREB · {detail.assists}
 				AST · {detail.steals} STL · {detail.blocks} BLK
 			</p>
+
+			{#if detail.breakdown}
+				<div class="space-y-2">
+					{#each BREAKDOWN_BAR_FIELDS as field (field.key)}
+						{@const value = detail.breakdown[field.key]}
+						{#if value}
+							<div class="grid grid-cols-[7.5rem_1fr] items-center gap-3 text-sm">
+								<p class="text-[#8B949E]">{field.label}</p>
+								<div class="h-2 overflow-hidden rounded-full bg-[#2A3038]">
+									<div
+										class="h-full rounded-full bg-[#F0A020]"
+										style="width: {breakdownBarWidth(value)}%"
+									></div>
+								</div>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{/if}
 
 			{#if mode === 'development' && detail.breakdown}
 				<div class="space-y-2 text-sm">

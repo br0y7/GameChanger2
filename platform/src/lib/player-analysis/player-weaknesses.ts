@@ -49,7 +49,10 @@ export const PLAYER_WEAKNESSES_WITH_RULES: WeaknessRule[] = [
 	{
 		category: 'shooting',
 		description: 'Field goal percentage',
-		applies: (stats) => (stats.derived.fgPct.average ?? 0) < 0.35,
+		applies: (stats) => {
+			const fgPct = stats.derived.fgPct.average;
+			return fgPct != null && fgPct < 0.35;
+		},
 		stat: (stats) => avgStat('FG%', stats.derived.fgPct.average, 'percent'),
 	},
 	{

@@ -8,6 +8,7 @@ import {
 	buildRatingScale,
 	impactParts,
 	isEmptyLine,
+	isLaterRatingVersion,
 	ratingPatch,
 	type ApplicableScale,
 	type CountingLine,
@@ -131,6 +132,20 @@ async function organizationHasUnratedLines(organizationId: string) {
 	return row != null;
 }
 
+async function organizationHasCurrentScale(organizationId: string) {
+	const [row] = await db
+		.select({ id: table.gameRatingScale.id })
+		.from(table.gameRatingScale)
+		.where(
+			and(
+				eq(table.gameRatingScale.organizationId, organizationId),
+				eq(table.gameRatingScale.version, RATING_VERSION)
+			)
+		)
+		.limit(1);
+	return row != null;
+}
+
 async function upsertScale(input: {
 	organizationId: string;
 	divisionSlug: string;
@@ -163,7 +178,7 @@ async function upsertScale(input: {
 		});
 }
 
-/** Rebuild GC-v1 scales from stored box scores and write a rating on every current player-game. */
+/** Rebuild current-version scales from stored box scores and write a rating on every current player-game. */
 export async function recalibrateOrganizationRatings(organizationId: string) {
 	const rawRows = await organizationStatQuery(organizationId);
 	const pending: RatingRow[] = [];
@@ -234,7 +249,7 @@ export async function recalibrateOrganizationRatings(organizationId: string) {
 	let rated = 0;
 	let cleared = 0;
 	for (const row of pending) {
-		if (row.ratingVersion && row.ratingVersion !== RATING_VERSION) continue;
+		if (row.ratingVersion && isLaterRatingVersion(row.ratingVersion, RATING_VERSION)) continue;
 		const samples = byDivision.get(row.divisionSlug);
 		const scale: ApplicableScale | null = !league
 			? null
@@ -253,15 +268,7 @@ export async function recalibrateOrganizationRatings(organizationId: string) {
 				ratingScaleScope: patch.ratingScaleScope,
 				ratingBreakdown: patch.ratingBreakdown,
 			})
-			.where(
-				and(
-					eq(table.playerGameStat.id, row.id),
-					or(
-						isNull(table.playerGameStat.ratingVersion),
-						eq(table.playerGameStat.ratingVersion, RATING_VERSION)
-					)
-				)
-			);
+			.where(eq(table.playerGameStat.id, row.id));
 		if (patch.gameRating == null) cleared += 1;
 		else rated += 1;
 	}
@@ -269,9 +276,10 @@ export async function recalibrateOrganizationRatings(organizationId: string) {
 	return { rated, cleared };
 }
 
-/** Fill missing Game Ratings for an organization. Skips the rebuild when every box score is already rated. */
+/** Fill missing Game Ratings, and rebuild when this version has no scale yet. */
 export async function ensureOrganizationGameRatings(organizationId: string) {
-	if (!(await organizationHasUnratedLines(organizationId))) return false;
+	const needsCurrentScale = !(await organizationHasCurrentScale(organizationId));
+	if (!needsCurrentScale && !(await organizationHasUnratedLines(organizationId))) return false;
 	await recalibrateOrganizationRatings(organizationId);
 	return true;
 }

@@ -359,14 +359,6 @@ export const acceptFamilyInvite = form(z.object({ token: z.uuid() }), async ({ t
 	}
 });
 
-function avg(
-	stats: { pts: number; reb: number; ast: number; stl: number }[],
-	key: 'pts' | 'reb' | 'ast' | 'stl'
-) {
-	if (!stats.length) return 0;
-	return stats.reduce((s, g) => s + g[key], 0) / stats.length;
-}
-
 export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), ({ playerId }) =>
 	relayDashboard(
 		async () => {
@@ -400,9 +392,11 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 
 			if (!player) notFound({ resource: 'player' });
 
+			const seasonId = player.team?.division?.seasonId;
 			const derived = dedupeByMatchup(
 				player.gameStats
 					.filter((s) => s.game && playerAppearedOnSheet(s))
+					.filter((s) => !seasonId || s.game!.seasonId === seasonId)
 					.map(derivePlayerGameStats),
 				(stat) => stat.game
 			);
@@ -418,11 +412,11 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 			const analysisStats = derivePlayerStats(chronological);
 			const rawAvg = (key: keyof typeof analysisStats.raw) => analysisStats.raw[key].average ?? 0;
 			const derivedAvg = (key: keyof typeof analysisStats.derived) =>
-				analysisStats.derived[key].average ?? 0;
+				analysisStats.derived[key].average ?? null;
 			const season = {
 				gp,
-				ppg: derivedAvg('pts'),
-				rpg: derivedAvg('reb'),
+				ppg: derivedAvg('pts') ?? 0,
+				rpg: derivedAvg('reb') ?? 0,
 				apg: rawAvg('ast'),
 				spg: rawAvg('stl'),
 				bpg: rawAvg('blk'),
@@ -441,22 +435,7 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 				ftPct: derivedAvg('ftPct'),
 			};
 
-			const split = Math.max(1, Math.floor(gp / 2));
-			const early = chronological.slice(0, split);
-			const late = chronological.slice(Math.max(split, gp - split));
-
-			const progressMetric = (key: 'pts' | 'reb' | 'ast') => {
-				const sample = (games: typeof chronological) =>
-					key === 'pts' ? games : games.filter((game) => !game.pointsOnly);
-				const beginning = avg(sample(early), key);
-				const current = avg(sample(late.length ? late : chronological), key);
-				const improvementPct =
-					beginning > 0.05 ? Math.round(((current - beginning) / beginning) * 100) : null;
-				return { beginning, current, improvementPct };
-			};
-
 			const teamId = player.teamId;
-			const seasonId = player.team?.division?.seasonId;
 			const lineByGameId = new Map(
 				player.gameStats
 					.filter((stat) => stat.game && playerAppearedOnSheet(stat))
@@ -491,6 +470,7 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 
 			const gameLog = [...player.gameStats]
 				.filter((stat) => stat.game && playerAppearedOnSheet(stat))
+				.filter((stat) => !seasonId || stat.game!.seasonId === seasonId)
 				.sort((a, b) => {
 					const aAt = (a.game?.completedAt ?? a.game?.scheduledAt)?.getTime() ?? 0;
 					const bAt = (b.game?.completedAt ?? b.game?.scheduledAt)?.getTime() ?? 0;
@@ -612,7 +592,7 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 				.where(eq(table.playerCoachNote.playerId, playerId))
 				.limit(1);
 
-			const improvement = playerImprovementFromGames(chronological);
+			const improvement = playerImprovementFromGames(chronological, seasonId);
 			const strengths = improvement.strengths.slice(0, 3).map((s) => s.description);
 			const focusAreas = improvement.weaknesses.slice(0, 3).map((w) => w.description);
 
@@ -631,11 +611,7 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 				season,
 				ratingSummary,
 				gameLog,
-				progress: {
-					points: progressMetric('pts'),
-					rebounds: progressMetric('reb'),
-					assists: progressMetric('ast'),
-				},
+				progress: improvement.progress,
 				recentGames,
 				schedule,
 				ranks,

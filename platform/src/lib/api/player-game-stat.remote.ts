@@ -15,16 +15,32 @@ export const getPlayerGameStats = query(
 	}),
 	async ({ playerId }) => {
 		await ensurePlayerGameRatings(playerId);
-		const rawStats = await db.query.playerGameStat.findMany({
-			where: {
-				playerId,
-			},
-			with: {
-				game: true,
-			},
-		});
+		const [rawStats, player] = await Promise.all([
+			db.query.playerGameStat.findMany({
+				where: {
+					playerId,
+				},
+				with: {
+					game: true,
+				},
+			}),
+			db.query.player.findFirst({
+				where: { id: playerId },
+				columns: { id: true },
+				with: {
+					team: {
+						columns: { id: true },
+						with: { division: { columns: { seasonId: true } } },
+					},
+				},
+			}),
+		]);
 
-		return rawStats.filter(playerAppearedOnSheet).map(derivePlayerGameStats);
+		const seasonId = player?.team?.division?.seasonId;
+		return rawStats
+			.filter(playerAppearedOnSheet)
+			.filter((stat) => !seasonId || stat.game?.seasonId === seasonId)
+			.map(derivePlayerGameStats);
 	}
 );
 

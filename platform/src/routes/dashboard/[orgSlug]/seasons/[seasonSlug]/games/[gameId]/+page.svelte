@@ -46,7 +46,8 @@
 			box.statsAvailable === false &&
 			(box.defaultLossSide === 'home' || box.defaultLossSide === 'away')
 	);
-	const potg = $derived(box.playerOfTheGame);
+	const mvp = $derived(box.mvp);
+	const mvpIds = $derived(new Set((mvp?.players ?? []).map((player) => player.playerId)));
 	const isAdmin = $derived((await isUserAdmin()) && (await getAdminViewAs()) === 'admin');
 
 	let editingDate = $state(false);
@@ -104,19 +105,19 @@
 		ratingOpen = true;
 	}
 
-	const potgHref = $derived.by(() => {
-		if (!potg?.jerseyNumber || !potg.teamSlug || !potg.divisionSlug) return null;
+	function mvpHref(player: NonNullable<typeof mvp>['players'][number]) {
+		if (!player.jerseyNumber || !player.teamSlug || !player.divisionSlug) return null;
 		return resolve(
 			'/dashboard/[orgSlug]/seasons/[seasonSlug]/[divisionSlug]/[teamSlug]/[jerseyNumber]',
 			{
 				orgSlug: params.orgSlug,
 				seasonSlug: params.seasonSlug,
-				divisionSlug: potg.divisionSlug,
-				teamSlug: potg.teamSlug,
-				jerseyNumber: potg.jerseyNumber,
+				divisionSlug: player.divisionSlug,
+				teamSlug: player.teamSlug,
+				jerseyNumber: player.jerseyNumber,
 			}
 		);
-	});
+	}
 </script>
 
 <svelte:head>
@@ -293,41 +294,57 @@
 			{/if}
 		</header>
 
-		{#if potg && showPointTotal}
+		{#if mvp && showPointTotal}
 			<section class="mb-5 rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
 				<p class="mb-3 text-xs font-semibold tracking-wide text-[#F0A020] uppercase">
-					Player of the Game
+					{mvp.kind === 'candidates' ? 'MVP Candidates' : 'Player of the Game'}
 				</p>
-				<div class="flex flex-wrap items-center justify-between gap-4">
-					<div class="min-w-0">
-						{#if potgHref}
-							<a href={potgHref} class="text-xl font-bold text-[#E6EDF3] hover:text-[#58A6FF]">
-								#{potg.jerseyNumber}
-								{potg.name}
-							</a>
-						{:else}
-							<p class="text-xl font-bold">
-								#{potg.jerseyNumber}
-								{potg.name}
-							</p>
-						{/if}
-						<p class="mt-0.5 text-sm text-[#8B949E]">{potg.teamName}</p>
-					</div>
-					<div class="flex gap-4 text-center text-sm">
-						<div>
-							<p class="text-xs tracking-wide text-[#8B949E] uppercase">PTS</p>
-							<p class="text-lg font-bold tabular-nums">{potg.pts}</p>
+				<div class={mvp.players.length > 1 ? 'grid gap-4 sm:grid-cols-2' : ''}>
+					{#each mvp.players as player (player.playerId)}
+						{@const href = mvpHref(player)}
+						<div class="flex flex-wrap items-center justify-between gap-4">
+							<div class="min-w-0">
+								{#if href}
+									<a href={href} class="text-xl font-bold text-[#E6EDF3] hover:text-[#58A6FF]">
+										#{player.jerseyNumber}
+										{player.name}
+									</a>
+								{:else}
+									<p class="text-xl font-bold">
+										#{player.jerseyNumber}
+										{player.name}
+									</p>
+								{/if}
+								<p class="mt-0.5 text-sm text-[#8B949E]">{player.teamName}</p>
+							</div>
+							<div class="flex gap-4 text-center text-sm">
+								<div>
+									<p class="text-xs tracking-wide text-[#8B949E] uppercase">Rating</p>
+									<p class="text-lg font-bold tabular-nums">
+										{player.gameRating == null ? '—' : player.gameRating.toFixed(1)}
+									</p>
+								</div>
+								<div>
+									<p class="text-xs tracking-wide text-[#8B949E] uppercase">PTS</p>
+									<p class="text-lg font-bold tabular-nums">{player.pts}</p>
+								</div>
+								<div>
+									<p class="text-xs tracking-wide text-[#8B949E] uppercase">REB</p>
+									<p class="text-lg font-bold tabular-nums">{player.reb}</p>
+								</div>
+								<div>
+									<p class="text-xs tracking-wide text-[#8B949E] uppercase">AST</p>
+									<p class="text-lg font-bold tabular-nums">{player.ast}</p>
+								</div>
+							</div>
 						</div>
-						<div>
-							<p class="text-xs tracking-wide text-[#8B949E] uppercase">REB</p>
-							<p class="text-lg font-bold tabular-nums">{potg.reb}</p>
-						</div>
-						<div>
-							<p class="text-xs tracking-wide text-[#8B949E] uppercase">AST</p>
-							<p class="text-lg font-bold tabular-nums">{potg.ast}</p>
-						</div>
-					</div>
+					{/each}
 				</div>
+				{#if mvp.kind === 'candidates'}
+					<p class="mt-3 text-xs text-[#8B949E]">
+						These Game Ratings are within 0.3. The stats explain the different impacts.
+					</p>
+				{/if}
 			</section>
 		{/if}
 
@@ -373,16 +390,17 @@
 								<tbody>
 									{#each side.players as player (player.playerId)}
 										<tr
-											class="border-b border-[#2A3038] last:border-0 {potg?.playerId ===
-											player.playerId
+											class="border-b border-[#2A3038] last:border-0 {mvpIds.has(player.playerId)
 												? 'bg-[#F0A020]/10'
 												: ''}"
 										>
 											<td class="py-2.5 text-[#8B949E] tabular-nums">{player.jerseyNumber}</td>
 											<td class="py-2.5 font-medium">
 												{player.name}
-												{#if potg?.playerId === player.playerId}
-													<span class="ml-2 text-xs font-semibold text-[#F0A020]">POTG</span>
+												{#if mvpIds.has(player.playerId)}
+													<span class="ml-2 text-xs font-semibold text-[#F0A020]">
+														{mvp?.kind === 'candidates' ? 'MVP' : 'POTG'}
+													</span>
 												{/if}
 											</td>
 											<td class="py-2.5 text-center font-semibold tabular-nums">{player.pts}</td>

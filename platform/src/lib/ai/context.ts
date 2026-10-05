@@ -35,7 +35,7 @@ export function suggestionsFor(audience: AskAiAudience, type: AskAiContextType):
 		if (type === 'game') {
 			return [
 				'How did this game go?',
-				'Who stood out?',
+				'Who was Player of the Game?',
 				'What do the shooting percentages mean?',
 				'How do I explain the box score?',
 			];
@@ -76,7 +76,7 @@ export function suggestionsFor(audience: AskAiAudience, type: AskAiContextType):
 		if (type === 'game') {
 			return [
 				'Summarize this game',
-				'Who were the top performers?',
+				'Who was Player of the Game?',
 				'What decided the outcome?',
 				'Which players struggled?',
 			];
@@ -108,7 +108,7 @@ export function suggestionsFor(audience: AskAiAudience, type: AskAiContextType):
 	if (type === 'game') {
 		return [
 			'Summarize this game',
-			'Who were the top performers?',
+			'Who was Player of the Game?',
 			'What decided the outcome?',
 			'Which players struggled?',
 		];

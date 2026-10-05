@@ -34,7 +34,7 @@ function line(overrides: Partial<CountingLine> = {}): CountingLine {
 }
 
 describe('impact', () => {
-	test('weights possessions, misses, and turnovers', () => {
+	test('uses the Game Score–style weights', () => {
 		const parts = impactParts(
 			line({
 				fgm: 12,
@@ -54,8 +54,20 @@ describe('impact', () => {
 
 		expect(parts.points).toBe(30);
 		expect(parts.rebounds).toBe(26);
-		// 30 + 11*1.25 + 15*0.8 + 1*1.35 + 1*2 + 1*1.75 - 8*1.6 - 2*0.3 - 8*0.55 - 2*0.25
-		expect(parts.impact).toBeCloseTo(30 + 13.75 + 12 + 1.35 + 2 + 1.75 - 12.8 - 0.6 - 4.4 - 0.5, 5);
+		// 30 + 0.4*12 - 0.7*20 - 0.4*2 + 0.7*11 + 0.3*15 + 0.7 + 1 + 0.7 - 8 - 0.4*2
+		expect(parts.impact).toBeCloseTo(25.8, 5);
+	});
+
+	test('keeps a 16-point efficient line close to 6 points with 8 boards and 4 steals', () => {
+		const scorer = impactParts(
+			line({ fgm: 6, fga: 12, fg3m: 2, fg3a: 2, ftm: 2, fta: 5, tov: 2 })
+		);
+		const defender = impactParts(line({ fgm: 2, fga: 9, ftm: 2, fta: 2, dreb: 8, stl: 4 }));
+		expect(scorer.points).toBe(16);
+		expect(defender.points).toBe(6);
+		expect(scorer.impact).toBeCloseTo(6.8, 5);
+		expect(defender.impact).toBeCloseTo(6.9, 5);
+		expect(Math.abs(scorer.impact - defender.impact)).toBeLessThan(0.3);
 	});
 
 	test('an empty line is not a performance', () => {
@@ -85,11 +97,12 @@ describe('context bonus', () => {
 
 describe('percentile bands', () => {
 	test('maps the published cut points', () => {
-		expect(baseRatingFromPercentile(0)).toBeCloseTo(3.5, 5);
-		expect(baseRatingFromPercentile(10)).toBeCloseTo(5.2, 5);
-		expect(baseRatingFromPercentile(50)).toBeCloseTo(6.8, 5);
-		expect(baseRatingFromPercentile(94)).toBeCloseTo(8.5 + ((94 - 90) / 7) * 0.7, 5);
-		expect(baseRatingFromPercentile(99.5)).toBeCloseTo(9.7, 5);
+		expect(baseRatingFromPercentile(0)).toBeCloseTo(3.0, 5);
+		expect(baseRatingFromPercentile(50)).toBeCloseTo(7.0, 5);
+		expect(baseRatingFromPercentile(75)).toBeCloseTo(7.8, 5);
+		expect(baseRatingFromPercentile(90)).toBeCloseTo(8.6, 5);
+		expect(baseRatingFromPercentile(97)).toBeCloseTo(9.3, 5);
+		expect(baseRatingFromPercentile(99.5)).toBeCloseTo(9.8, 5);
 		expect(baseRatingFromPercentile(100)).toBeCloseTo(10, 5);
 	});
 
@@ -126,13 +139,27 @@ describe('computeGameRating', () => {
 		const rated = computeGameRating({ line: standout, teamPoints: 34, scale });
 
 		expect(rated).not.toBeNull();
-		expect(rated!.ratingVersion).toBe('GC-v1');
+		expect(rated!.ratingVersion).toBe('GC-v2');
 		expect(rated!.rating).toBeGreaterThanOrEqual(8);
 		expect(rated!.rating).toBeLessThanOrEqual(10);
-		expect(rated!.contextBonus).toBe(0.4);
+		expect(rated!.contextBonus).toBe(0);
 		expect(rated!.breakdown.gameContext).toBe('Exceptional');
 		expect(rated!.meaning).toBe(ratingMeaning(rated!.rating));
 		expect(roundRating(rated!.rating)).toBe(rated!.rating);
+	});
+
+	test('does not add team scoring share to the official rating', () => {
+		const samples = Array.from({ length: 40 }, (_, index) =>
+			impactParts(line({ fgm: 4, fga: 10, dreb: index % 4 }))
+		);
+		const scorer = line({ fgm: 10, fga: 20, ftm: 4, fta: 4 });
+		samples.push(impactParts(scorer));
+		const scale = buildRatingScale(samples);
+		const lowShare = computeGameRating({ line: scorer, teamPoints: 100, scale });
+		const highShare = computeGameRating({ line: scorer, teamPoints: 24, scale });
+		expect(lowShare!.rating).toBe(highShare!.rating);
+		expect(highShare!.contextBonus).toBe(0);
+		expect(highShare!.breakdown.gameContext).toBe('Exceptional');
 	});
 
 	test('returns null without a scale or without a stat line', () => {

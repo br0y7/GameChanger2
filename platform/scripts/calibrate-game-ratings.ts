@@ -6,6 +6,7 @@ import {
 	buildRatingScale,
 	impactParts,
 	isEmptyLine,
+	isLaterRatingVersion,
 	ratingPatch,
 	type ApplicableScale,
 	type CountingLine,
@@ -196,7 +197,7 @@ let cleared = 0;
 let skipped = 0;
 
 for (const row of pending) {
-	if (row.ratingVersion && row.ratingVersion !== RATING_VERSION) {
+	if (row.ratingVersion && isLaterRatingVersion(row.ratingVersion, RATING_VERSION)) {
 		skipped += 1;
 		continue;
 	}
@@ -222,7 +223,6 @@ for (const row of pending) {
 			rating_breakdown = ${patch.ratingBreakdown ? JSON.stringify(patch.ratingBreakdown) : null}::jsonb,
 			updated_at = now()
 		where id = ${row.id}::uuid
-			and (rating_version is null or rating_version = ${RATING_VERSION})
 	`;
 
 	if (patch.gameRating == null) cleared += 1;
@@ -230,7 +230,7 @@ for (const row of pending) {
 }
 
 console.log(
-	`[INFO] GC-v1 scales written: ${scalesWritten}. Rated ${rated} player-games, cleared ${cleared}, left ${skipped} on a later rating version (${pending.length} considered).`
+	`[INFO] ${RATING_VERSION} scales written: ${scalesWritten}. Rated ${rated} player-games, cleared ${cleared}, left ${skipped} on a later rating version (${pending.length} considered).`
 );
 
 await db.close();
