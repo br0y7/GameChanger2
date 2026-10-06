@@ -2,6 +2,7 @@ import { getCurrentSeason, getSeason } from '$lib/api/season.remote';
 import { getOrganization } from '$lib/api/organization.remote';
 import { getPlayerGameStats, getPlayerSeasonAverages } from '$lib/api/player-game-stat.remote';
 import { getTeamOverview } from '$lib/api/team-overview.remote';
+import { formatAiGameLine } from '$lib/ai/game-line';
 import { matchesSearch, normalizeSearch } from '$lib/ai/tools';
 import { gameTypeLabel } from '$lib/schemas/game';
 import { db } from '$lib/server/db';
@@ -132,11 +133,32 @@ async function playerStatsText(player: SeasonPlayerLine) {
 	];
 	if (averageRating != null) lines.push(`Average Game Rating: ${averageRating.toFixed(1)}`);
 	if (games.length) {
-		lines.push('Recent games:');
-		for (const game of games.slice(0, 8)) {
-			const rating = game.gameRating == null ? 'no rating' : game.gameRating.toFixed(1);
+		lines.push('All games (includes OREB, DREB, and shooting %):');
+		for (const game of games) {
 			lines.push(
-				`- ${game.game?.name ?? 'Game'}: ${game.pts} PTS, ${game.reb} REB, ${game.ast} AST, FG ${game.fgm}-${game.fga}, rating ${rating}`
+				formatAiGameLine({
+					label: game.game?.name ?? 'Game',
+					pointsOnly: game.pointsOnly,
+					pts: game.pts,
+					reb: game.reb,
+					oreb: game.oreb,
+					dreb: game.dreb,
+					ast: game.ast,
+					stl: game.stl,
+					blk: game.blk,
+					tov: game.tov,
+					pf: game.pf,
+					fgm: game.fgm,
+					fga: game.fga,
+					fg3m: game.fg3m,
+					fg3a: game.fg3a,
+					ftm: game.ftm,
+					fta: game.fta,
+					fgPct: game.fgPct,
+					fg3Pct: game.fg3Pct,
+					ftPct: game.ftPct,
+					gameRating: game.gameRating,
+				})
 			);
 		}
 	}
@@ -299,10 +321,31 @@ async function getGameText(
 	}
 	for (const side of [box.awayTeam, box.homeTeam]) {
 		lines.push(`${side.name}:`);
-		for (const player of side.players.slice(0, 12)) {
-			const rating = player.gameRating == null ? '—' : player.gameRating.toFixed(1);
+		for (const player of side.players) {
 			lines.push(
-				`- #${player.jerseyNumber} ${player.name}: ${player.pts} PTS, ${player.reb} REB, ${player.ast} AST, FG ${player.fgm}-${player.fga}, rating ${rating}`
+				formatAiGameLine({
+					label: `#${player.jerseyNumber} ${player.name}`,
+					pointsOnly: player.pointsOnly,
+					pts: player.pts,
+					reb: player.reb,
+					oreb: player.oreb,
+					dreb: player.dreb,
+					ast: player.ast,
+					stl: player.stl,
+					blk: player.blk,
+					tov: player.tov,
+					pf: player.pf,
+					fgm: player.fgm,
+					fga: player.fga,
+					fg3m: player.fg3m,
+					fg3a: player.fg3a,
+					ftm: player.ftm,
+					fta: player.fta,
+					fgPct: player.fgPct,
+					fg3Pct: player.fg3Pct,
+					ftPct: player.ftPct,
+					gameRating: player.gameRating,
+				})
 			);
 		}
 	}
