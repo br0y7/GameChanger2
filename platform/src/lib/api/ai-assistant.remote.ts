@@ -97,6 +97,15 @@ function pushLineupRoster(parts: string[], teamName: string, players: LineupPlay
 	parts.push(formatLineupContext(teamName, players));
 }
 
+function formatShootingPct(value: number | null | undefined) {
+	return value == null ? 'not recorded' : `${(value * 100).toFixed(1)}%`;
+}
+
+function formatTrueShooting(points: number, fieldGoalAttempts: number, freeThrowAttempts: number) {
+	if (fieldGoalAttempts <= 0 && freeThrowAttempts <= 0) return 'not recorded';
+	return `${(trueShootingPercentage(points, fieldGoalAttempts, freeThrowAttempts) * 100).toFixed(1)}%`;
+}
+
 function missingRatingNote(input: {
 	playerName: string;
 	pointsOnly: boolean;
@@ -283,9 +292,8 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			parts.push(
 				`Averages: ${averages.points.toFixed(1)} PPG, ${averages.rebounds.toFixed(1)} RPG, ${averages.assists.toFixed(1)} APG`
 			);
-			const ts = trueShootingPercentage(averages.points, averages.fga, averages.fta);
 			parts.push(
-				`Shooting: FG ${(averages.fgPct * 100).toFixed(1)}%, 3P ${(averages.fg3Pct * 100).toFixed(1)}%, FT ${(averages.ftPct * 100).toFixed(1)}%, True shooting % ${(ts * 100).toFixed(1)}%`
+				`Shooting: FG ${formatShootingPct(averages.fgPct)}, 3P ${formatShootingPct(averages.fg3Pct)}, FT ${formatShootingPct(averages.ftPct)}, True shooting % ${formatTrueShooting(averages.points, averages.fga, averages.fta)}`
 			);
 			parts.push(
 				'If they ask whether they are a good shooter, answer from these shooting percentages, especially true shooting %.'
@@ -406,7 +414,6 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 				playerId: context.playerId,
 			});
 			const summary = detail.summary;
-			const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 			parts.push(`Player: ${detail.player.name} (#${detail.player.jerseyNumber})`);
 			parts.push(`Team: ${detail.player.teamName}`);
 			parts.push(`Games played: ${summary.gp}`);
@@ -414,7 +421,7 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 				`Per game: Points ${summary.ppg.toFixed(1)}, Rebounds ${summary.rpg.toFixed(1)}, Assists ${summary.apg.toFixed(1)}, Steals ${summary.spg.toFixed(1)}, Blocks ${summary.bpg.toFixed(1)}`
 			);
 			parts.push(
-				`Shooting: FG% ${pct(summary.fgPct)}, 3P% ${pct(summary.fg3Pct)}, FT% ${pct(summary.ftPct)}`
+				`Shooting: FG% ${formatShootingPct(summary.fgPct)}, 3P% ${formatShootingPct(summary.fg3Pct)}, FT% ${formatShootingPct(summary.ftPct)}`
 			);
 			if (summary.averageGameRating != null) {
 				parts.push(`Average Game Rating: ${summary.averageGameRating.toFixed(1)}`);
@@ -497,8 +504,6 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			seasonId = home.player.seasonId;
 			focusDivisionName = home.player.divisionName;
 			const season = home.season;
-			const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
-			const ts = trueShootingPercentage(season.ppg, season.fga, season.fta);
 
 			parts.push(`Player: ${home.player.name} (#${home.player.jerseyNumber})`);
 			parts.push(`Team: ${home.player.teamName}`);
@@ -511,7 +516,7 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 				`Extra: Offensive rebounds ${season.orpg.toFixed(1)}, Defensive rebounds ${season.drpg.toFixed(1)}, Threes made ${season.fg3m.toFixed(1)}, Free throws made ${season.ftm.toFixed(1)}, Personal fouls ${season.pf.toFixed(1)}`
 			);
 			parts.push(
-				`Shooting: FG% ${pct(season.fgPct)}, 3P% ${pct(season.fg3Pct)}, FT% ${pct(season.ftPct)}, True shooting % ${pct(ts)}`
+				`Shooting: FG% ${formatShootingPct(season.fgPct)}, 3P% ${formatShootingPct(season.fg3Pct)}, FT% ${formatShootingPct(season.ftPct)}, True shooting % ${formatTrueShooting(season.ppg, season.fga, season.fta)}`
 			);
 			parts.push(
 				'If they ask whether they are a good shooter, answer from these shooting percentages, especially true shooting %.'

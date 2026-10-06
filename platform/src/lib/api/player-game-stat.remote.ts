@@ -8,6 +8,7 @@ import { count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import * as table from '$lib/server/db/schema';
 import { seasonAveragesFromGames } from '$lib/stats/season-averages';
+import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
 
 export const getPlayerGameStats = query(
 	z.object({
@@ -37,10 +38,26 @@ export const getPlayerGameStats = query(
 		]);
 
 		const seasonId = player?.team?.division?.seasonId;
-		return rawStats
+		const derived = rawStats
 			.filter(playerAppearedOnSheet)
 			.filter((stat) => !seasonId || stat.game?.seasonId === seasonId)
 			.map(derivePlayerGameStats);
+
+		const typeById = new Map(
+			correctFalsePlayoffTypes(
+				[
+					...new Map(
+						derived.filter((stat) => stat.game).map((stat) => [stat.game!.id, stat.game!] as const)
+					).values(),
+				]
+			).map((game) => [game.id, game.gameType])
+		);
+
+		return derived.map((stat) => {
+			if (!stat.game) return stat;
+			const gameType = typeById.get(stat.game.id) ?? stat.game.gameType;
+			return gameType === stat.game.gameType ? stat : { ...stat, game: { ...stat.game, gameType } };
+		});
 	}
 );
 
@@ -108,24 +125,28 @@ export const getTeamLeaders = query.live(z.object({ teamId: idField }), ({ teamI
 			return teamLeaderCategories.map(({ key, label }) => {
 				const leader = playerAverages.reduce<(typeof playerAverages)[number] | null>(
 					(best, player) => {
-						if (!best || player.averages[key] > best.averages[key]) return player;
+						const value = player.averages[key];
+						if (value == null) return best;
+						if (!best || (best.averages[key] ?? -Infinity) < value) return player;
 						return best;
 					},
 					null
 				);
 
+				const value = leader?.averages[key];
 				return {
 					key,
 					label,
-					player: leader
-						? {
-								id: leader.playerId,
-								name: leader.name,
-								jerseyNumber: leader.jerseyNumber,
-								value: leader.averages[key],
-								isPercent: key === 'fgPct' || key === 'fg3Pct',
-							}
-						: null,
+					player:
+						leader && value != null
+							? {
+									id: leader.playerId,
+									name: leader.name,
+									jerseyNumber: leader.jerseyNumber,
+									value,
+									isPercent: key === 'fgPct' || key === 'fg3Pct',
+								}
+							: null,
 				};
 			});
 		},

@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { isPointsOnlyHeaders, parseGameTypeLabel, refineGameTypeWithName } from './sheet-labels';
+import {
+	isPointsOnlyHeaders,
+	normalizeStatHeader,
+	parseGameTypeLabel,
+	parseShotPair,
+	refineGameTypeWithName,
+} from './sheet-labels';
 
 describe('parseGameTypeLabel', () => {
 	test('reads third place labels', () => {
@@ -44,6 +50,35 @@ describe('refineGameTypeWithName', () => {
 		expect(refineGameTypeWithName('playoff', 'KO Black vs Red')).toBe('playoff');
 		expect(refineGameTypeWithName('regular', 'Semis White vs Yellow')).toBe('regular');
 		expect(refineGameTypeWithName('finals', 'Yellow vs Blue Semis')).toBe('finals');
+	});
+});
+
+describe('normalizeStatHeader', () => {
+	test('maps FG and 3PT aliases onto make columns', () => {
+		expect(normalizeStatHeader('FG')).toBe('fgm');
+		expect(normalizeStatHeader('3PT')).toBe('fg3m');
+		expect(normalizeStatHeader('3PTM')).toBe('fg3m');
+		expect(normalizeStatHeader('3PA')).toBe('fg3a');
+		expect(normalizeStatHeader('FT')).toBe('ftm');
+		expect(normalizeStatHeader('Player No.')).toBe('jerseyNumber');
+		expect(normalizeStatHeader('PTS')).toBe('pts');
+	});
+});
+
+describe('parseShotPair', () => {
+	test('reads 9-25, slashes, and Excel dates as makes and attempts', () => {
+		expect(parseShotPair('9-25')).toEqual({ makes: 9, attempts: 25 });
+		expect(parseShotPair('9 / 25')).toEqual({ makes: 9, attempts: 25 });
+		expect(parseShotPair('9/25/2026')).toEqual({ makes: 9, attempts: 25 });
+		expect(parseShotPair('25-Sep')).toEqual({ makes: 9, attempts: 25 });
+		expect(parseShotPair(new Date(Date.UTC(2026, 8, 25)))).toEqual({ makes: 9, attempts: 25 });
+		expect(parseShotPair(46290)).toEqual({ makes: 9, attempts: 25 });
+	});
+
+	test('leaves ordinary shooting numbers alone', () => {
+		expect(parseShotPair(9)).toBeNull();
+		expect(parseShotPair(25)).toBeNull();
+		expect(parseShotPair('10-3')).toBeNull();
 	});
 });
 

@@ -52,7 +52,8 @@
 		maximumFractionDigits: 0,
 	});
 
-	const formatPercent = (n: number) => percentFormatter.format(n);
+	const formatPercent = (n: number | null | undefined) =>
+		n == null ? '—' : percentFormatter.format(n);
 
 	const averageCards = [
 		{ title: 'Points', key: 'points', format },
@@ -162,7 +163,11 @@
 											{card.title}
 										</p>
 										<p class="mt-2 text-2xl font-bold tabular-nums text-[#E6EDF3]">
-											<AnimatedNumber end={seasonAverages[card.key]} format={card.format} />
+											{#if typeof seasonAverages[card.key] === 'number'}
+												<AnimatedNumber end={seasonAverages[card.key]} format={card.format} />
+											{:else}
+												—
+											{/if}
 										</p>
 									</div>
 								</Tooltip.Trigger>

@@ -5,6 +5,12 @@ import { SpreadsheetParserError } from './base';
 const TIME_ZONE = 'America/Winnipeg';
 
 describe('parseSheetDate', () => {
+	test('reads a Date cell as that calendar day', () => {
+		expect(
+			parseSheetDate(new Date(Date.UTC(2026, 7, 23)), TIME_ZONE).toPlainDate().toString()
+		).toBe('2026-08-23');
+	});
+
 	test('reads excel date values', () => {
 		// 2026-08-23 as an excel serial
 		expect(parseSheetDate(46257, TIME_ZONE).toPlainDate().toString()).toBe('2026-08-23');
@@ -48,6 +54,11 @@ describe('applySheetTime', () => {
 
 	test('reads excel time values', () => {
 		expect(applySheetTime(date, 0.5).toPlainTime().toString()).toBe('12:00:00');
+		expect(
+			applySheetTime(date, new Date(Date.UTC(1899, 11, 30, 10, 0, 0)))
+				.toPlainTime()
+				.toString()
+		).toBe('10:00:00');
 	});
 
 	test('reads times typed as text', () => {

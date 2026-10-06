@@ -102,6 +102,14 @@ export function gameTypeLabel(type: GameType | string | null | undefined): strin
 	}
 }
 
+/** Game-log date: "Oct 4, 2026", or TBD when the sheet has no date. */
+export function formatGameLogDate(value: Date | string | null | undefined): string {
+	if (value == null || value === '') return 'TBD';
+	const date = value instanceof Date ? value : new Date(value);
+	if (Number.isNaN(date.getTime())) return 'TBD';
+	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 /** Text color for a game-type label on the dark dashboard. */
 export function gameTypeClass(type: GameType | string | null | undefined): string {
 	switch (type) {

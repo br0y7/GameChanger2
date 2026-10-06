@@ -183,25 +183,25 @@ export function lineupPlayerFromGames(
 		turnovers: hasBoxScore ? (averageBy(box, (game) => game.tov) ?? 0) : null,
 		fouls: hasBoxScore ? (averageBy(box, (game) => game.pf) ?? 0) : null,
 		fgPct: hasBoxScore
-			? shootingPercentageBy(
+			? (shootingPercentageBy(
 					box,
 					(game) => game.fgm,
 					(game) => game.fga
-				)
+				) ?? null)
 			: null,
 		fg3Pct: hasBoxScore
-			? shootingPercentageBy(
+			? (shootingPercentageBy(
 					box,
 					(game) => game.fg3m,
 					(game) => game.fg3a
-				)
+				) ?? null)
 			: null,
 		ftPct: hasBoxScore
-			? shootingPercentageBy(
+			? (shootingPercentageBy(
 					box,
 					(game) => game.ftm,
 					(game) => game.fta
-				)
+				) ?? null)
 			: null,
 		trueShootingPct:
 			shotOpportunities > 0

@@ -51,9 +51,7 @@ function shootingFromTotals(
 	attempts: (stat: SeasonGame) => number
 ): number | null {
 	const box = games.filter((stat) => !stat.pointsOnly);
-	const recorded = box.some((stat) => Math.max(attempts(stat), makes(stat)) > 0);
-	if (!recorded) return null;
-	return shootingPercentageBy(box, makes, attempts);
+	return shootingPercentageBy(box, makes, attempts) ?? null;
 }
 
 function countingMetric(

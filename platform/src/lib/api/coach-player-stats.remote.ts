@@ -106,21 +106,24 @@ function buildRow(
 		bpg: gp ? blk / gp : 0,
 		tov,
 		topg: gp ? tov / gp : 0,
-		fgPct: shootingPercentageBy(
-			stats,
-			(s) => s.fgm,
-			(s) => s.fga
-		),
-		fg3Pct: shootingPercentageBy(
-			stats,
-			(s) => s.fg3m,
-			(s) => s.fg3a
-		),
-		ftPct: shootingPercentageBy(
-			stats,
-			(s) => s.ftm,
-			(s) => s.fta
-		),
+		fgPct:
+			shootingPercentageBy(
+				stats.filter((s) => !s.pointsOnly),
+				(s) => s.fgm,
+				(s) => s.fga
+			) ?? null,
+		fg3Pct:
+			shootingPercentageBy(
+				stats.filter((s) => !s.pointsOnly),
+				(s) => s.fg3m,
+				(s) => s.fg3a
+			) ?? null,
+		ftPct:
+			shootingPercentageBy(
+				stats.filter((s) => !s.pointsOnly),
+				(s) => s.ftm,
+				(s) => s.fta
+			) ?? null,
 		updatedAt: stats.reduce<Date | null>((latest, s) => {
 			const at = s.updatedAt ?? s.game?.completedAt ?? s.game?.scheduledAt ?? null;
 			if (!at) return latest;

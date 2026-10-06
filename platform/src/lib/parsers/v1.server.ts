@@ -16,7 +16,9 @@ import {
 	isGameTypeLabel,
 	isPointsColumn,
 	isPointsOnlyHeaders,
+	normalizeStatHeader,
 	parseGameTypeLabel,
+	parseShotPair,
 	refineGameTypeWithName,
 } from '$lib/parsers/sheet-labels';
 import { Temporal } from 'temporal-polyfill';
@@ -28,14 +30,18 @@ type Header = StatKey | 'jerseyNumber';
 
 const ALLOWED_HEADERS = new Set<Header>([...rawStatKeys, 'jerseyNumber']);
 
-const HEADER_REPLACEMENTS: Record<string, Header> = {
-	'3ptm': 'fg3m',
-	'3pa': 'fg3a',
-	'player no.': 'jerseyNumber',
-	'player name': 'jerseyNumber',
+const SHOT_ATTEMPTS: Partial<Record<StatKey, StatKey>> = {
+	fgm: 'fga',
+	fga: 'fgm',
+	fg3m: 'fg3a',
+	fg3a: 'fg3m',
+	ftm: 'fta',
+	fta: 'ftm',
 };
 
-type RowValue = string | number | null | undefined;
+const SHOT_MAKE_KEYS = new Set<StatKey>(['fgm', 'fg3m', 'ftm']);
+
+type RowValue = string | number | Date | null | undefined;
 
 function parseGameType(value: RowValue, gameName: string, excelRow: number): GameType {
 	const parsed = parseGameTypeLabel(value);
@@ -161,6 +167,8 @@ function withPlayedOn(message: string, gameName: string, playedOn?: string) {
 function parseStatNumber(value: RowValue): number {
 	if (value === undefined || value === null) return 0;
 
+	if (value instanceof Date) return 0;
+
 	if (typeof value === 'string') {
 		const trimmed = value.trim();
 		if (trimmed === '') return 0;
@@ -169,6 +177,19 @@ function parseStatNumber(value: RowValue): number {
 	}
 
 	return Number.isFinite(value) ? value : 0;
+}
+
+function applyShotCell(stats: Record<StatKey, number>, header: StatKey, value: RowValue) {
+	const pair = parseShotPair(value);
+	const other = SHOT_ATTEMPTS[header];
+	if (pair && other) {
+		const makeKey = SHOT_MAKE_KEYS.has(header) ? header : other;
+		const attemptKey = makeKey === header ? other : header;
+		stats[makeKey] = pair.makes;
+		stats[attemptKey] = pair.attempts;
+		return true;
+	}
+	return false;
 }
 
 function parseStatsRow(
@@ -209,8 +230,14 @@ function parseStatsRow(
 			continue;
 		}
 
+		if (applyShotCell(stats, header, value)) continue;
+
 		const isBlank =
-			value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
+			value === undefined ||
+			value === null ||
+			(typeof value === 'string' && value.trim() === '');
+
+		if (isBlank) continue;
 
 		const statValue = parseStatNumber(value);
 
@@ -242,7 +269,8 @@ function parseGameSheet(
 	const rows = xlsx.utils.sheet_to_json(sheet, {
 		header: 1,
 		blankrows: false,
-	}) as RowValue[][];
+		cellDates: true,
+	} as xlsx.Sheet2JSONOpts) as RowValue[][];
 
 	let gameTime = Temporal.Now.zonedDateTimeISO();
 	let playedOn = '';
@@ -358,8 +386,7 @@ function parseGameSheet(
 						headers.push('' as Header);
 						continue;
 					}
-					const lowered = cell.trim().toLowerCase();
-					headers.push(HEADER_REPLACEMENTS[lowered] ?? (lowered as Header));
+					headers.push(normalizeStatHeader(cell) as Header);
 				}
 				currentHeaders = headers;
 				currentPointsOnly = isPointsOnlyHeaders(currentHeaders);

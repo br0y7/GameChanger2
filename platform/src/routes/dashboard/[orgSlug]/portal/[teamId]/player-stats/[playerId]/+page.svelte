@@ -10,7 +10,7 @@
 	} from '$lib/components/GameRatingDetail.svelte';
 	import ClipboardIcon from '@lucide/svelte/icons/clipboard';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
+	import { formatGameLogDate, gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
 	import GameBoxScoreLink from '$lib/components/GameBoxScoreLink.svelte';
 	import PlayerImprovementReport from '$lib/components/PlayerImprovementReport.svelte';
 	import type { PageProps } from './$types';
@@ -80,8 +80,7 @@
 	}
 
 	function formatDate(d: Date | null) {
-		if (!d) return 'TBD';
-		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+		return formatGameLogDate(d);
 	}
 
 	function formatUpdated(d: Date | null) {
@@ -254,10 +253,11 @@
 			<p class="mt-3 text-sm text-[#8B949E]">No games played yet.</p>
 		{:else}
 			<div class="mt-4 overflow-x-auto">
-				<table class="w-full min-w-[560px] text-left text-sm">
+				<table class="w-full min-w-[640px] text-left text-sm">
 					<thead class="border-b border-[#2A3038] text-xs text-[#8B949E] uppercase">
 						<tr>
 							<th class="pb-2 font-medium">Date</th>
+							<th class="pb-2 font-medium">Type</th>
 							<th class="pb-2 font-medium">Opponent</th>
 							<th class="pb-2 font-medium">Result</th>
 							<th class="pb-2 font-medium tabular-nums">PTS</th>
@@ -269,12 +269,12 @@
 					<tbody>
 						{#each detail.gameLog as game (game.gameId)}
 							<tr class="border-b border-[#2A3038]/50">
-								<td class="py-2.5 text-[#8B949E]">{formatDate(game.date)}</td>
+								<td class="py-2.5 whitespace-nowrap text-[#8B949E]">{formatDate(game.date)}</td>
+								<td class="py-2.5 whitespace-nowrap {gameTypeClass(game.gameType)}">
+									{gameTypeLabel(game.gameType)}
+								</td>
 								<td class="py-2.5">
 									{game.opponentName}
-									<span class="mt-0.5 block text-xs {gameTypeClass(game.gameType)}">
-										{gameTypeLabel(game.gameType)}
-									</span>
 								</td>
 								<td class="py-2.5">
 									{#if game.result}

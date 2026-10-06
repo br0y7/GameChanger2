@@ -14,7 +14,7 @@
 	};
 
 	let { data, columns }: DataTableProps<TData, TValue> = $props();
-	let sorting = $state<SortingState>([]);
+	let sorting = $state<SortingState>([{ id: 'date', desc: true }]);
 
 	const table = $derived(
 		createSvelteTable({

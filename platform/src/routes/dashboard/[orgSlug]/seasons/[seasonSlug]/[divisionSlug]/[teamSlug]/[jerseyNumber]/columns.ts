@@ -1,4 +1,5 @@
 import { renderComponent } from '$lib/components/ui/data-table';
+import { formatGameLogDate } from '$lib/schemas/game';
 import {
 	type PlayerGameStats,
 	type RawStatKey,
@@ -7,6 +8,7 @@ import {
 import type { ColumnDef, Column } from '@tanstack/table-core';
 import SortableStatHeader from './SortableStatHeader.svelte';
 import GameNameCell from './GameNameCell.svelte';
+import GameTypeCell from './GameTypeCell.svelte';
 
 const someStatKeys: RawStatKey[] = ['stl', 'blk', 'tov', 'pf'] as const;
 
@@ -32,6 +34,23 @@ function sortableHeader(header: string, column: Column<WithGame<PlayerGameStats>
 }
 
 export const columns: ColumnDef<WithGame<PlayerGameStats>>[] = [
+	{
+		id: 'date',
+		accessorFn: (stats) => {
+			const at = stats.game?.completedAt ?? stats.game?.scheduledAt;
+			if (!at) return 0;
+			return at instanceof Date ? at.getTime() : new Date(at).getTime();
+		},
+		header: ({ column }) => sortableHeader('Date', column),
+		cell: ({ row }) =>
+			formatGameLogDate(row.original.game?.completedAt ?? row.original.game?.scheduledAt),
+	},
+	{
+		id: 'gameType',
+		accessorFn: (stats) => stats.game?.gameType ?? 'regular',
+		header: ({ column }) => sortableHeader('Type', column),
+		cell: ({ row }) => renderComponent(GameTypeCell, { gameType: row.original.game?.gameType }),
+	},
 	{
 		accessorFn: (stats) => {
 			return stats.game?.name ?? 'Unknown Game';
