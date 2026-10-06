@@ -44,6 +44,8 @@ function playerRowsForTeam(playerStats: StatWithPlayer[], teamId: string) {
 				ftPct: derived.ftPct,
 				eff: derived.eff,
 				oreb: derived.oreb,
+				dreb: derived.dreb,
+				pf: derived.pf,
 				gameRating: derived.gameRating,
 				ratingMeaning: derived.gameRating == null ? null : ratingMeaning(derived.gameRating),
 				ratingBreakdown: derived.ratingBreakdown,

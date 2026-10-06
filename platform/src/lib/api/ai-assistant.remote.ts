@@ -29,6 +29,7 @@ import {
 	type RatingBreakdown,
 } from '$lib/stats/game-rating';
 import { isPlayerPage, type AskAiAudience, type AskAiContextType } from '$lib/ai/context';
+import { formatAiGameLine } from '$lib/ai/game-line';
 import { AI_DATA_TOOLS } from '$lib/ai/tools';
 import { resolveAiSeasonScope, runAiDataTool } from '$lib/server/ai-data.server';
 import { gameTypeLabel } from '$lib/schemas/game';
@@ -306,10 +307,32 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 					games.flatMap((game) => (game.gameRating == null ? [] : [game.gameRating]))
 				);
 				if (average != null) parts.push(`Average Game Rating: ${average.toFixed(1)}`);
-				parts.push('Recent box scores:');
-				for (const g of games.slice(0, 8)) {
+				parts.push('All games (includes OREB, DREB, and shooting % even if the page table hides them):');
+				for (const g of games) {
 					parts.push(
-						`- ${g.game?.name ?? 'Game'}: ${g.pts} PTS, ${g.reb} REB, ${g.ast} AST, FG ${g.fgm}-${g.fga}`
+						formatAiGameLine({
+							label: g.game?.name ?? 'Game',
+							pointsOnly: g.pointsOnly,
+							pts: g.pts,
+							reb: g.reb,
+							oreb: g.oreb,
+							dreb: g.dreb,
+							ast: g.ast,
+							stl: g.stl,
+							blk: g.blk,
+							tov: g.tov,
+							pf: g.pf,
+							fgm: g.fgm,
+							fga: g.fga,
+							fg3m: g.fg3m,
+							fg3a: g.fg3a,
+							ftm: g.ftm,
+							fta: g.fta,
+							fgPct: g.fgPct,
+							fg3Pct: g.fg3Pct,
+							ftPct: g.ftPct,
+							gameRating: g.gameRating,
+						})
 					);
 					pushOfficialRating(parts, {
 						playerName: player.name,
@@ -370,9 +393,31 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			for (const side of [box.awayTeam, box.homeTeam]) {
 				const opponentScore = side.id === box.homeTeam.id ? box.awayTeam.score : box.homeTeam.score;
 				parts.push(`${side.name} players:`);
-				for (const p of side.players.slice(0, 12)) {
+				for (const p of side.players) {
 					parts.push(
-						`- #${p.jerseyNumber} ${p.name}: ${p.pts} PTS, ${p.reb} REB, ${p.ast} AST, FG ${p.fgm}-${p.fga}`
+						formatAiGameLine({
+							label: `#${p.jerseyNumber} ${p.name}`,
+							pointsOnly: p.pointsOnly,
+							pts: p.pts,
+							reb: p.reb,
+							oreb: p.oreb,
+							dreb: p.dreb,
+							ast: p.ast,
+							stl: p.stl,
+							blk: p.blk,
+							tov: p.tov,
+							pf: p.pf,
+							fgm: p.fgm,
+							fga: p.fga,
+							fg3m: p.fg3m,
+							fg3a: p.fg3a,
+							ftm: p.ftm,
+							fta: p.fta,
+							fgPct: p.fgPct,
+							fg3Pct: p.fg3Pct,
+							ftPct: p.ftPct,
+							gameRating: p.gameRating,
+						})
 					);
 					pushOfficialRating(parts, {
 						playerName: p.name,
@@ -428,7 +473,33 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			if (summary.averageGameRating != null) {
 				parts.push(`Average Game Rating: ${summary.averageGameRating.toFixed(1)}`);
 			}
-			for (const game of detail.gameLog.slice(0, 5)) {
+			parts.push('All games (includes OREB, DREB, and shooting % even if the page table hides them):');
+			for (const game of detail.gameLog) {
+				parts.push(
+					formatAiGameLine({
+						label: `vs ${game.opponentName} (${gameTypeLabel(game.gameType)})`,
+						pointsOnly: game.pointsOnly,
+						pts: game.pts,
+						reb: game.reb,
+						oreb: game.oreb,
+						dreb: game.dreb,
+						ast: game.ast,
+						stl: game.stl,
+						blk: game.blk,
+						tov: game.tov,
+						pf: game.pf,
+						fgm: game.fgm,
+						fga: game.fga,
+						fg3m: game.fg3m,
+						fg3a: game.fg3a,
+						ftm: game.ftm,
+						fta: game.fta,
+						fgPct: game.fgPct,
+						fg3Pct: game.fg3Pct,
+						ftPct: game.ftPct,
+						gameRating: game.gameRating,
+					})
+				);
 				pushOfficialRating(parts, {
 					playerName: detail.player.name,
 					gameLabel: `vs ${game.opponentName} (${gameTypeLabel(game.gameType)})`,
@@ -526,7 +597,8 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			if (home.ratingSummary.average != null) {
 				parts.push(`Average Game Rating: ${home.ratingSummary.average.toFixed(1)}`);
 			}
-			for (const game of home.recentGames) {
+			parts.push('All games (includes OREB, DREB, and shooting % even if the page table hides them):');
+			for (const game of home.gameLog) {
 				// A forfeit has no box score, so an all-zero stat line would misread as a bad game.
 				if (game.defaultResult) {
 					const outcome = game.defaultResult === 'Default win' ? 'won' : 'lost';
@@ -535,6 +607,31 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 					);
 					continue;
 				}
+				parts.push(
+					formatAiGameLine({
+						label: `vs ${game.opponentName} (${gameTypeLabel(game.gameType)})`,
+						pointsOnly: game.pointsOnly,
+						pts: game.pts,
+						reb: game.reb,
+						oreb: game.oreb,
+						dreb: game.dreb,
+						ast: game.ast,
+						stl: game.stl,
+						blk: game.blk,
+						tov: game.tov,
+						pf: game.pf,
+						fgm: game.fgm,
+						fga: game.fga,
+						fg3m: game.fg3m,
+						fg3a: game.fg3a,
+						ftm: game.ftm,
+						fta: game.fta,
+						fgPct: game.fgPct,
+						fg3Pct: game.fg3Pct,
+						ftPct: game.ftPct,
+						gameRating: game.gameRating,
+					})
+				);
 				pushOfficialRating(parts, {
 					playerName: home.player.name,
 					gameLabel: `vs ${game.opponentName} (${gameTypeLabel(game.gameType)})`,
