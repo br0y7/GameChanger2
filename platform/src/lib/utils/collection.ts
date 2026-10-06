@@ -62,7 +62,7 @@ export function shootingPercentageBy<T>(
 		makes += made;
 		attempts += attempted;
 	}
-	if (attempts <= 0) return 0;
+	if (attempts <= 0) return;
 	return makes / attempts;
 }
 

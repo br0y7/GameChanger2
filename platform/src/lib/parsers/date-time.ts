@@ -132,6 +132,14 @@ function parseClockTime(text: string) {
  * @throws SpreadsheetParserError
  */
 export function parseSheetDate(value: unknown, timeZone: string) {
+	if (value instanceof Date && !Number.isNaN(value.getTime())) {
+		return Temporal.PlainDate.from({
+			year: value.getUTCFullYear(),
+			month: value.getUTCMonth() + 1,
+			day: value.getUTCDate(),
+		}).toZonedDateTime(timeZone);
+	}
+
 	if (typeof value === 'number') return convertExcelDate(value, timeZone);
 
 	const text = typeof value === 'string' ? value.trim() : '';
@@ -173,6 +181,14 @@ export function applySheetTime(date: Temporal.ZonedDateTime, value: unknown) {
 	const startOfDay = date.startOfDay();
 
 	if (typeof value === 'number') return applyExcelTime(startOfDay, value);
+
+	if (value instanceof Date && !Number.isNaN(value.getTime())) {
+		return startOfDay.with({
+			hour: value.getUTCHours(),
+			minute: value.getUTCMinutes(),
+			second: value.getUTCSeconds(),
+		});
+	}
 
 	if (typeof value === 'string') {
 		const time = parseClockTime(value);

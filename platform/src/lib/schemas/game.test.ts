@@ -2,10 +2,19 @@ import { describe, expect, test } from 'bun:test';
 import {
 	completedGameLabel,
 	defaultResultLabel,
+	formatGameLogDate,
 	isDefaultGame,
 	resolveImportedGameType,
 	resultOnlyOutcome,
 } from './game';
+
+describe('formatGameLogDate', () => {
+	test('prints the calendar day or TBD', () => {
+		expect(formatGameLogDate(new Date(2026, 9, 4))).toBe('Oct 4, 2026');
+		expect(formatGameLogDate(null)).toBe('TBD');
+		expect(formatGameLogDate('not a date')).toBe('TBD');
+	});
+});
 
 describe('defaultResultLabel', () => {
 	test('names a default loss for that team and a default win for the other', () => {

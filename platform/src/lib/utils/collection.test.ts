@@ -30,6 +30,19 @@ describe('shootingPercentageBy', () => {
 		expect(pct).toBeLessThanOrEqual(1);
 	});
 
+	test('is unavailable when no attempts were recorded', () => {
+		expect(
+			shootingPercentageBy(
+				[
+					{ fgm: 0, fga: 0 },
+					{ fgm: 0, fga: 0 },
+				],
+				(row) => row.fgm,
+				(row) => row.fga
+			)
+		).toBeUndefined();
+	});
+
 	test('keeps real misses when some games recorded attempts', () => {
 		const pct = shootingPercentageBy(
 			[

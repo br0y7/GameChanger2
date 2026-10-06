@@ -4,7 +4,7 @@
 		type GameRatingDetailModel,
 	} from '$lib/components/GameRatingDetail.svelte';
 	import { formatRankPlace, type RankedStatKey } from '$lib/stats/stat-ranks';
-	import { gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
+	import { formatGameLogDate, gameTypeClass, gameTypeLabel } from '$lib/schemas/game';
 	import GameBoxScoreLink from '$lib/components/GameBoxScoreLink.svelte';
 	import { trueShootingPercentage } from '$lib/utils/collection';
 	import type { PageProps } from './$types';
@@ -42,8 +42,7 @@
 	}
 
 	function formatDate(d: Date | null | undefined) {
-		if (!d) return 'TBD';
-		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+		return formatGameLogDate(d);
 	}
 
 	const trueShootingPct = $derived(
@@ -146,6 +145,7 @@
 					<thead class="text-xs text-[#8B949E] uppercase">
 						<tr>
 							<th class="pb-2 font-medium">Date</th>
+							<th class="pb-2 font-medium">Type</th>
 							<th class="pb-2 font-medium">Opponent</th>
 							<th class="pb-2 font-medium tabular-nums">PTS</th>
 							<th class="pb-2 font-medium tabular-nums">REB</th>
@@ -158,11 +158,11 @@
 						{#each home.gameLog as game (game.gameId)}
 							<tr class="border-t border-[#2A3038]/60">
 								<td class="py-2.5 whitespace-nowrap text-[#8B949E]">{formatDate(game.date)}</td>
+								<td class="py-2.5 whitespace-nowrap {gameTypeClass(game.gameType)}">
+									{gameTypeLabel(game.gameType)}
+								</td>
 								<td class="py-2.5">
 									{game.opponentName}
-									<span class="mt-0.5 block text-xs {gameTypeClass(game.gameType)}">
-										{gameTypeLabel(game.gameType)}
-									</span>
 									{#if game.scoreLabel}
 										<GameBoxScoreLink
 											orgSlug={params.orgSlug}

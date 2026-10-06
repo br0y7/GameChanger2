@@ -7,17 +7,17 @@ export function seasonAveragesFromGames(stats: PlayerGameStats[]) {
 		box,
 		(stat) => stat.fgm,
 		(stat) => stat.fga
-	);
+	) ?? null;
 	const fg3Pct = shootingPercentageBy(
 		box,
 		(stat) => stat.fg3m,
 		(stat) => stat.fg3a
-	);
+	) ?? null;
 	const ftPct = shootingPercentageBy(
 		box,
 		(stat) => stat.ftm,
 		(stat) => stat.fta
-	);
+	) ?? null;
 
 	const avg = (pick: (stat: PlayerGameStats) => number) => averageBy(box, pick) ?? 0;
 	const points = averageBy(stats, (stat) => stat.pts) ?? 0;

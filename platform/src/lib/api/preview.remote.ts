@@ -95,7 +95,7 @@ export const previewSpreadsheet = form(
 				v1: spreadsheetParserV1,
 			};
 			const buffer = await spreadsheet.arrayBuffer();
-			const preview = parsers[version].parse(xlsx.read(buffer), { timeZone });
+			const preview = parsers[version].parse(xlsx.read(buffer, { cellDates: true }), { timeZone });
 
 			await annotatePreview(preview, divisionId);
 

@@ -15,15 +15,6 @@ const shootingAverageKeys = {
 } as const satisfies Partial<Record<DerivedStatKey, { makes: RawStatKey; attempts: RawStatKey }>>;
 
 /** Totals-based shooting %. No attempts (or points-only games only) is unavailable, not 0%. */
-function shootingAverageOrUnavailable(
-	games: PlayerGameStats[],
-	makes: (stats: PlayerGameStats) => number,
-	attempts: (stats: PlayerGameStats) => number
-) {
-	const recorded = games.some((stats) => Math.max(attempts(stats), makes(stats)) > 0);
-	if (!recorded) return undefined;
-	return shootingPercentageBy(games, makes, attempts);
-}
 
 /**
  * Returns the aggregate player stats from a list of game stats.
@@ -54,7 +45,7 @@ export const derivePlayerStats = (gameStats: PlayerGameStats[]): PlayerStats => 
 				const games = gamesFor(key);
 				const shooting = shootingAverageKeys[key as keyof typeof shootingAverageKeys];
 				const average = shooting
-					? shootingAverageOrUnavailable(
+					? shootingPercentageBy(
 							games,
 							(stats) => stats[shooting.makes],
 							(stats) => stats[shooting.attempts]

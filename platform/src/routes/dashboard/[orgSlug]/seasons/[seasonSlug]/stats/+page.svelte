@@ -75,10 +75,12 @@
 
 	const formatAvg = (value: number) =>
 		value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-	const formatPct = (value: number) =>
-		`${(Math.min(1, Math.max(0, value)) * 100).toLocaleString('en-US', {
-			maximumFractionDigits: 0,
-		})}%`;
+	const formatPct = (value: number | null | undefined) =>
+		value == null
+			? '—'
+			: `${(Math.min(1, Math.max(0, value)) * 100).toLocaleString('en-US', {
+					maximumFractionDigits: 0,
+				})}%`;
 
 	const divisions = $derived(
 		[...new Map(teams.map((team) => [team.divisionSlug, team.divisionName])).entries()].map(
@@ -102,10 +104,14 @@
 		[...playerStats].sort((a, b) => {
 			const left = a[sortKey];
 			const right = b[sortKey];
-			const cmp =
-				typeof left === 'string'
-					? left.localeCompare(typeof right === 'string' ? right : String(right))
-					: (left as number) - (right as number);
+			if (typeof left === 'string' || typeof right === 'string') {
+				const cmp = String(left).localeCompare(String(right));
+				return sortDir === 'asc' ? cmp : -cmp;
+			}
+			if (typeof left !== 'number' && typeof right !== 'number') return 0;
+			if (typeof left !== 'number') return 1;
+			if (typeof right !== 'number') return -1;
+			const cmp = left - right;
 			return sortDir === 'asc' ? cmp : -cmp;
 		})
 	);

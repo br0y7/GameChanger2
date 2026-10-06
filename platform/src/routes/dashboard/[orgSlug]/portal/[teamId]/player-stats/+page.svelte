@@ -27,7 +27,8 @@
 		return n.toFixed(digits);
 	}
 
-	function fmtPct(n: number) {
+	function fmtPct(n: number | null | undefined) {
+		if (n == null) return '—';
 		return `${(Math.min(1, Math.max(0, n)) * 100).toFixed(1)}%`;
 	}
 

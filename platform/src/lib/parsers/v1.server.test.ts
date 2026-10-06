@@ -4,7 +4,7 @@ import { spreadsheetParserV1 } from './v1.server';
 
 const TIME_ZONE = 'America/Winnipeg';
 
-type Row = (string | number | null | undefined)[];
+type Row = (string | number | Date | null | undefined)[];
 
 function parseSheet(sheetName: string, rows: Row[]) {
 	const workbook = xlsx.utils.book_new();
@@ -301,5 +301,56 @@ describe('notes typed into column A', () => {
 		expect(game.pointsOnly).toBe(true);
 		expect(game.homeTeam.score).toBe(22);
 		expect(game.awayTeam.score).toBe(15);
+	});
+});
+
+describe('shooting pairs', () => {
+	test('reads makes-attempts pairs and Excel dates as FGM/FGA', () => {
+		const sept25 = new Date(Date.UTC(2026, 8, 25));
+		const game = parseSheet('Red vs White Finals U12', [
+			['Category', 'U12'],
+			['Red', 40],
+			['Player No.', 'PTS', 'FG', '3PT', 'FT'],
+			[1, 22, '9-25', '2-8', '2-4'],
+			[2, 10, sept25, '1-3', '0-0'],
+			['White', 38],
+			['Player No.', 'PTS', 'FGM', 'FGA', '3PTM', '3PA', 'FTM', 'FTA'],
+			[3, 15, 6, 12, 1, 4, 2, 2],
+			[4, 8, 3, 9, 0, 2, 2, 4],
+		]);
+
+		expect(game.homeTeam.playerStats[0]?.stats).toMatchObject({
+			fgm: 9,
+			fga: 25,
+			fg3m: 2,
+			fg3a: 8,
+			ftm: 2,
+			fta: 4,
+		});
+		expect(game.homeTeam.playerStats[1]?.stats).toMatchObject({ fgm: 9, fga: 25 });
+		expect(game.awayTeam.playerStats[0]?.stats).toMatchObject({
+			fgm: 6,
+			fga: 12,
+			fg3m: 1,
+			fg3a: 4,
+			ftm: 2,
+			fta: 2,
+		});
+		expect(game.awayTeam.playerStats[1]?.stats).toMatchObject({ fgm: 3, fga: 9 });
+	});
+
+	test('does not let a blank FGA cell wipe a pair written under FGM', () => {
+		const game = parseSheet('Red vs White Finals U12', [
+			['Category', 'U12'],
+			['Red', 22],
+			['Player No.', 'PTS', 'FGM', 'FGA'],
+			[1, 22, '9/25', ''],
+			['White', 15],
+			['Player No.', 'PTS', 'FGM', 'FGA'],
+			[3, 15, 6, 12],
+		]);
+
+		expect(game.homeTeam.playerStats[0]?.stats).toMatchObject({ fgm: 9, fga: 25 });
+		expect(game.awayTeam.playerStats[0]?.stats).toMatchObject({ fgm: 6, fga: 12 });
 	});
 });
