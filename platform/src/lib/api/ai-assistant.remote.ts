@@ -16,7 +16,7 @@ import {
 	COACH_SYSTEM_PROMPT,
 	ROTATION_GUIDE,
 	STAT_GLOSSARY,
-	WEBSITE_HELP_GUIDE,
+	websiteHelpFor,
 } from '$lib/ai/prompts';
 import { getFamilyPlayerHome } from './family.remote';
 import { getCoachPlayerDetail } from './coach-player-stats.remote';
@@ -29,6 +29,8 @@ import {
 	type RatingBreakdown,
 } from '$lib/stats/game-rating';
 import { isPlayerPage, type AskAiAudience, type AskAiContextType } from '$lib/ai/context';
+import { AI_DATA_TOOLS } from '$lib/ai/tools';
+import { resolveAiSeasonScope, runAiDataTool } from '$lib/server/ai-data.server';
 import { gameTypeLabel } from '$lib/schemas/game';
 import { formatLineupContext, type LineupPlayer } from '$lib/ai/lineup';
 import {
@@ -561,7 +563,18 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 			);
 		}
 
+		if (!seasonId) {
+			const scope = await resolveAiSeasonScope(context);
+			if (scope) {
+				seasonId = scope.seasonId;
+				parts.push(`Season: ${scope.seasonName}`);
+			}
+		}
+
 		if (seasonId) {
+			parts.push(
+				'You can look up any other player, team, or game in this season with the database tools when it is not already listed here. Do not mention the tools to the user.'
+			);
 			const standings = await loadPrePlayoffStandings(seasonId);
 			const standingsText = formatPrePlayoffStandings(standings);
 			if (standingsText) {
@@ -598,7 +611,7 @@ async function buildContextBlock(context: z.infer<typeof askAiContextSchema>) {
 	parts.push(STAT_GLOSSARY.trim());
 	parts.push('');
 	parts.push('Website help:');
-	parts.push(WEBSITE_HELP_GUIDE.trim());
+	parts.push(websiteHelpFor(context.audience).trim());
 
 	return parts.join('\n');
 }
@@ -612,6 +625,62 @@ function getOpenAiConfig() {
 	return { apiKey, baseUrl, model };
 }
 
+type ChatMessage =
+	| { role: 'system' | 'user'; content: string }
+	| { role: 'assistant'; content: string | null; tool_calls?: ToolCall[] }
+	| { role: 'tool'; tool_call_id: string; content: string };
+
+type ToolCall = {
+	id: string;
+	type: 'function';
+	function: { name: string; arguments: string };
+};
+
+async function completeChat(
+	baseUrl: string,
+	apiKey: string,
+	model: string,
+	messages: ChatMessage[],
+	tools: typeof AI_DATA_TOOLS | undefined
+) {
+	const reasoningModel = model.startsWith('gpt-5') || /^o\d/.test(model);
+	const body = JSON.stringify({
+		model,
+		messages,
+		...(tools?.length ? { tools, tool_choice: 'auto' } : {}),
+		...(reasoningModel
+			? { max_completion_tokens: 1000, reasoning_effort: 'minimal' }
+			: { temperature: 0.3, max_tokens: 700 }),
+	});
+
+	let response = await fetch(`${baseUrl}/chat/completions`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${apiKey}`,
+			'Content-Type': 'application/json',
+		},
+		body,
+	});
+
+	if (response.status === 429) {
+		const errText = await response.text();
+		const waitSeconds = Number(errText.match(/try again in ([0-9.]+)s/)?.[1] ?? 4);
+		const waitMs = Math.min(Math.max(waitSeconds, 1), 12) * 1000;
+		serverLogger.warn({ waitMs }, 'OpenAI rate limited, retrying once');
+		await new Promise((resolve) => setTimeout(resolve, waitMs));
+		response = await fetch(`${baseUrl}/chat/completions`, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${apiKey}`,
+				'Content-Type': 'application/json',
+			},
+			body,
+		});
+	}
+
+	return response;
+}
+
 export const askAi = command(askAiSchema, async ({ message, history, context }) => {
 	await requireUser();
 
@@ -623,7 +692,10 @@ export const askAi = command(askAiSchema, async ({ message, history, context }) 
 		};
 	}
 
-	const contextBlock = await buildContextBlock(context);
+	const [contextBlock, scope] = await Promise.all([
+		buildContextBlock(context),
+		resolveAiSeasonScope(context),
+	]);
 	const systemPrompt = [
 		COACH_SYSTEM_PROMPT,
 		wrapTag('task', AI_TASK),
@@ -631,80 +703,65 @@ export const askAi = command(askAiSchema, async ({ message, history, context }) 
 	].join('\n\n');
 
 	const recentHistory = history.slice(-8).map((turn) => ({
-		role: turn.role,
+		role: turn.role as 'user' | 'assistant',
 		content: turn.content.length > 1500 ? `${turn.content.slice(0, 1500)}…` : turn.content,
 	}));
 
-	const messages = [
-		{ role: 'system' as const, content: systemPrompt },
+	const messages: ChatMessage[] = [
+		{ role: 'system', content: systemPrompt },
 		...recentHistory,
-		{ role: 'user' as const, content: message },
+		{ role: 'user', content: message },
 	];
+	const tools = scope ? AI_DATA_TOOLS : undefined;
 
 	try {
-		// gpt-5 and o-series reject temperature and max_tokens.
-		const reasoningModel = model.startsWith('gpt-5') || /^o\d/.test(model);
-		const body = JSON.stringify(
-			reasoningModel
-				? {
-						model,
-						max_completion_tokens: 1000,
-						reasoning_effort: 'minimal',
-						messages,
-					}
-				: {
-						model,
-						temperature: 0.3,
-						max_tokens: 700,
-						messages,
-					}
-		);
+		for (let round = 0; round < 4; round++) {
+			const response = await completeChat(baseUrl, apiKey, model, messages, tools);
 
-		let response = await fetch(`${baseUrl}/chat/completions`, {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-			},
-			body,
-		});
-
-		if (response.status === 429) {
-			const errText = await response.text();
-			const waitSeconds = Number(errText.match(/try again in ([0-9.]+)s/)?.[1] ?? 4);
-			const waitMs = Math.min(Math.max(waitSeconds, 1), 12) * 1000;
-			serverLogger.warn({ waitMs }, 'OpenAI rate limited, retrying once');
-			await new Promise((resolve) => setTimeout(resolve, waitMs));
-			response = await fetch(`${baseUrl}/chat/completions`, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${apiKey}`,
-					'Content-Type': 'application/json',
-				},
-				body,
-			});
-		}
-
-		if (!response.ok) {
-			const errText = await response.text();
-			serverLogger.error({ status: response.status, errText }, 'OpenAI request failed');
-			if (response.status === 429) {
+			if (!response.ok) {
+				const errText = await response.text();
+				serverLogger.error({ status: response.status, errText }, 'OpenAI request failed');
+				if (response.status === 429) {
+					return {
+						reply: 'The assistant is busy right now. Wait a few seconds and ask again.',
+					};
+				}
 				return {
-					reply: 'The assistant is busy right now. Wait a few seconds and ask again.',
+					reply: "I couldn't reach the coaching assistant just now. Try again in a moment.",
 				};
 			}
+
+			const data = (await response.json()) as {
+				choices?: { message?: { content?: string | null; tool_calls?: ToolCall[] } }[];
+			};
+			const choice = data.choices?.[0]?.message;
+			const toolCalls = choice?.tool_calls?.filter((call) => call.function?.name) ?? [];
+
+			if (toolCalls.length && round < 3) {
+				messages.push({
+					role: 'assistant',
+					content: choice?.content ?? null,
+					tool_calls: toolCalls,
+				});
+				for (const call of toolCalls) {
+					const result = await runAiDataTool(call.function.name, call.function.arguments, scope);
+					messages.push({
+						role: 'tool',
+						tool_call_id: call.id,
+						content: result.slice(0, 8000),
+					});
+				}
+				continue;
+			}
+
+			const reply = choice?.content?.trim();
 			return {
-				reply: "I couldn't reach the coaching assistant just now. Try again in a moment.",
+				reply: reply || "I don't see that in the data right now. What's our next play?",
 			};
 		}
 
-		const data = (await response.json()) as {
-			choices?: { message?: { content?: string } }[];
-		};
-		const reply = data.choices?.[0]?.message?.content?.trim();
-
 		return {
-			reply: reply || "I don't see that in the data right now. What's our next play?",
+			reply: "I don't see that in the data right now. What's our next play?",
 		};
 	} catch (err) {
 		serverLogger.error(err, 'askAi failed');
