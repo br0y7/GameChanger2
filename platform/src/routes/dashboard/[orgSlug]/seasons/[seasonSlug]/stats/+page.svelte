@@ -11,6 +11,7 @@
 	} from '$lib/api/season.remote';
 	import { getSeasonTeams, getSeasonGames } from '$lib/api/league-manage.remote';
 	import { gameTypeLabel } from '$lib/schemas/game';
+	import { formatTeamRecord } from '$lib/stats/standings';
 	import AnimatedNumber from '$lib/components/AnimatedNumber.svelte';
 	import type { PageProps } from './$types';
 	import BackLink from '$lib/components/BackLink.svelte';
@@ -402,7 +403,10 @@
 										<tr>
 											<th class="px-4 py-3 font-medium tabular-nums">#</th>
 											<th class="px-3 py-3 font-medium">Team</th>
-											<th class="px-4 py-3 text-right font-medium tabular-nums">W–L</th>
+											<th class="px-4 py-3 text-right font-medium tabular-nums">
+												Before playoffs
+											</th>
+											<th class="px-4 py-3 text-right font-medium tabular-nums">Playoffs</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -418,7 +422,20 @@
 													</a>
 												</td>
 												<td class="px-4 py-3 text-right font-semibold tabular-nums">
-													{row.wins}–{row.losses}
+													{formatTeamRecord({
+														wins: row.wins,
+														losses: row.losses,
+														ties: row.ties,
+													})}
+												</td>
+												<td class="px-4 py-3 text-right font-semibold tabular-nums">
+													{row.playoffGames > 0
+														? formatTeamRecord({
+																wins: row.playoffWins,
+																losses: row.playoffLosses,
+																ties: row.playoffTies,
+															})
+														: '—'}
 												</td>
 											</tr>
 										{/each}

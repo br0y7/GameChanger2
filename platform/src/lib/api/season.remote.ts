@@ -21,9 +21,10 @@ import type { CrudAction, ResourceTarget } from '$lib/forms/types';
 import { isJerseyNumberTeamName } from '$lib/import/team-match';
 import { mergeDuplicateTeamsForSeason } from '$lib/import/duplicate-teams.server';
 import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
-import { regularSeasonStandings } from '$lib/stats/standings';
+import { playoffRecords, regularSeasonStandings } from '$lib/stats/standings';
 import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { seasonAveragesFromGames } from '$lib/stats/season-averages';
+import { loadSeasonOverviewBoards } from '$lib/server/season-overview.server';
 
 const includes = {
 	organization: z.boolean().optional(),
@@ -383,10 +384,9 @@ export const getSeasonStandings = query(
 		});
 
 		return scoped.map((division) => {
-			const ranked = regularSeasonStandings(
-				division.teams.map((team) => team.id),
-				scoredGames
-			);
+			const teamIds = division.teams.map((team) => team.id);
+			const ranked = regularSeasonStandings(teamIds, scoredGames);
+			const playoffs = new Map(playoffRecords(teamIds, scoredGames).map((row) => [row.teamId, row]));
 			const teamById = new Map(division.teams.map((team) => [team.id, team]));
 			return {
 				id: division.id,
@@ -395,6 +395,7 @@ export const getSeasonStandings = query(
 				rows: ranked.flatMap((standing) => {
 					const team = teamById.get(standing.teamId);
 					if (!team) return [];
+					const playoff = playoffs.get(standing.teamId);
 					return [
 						{
 							teamId: team.id,
@@ -402,7 +403,12 @@ export const getSeasonStandings = query(
 							slug: team.slug,
 							wins: standing.wins,
 							losses: standing.losses,
+							ties: standing.ties,
 							rank: standing.rank,
+							playoffWins: playoff?.wins ?? 0,
+							playoffLosses: playoff?.losses ?? 0,
+							playoffTies: playoff?.ties ?? 0,
+							playoffGames: playoff?.gamesPlayed ?? 0,
 						},
 					];
 				}),
@@ -410,6 +416,10 @@ export const getSeasonStandings = query(
 		});
 	}
 );
+
+export const getSeasonOverviewBoards = query(z.object({ seasonId: idField }), async ({ seasonId }) => {
+	return loadSeasonOverviewBoards(seasonId);
+});
 
 export const getLeagueRecentActivity = query.live(
 	z.object({
