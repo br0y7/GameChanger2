@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { regularSeasonStandings, type StandingGame } from './standings';
+import { playoffRecords, regularSeasonStandings, type StandingGame } from './standings';
 
 function game(
 	id: string,
@@ -64,5 +64,48 @@ describe('regularSeasonStandings', () => {
 		const rows = regularSeasonStandings(['a', 'b', 'c', 'd'], games);
 		expect(rows.find((row) => row.teamId === 'a')).toMatchObject({ wins: 2, losses: 1, rank: 1 });
 		expect(rows.find((row) => row.teamId === 'b')).toMatchObject({ wins: 2, losses: 1, rank: 2 });
+	});
+});
+
+describe('playoffRecords', () => {
+	test('counts only postseason games', () => {
+		const games = [
+			game('regular', 'a', 'b', 40, 30, 10, 'regular'),
+			game('quarter', 'a', 'c', 50, 40, 20, 'playoff'),
+			game('semi', 'a', 'b', 45, 42, 21, 'semifinal'),
+			game('final', 'a', 'd', 38, 41, 22, 'finals'),
+		];
+
+		const rows = playoffRecords(['a', 'b', 'c', 'd'], games);
+		expect(rows.find((row) => row.teamId === 'a')).toMatchObject({
+			wins: 2,
+			losses: 1,
+			gamesPlayed: 3,
+		});
+		expect(rows.find((row) => row.teamId === 'b')).toMatchObject({
+			wins: 0,
+			losses: 1,
+			gamesPlayed: 1,
+		});
+		expect(rows.find((row) => row.teamId === 'c')).toMatchObject({
+			wins: 0,
+			losses: 1,
+			gamesPlayed: 1,
+		});
+		expect(rows.find((row) => row.teamId === 'd')).toMatchObject({
+			wins: 1,
+			losses: 0,
+			gamesPlayed: 1,
+		});
+	});
+
+	test('a team that missed the playoffs stays at 0-0', () => {
+		const games = [game('final', 'a', 'b', 20, 18, 22, 'finals')];
+		const rows = playoffRecords(['a', 'b', 'c'], games);
+		expect(rows.find((row) => row.teamId === 'c')).toMatchObject({
+			wins: 0,
+			losses: 0,
+			gamesPlayed: 0,
+		});
 	});
 });

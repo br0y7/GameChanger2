@@ -1,4 +1,4 @@
-import { isRegularSeasonGameType } from '$lib/schemas/game';
+import { isPostseasonGameType, isRegularSeasonGameType } from '$lib/schemas/game';
 import { dedupeMatchups, type MatchupIdentity } from '$lib/stats/matchup';
 
 export type StandingGame = MatchupIdentity & {
@@ -16,6 +16,16 @@ export type TeamStanding = {
 	rank: number;
 };
 
+export type TeamRecord = {
+	teamId: string;
+	wins: number;
+	losses: number;
+	ties: number;
+	pointsFor: number;
+	pointsAgainst: number;
+	gamesPlayed: number;
+};
+
 /** Regular-season games inside the division. A playoff listing on the same day does not remove these. */
 export function regularSeasonGames<T extends MatchupIdentity>(
 	games: T[],
@@ -29,6 +39,64 @@ export function regularSeasonGames<T extends MatchupIdentity>(
 				isRegularSeasonGameType(game.gameType)
 		)
 	);
+}
+
+/** Playoff, semifinal, finals, and third-place games inside the division. */
+export function playoffGames<T extends MatchupIdentity>(
+	games: T[],
+	teamIds: ReadonlySet<string>
+): T[] {
+	return dedupeMatchups(
+		games.filter(
+			(game) =>
+				teamIds.has(game.homeTeamId) &&
+				teamIds.has(game.awayTeamId) &&
+				isPostseasonGameType(game.gameType)
+		)
+	);
+}
+
+export function formatTeamRecord(row: { wins: number; losses: number; ties?: number }) {
+	return row.ties ? `${row.wins}–${row.losses}–${row.ties}` : `${row.wins}–${row.losses}`;
+}
+
+function recordFromGames(teamId: string, games: StandingGame[]): TeamRecord {
+	let wins = 0;
+	let losses = 0;
+	let ties = 0;
+	let pointsFor = 0;
+	let pointsAgainst = 0;
+
+	for (const game of games) {
+		if (game.homeTeamId !== teamId && game.awayTeamId !== teamId) continue;
+		const isHome = game.homeTeamId === teamId;
+		const teamScore = isHome ? game.homeTeamScore : game.awayTeamScore;
+		const oppScore = isHome ? game.awayTeamScore : game.homeTeamScore;
+		pointsFor += teamScore;
+		pointsAgainst += oppScore;
+		if (teamScore === oppScore) {
+			ties += 1;
+			continue;
+		}
+		if (teamScore > oppScore) wins += 1;
+		else losses += 1;
+	}
+
+	return {
+		teamId,
+		wins,
+		losses,
+		ties,
+		pointsFor,
+		pointsAgainst,
+		gamesPlayed: wins + losses + ties,
+	};
+}
+
+/** Playoff W–L for each team. Teams that did not play a postseason game stay at 0–0. */
+export function playoffRecords(teamIds: string[], games: StandingGame[]): TeamRecord[] {
+	const postseason = playoffGames(games, new Set(teamIds));
+	return teamIds.map((teamId) => recordFromGames(teamId, postseason));
 }
 
 function winPercentage(row: { wins: number; losses: number }) {
@@ -60,30 +128,10 @@ export function regularSeasonStandings(teamIds: string[], games: StandingGame[])
 	const ids = new Set(teamIds);
 	const regular = regularSeasonGames(games, ids);
 
-	const rows: TeamStanding[] = teamIds.map((teamId) => {
-		let wins = 0;
-		let losses = 0;
-		let ties = 0;
-		let pointsFor = 0;
-		let pointsAgainst = 0;
-
-		for (const game of regular) {
-			if (game.homeTeamId !== teamId && game.awayTeamId !== teamId) continue;
-			const isHome = game.homeTeamId === teamId;
-			const teamScore = isHome ? game.homeTeamScore : game.awayTeamScore;
-			const oppScore = isHome ? game.awayTeamScore : game.homeTeamScore;
-			pointsFor += teamScore;
-			pointsAgainst += oppScore;
-			if (teamScore === oppScore) {
-				ties += 1;
-				continue;
-			}
-			if (teamScore > oppScore) wins += 1;
-			else losses += 1;
-		}
-
-		return { teamId, wins, losses, ties, pointsFor, pointsAgainst, rank: 0 };
-	});
+	const rows: TeamStanding[] = teamIds.map((teamId) => ({
+		...recordFromGames(teamId, regular),
+		rank: 0,
+	}));
 
 	const byRecord = new Map<string, TeamStanding[]>();
 	for (const row of rows) {
