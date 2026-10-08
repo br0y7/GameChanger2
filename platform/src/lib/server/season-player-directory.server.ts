@@ -46,7 +46,8 @@ export async function loadSeasonPlayerLines(seasonId: string): Promise<SeasonPla
 			for (const rosterPlayer of team.players) {
 				const games = rosterPlayer.gameStats
 					.filter((stat) => playerAppearedOnSheet(stat))
-					.map((stat) => derivePlayerGameStats(stat));
+					.map((stat) => derivePlayerGameStats(stat))
+					.filter((stat) => !stat.pointsOnly);
 				if (!games.length) continue;
 				const stats = derivePlayerStats(games);
 				const gp = games.length;

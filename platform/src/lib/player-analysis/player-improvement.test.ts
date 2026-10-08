@@ -124,6 +124,8 @@ describe('playerProgressFromGames', () => {
 		const progress = playerProgressFromGames(games, 's8');
 		const rebounds = progress.metrics.find((metric) => metric.key === 'rebounds');
 		const fg = progress.metrics.find((metric) => metric.key === 'fgPct');
+		const points = progress.metrics.find((metric) => metric.key === 'points');
+		expect(points?.season).toBe(11);
 		expect(rebounds?.season).toBe(5);
 		expect(fg?.season).toBeCloseTo(9 / 20);
 	});

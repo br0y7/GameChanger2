@@ -7,7 +7,7 @@ import { ensurePlayerGameRatings } from '$lib/server/game-rating.server';
 import { count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import * as table from '$lib/server/db/schema';
-import { seasonAveragesFromGames } from '$lib/stats/season-averages';
+import { leaderAveragesFromGames, seasonAveragesFromGames } from '$lib/stats/season-averages';
 import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
 
 export const getPlayerGameStats = query(
@@ -97,13 +97,15 @@ async function getTeamPlayerSeasonAverages(teamId: string) {
 	return players
 		.map((player) => {
 			const derived = player.gameStats.filter(playerAppearedOnSheet).map(derivePlayerGameStats);
-			if (!derived.length) return null;
+			const averages = seasonAveragesFromGames(derived);
+			if (!averages.gamesPlayed) return null;
 
 			return {
 				playerId: player.id,
 				name: player.name,
 				jerseyNumber: player.jerseyNumber,
-				averages: seasonAveragesFromGames(derived),
+				averages,
+				boxAverages: leaderAveragesFromGames(derived),
 			};
 		})
 		.filter((player) => player !== null)
@@ -123,17 +125,18 @@ export const getTeamLeaders = query.live(z.object({ teamId: idField }), ({ teamI
 			const playerAverages = await getTeamPlayerSeasonAverages(teamId);
 
 			return teamLeaderCategories.map(({ key, label }) => {
-				const leader = playerAverages.reduce<(typeof playerAverages)[number] | null>(
+				const boxLeaders = playerAverages.filter((player) => player.boxAverages);
+				const leader = boxLeaders.reduce<(typeof boxLeaders)[number] | null>(
 					(best, player) => {
-						const value = player.averages[key];
+						const value = player.boxAverages?.[key];
 						if (value == null) return best;
-						if (!best || (best.averages[key] ?? -Infinity) < value) return player;
+						if (!best || (best.boxAverages?.[key] ?? -Infinity) < value) return player;
 						return best;
 					},
 					null
 				);
 
-				const value = leader?.averages[key];
+				const value = leader?.boxAverages?.[key];
 				return {
 					key,
 					label,

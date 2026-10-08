@@ -244,7 +244,8 @@ export const getPublicPlayerLeaders = query(
 							s.game.status === 'completed' &&
 							playerAppearedOnSheet(s)
 					)
-					.map((s) => derivePlayerGameStats(s as Parameters<typeof derivePlayerGameStats>[0]));
+					.map((s) => derivePlayerGameStats(s as Parameters<typeof derivePlayerGameStats>[0]))
+					.filter((s) => !s.pointsOnly);
 				const gp = derived.length;
 				const avg = (pick: (s: (typeof derived)[number]) => number) =>
 					gp ? derived.reduce((a, s) => a + pick(s), 0) / gp : 0;
@@ -320,7 +321,8 @@ export const getPublicPlayer = query(
 					s.game.status === 'completed' &&
 					playerAppearedOnSheet(s)
 			)
-			.map((s) => derivePlayerGameStats(s as Parameters<typeof derivePlayerGameStats>[0]));
+			.map((s) => derivePlayerGameStats(s as Parameters<typeof derivePlayerGameStats>[0]))
+			.filter((s) => !s.pointsOnly);
 		const gp = derived.length;
 		const avg = (pick: (s: (typeof derived)[number]) => number) =>
 			gp ? Math.round((derived.reduce((a, s) => a + pick(s), 0) / gp) * 10) / 10 : 0;

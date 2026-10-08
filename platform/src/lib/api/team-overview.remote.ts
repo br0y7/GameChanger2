@@ -347,13 +347,12 @@ export const getTeamOverview = query.live(
 					label: string,
 					suffix: string
 				) => {
-					const leader = playerAverages.reduce<(typeof playerAverages)[number] | null>(
-						(best, p) => {
+					const leader = playerAverages
+						.filter((p) => p.hasBoxScore)
+						.reduce<(typeof playerAverages)[number] | null>((best, p) => {
 							if (!best || p[key] > best[key]) return p;
 							return best;
-						},
-						null
-					);
+						}, null);
 
 					return {
 						key,

@@ -24,7 +24,7 @@ import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
 import { divisionPlaceForTeam, playoffFinishLabel } from '$lib/stats/division-place';
 import { playoffRecords, regularSeasonStandings } from '$lib/stats/standings';
 import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
-import { seasonAveragesFromGames } from '$lib/stats/season-averages';
+import { leaderAveragesFromGames } from '$lib/stats/season-averages';
 import { loadSeasonOverviewBoards } from '$lib/server/season-overview.server';
 
 const includes = {
@@ -310,7 +310,8 @@ export const getSeasonPlayerStats = query(
 									derivePlayerGameStats(stat as Parameters<typeof derivePlayerGameStats>[0])
 								);
 							if (!derived.length) return null;
-							const averages = seasonAveragesFromGames(derived);
+							const averages = leaderAveragesFromGames(derived);
+							if (!averages) return null;
 							return {
 								playerId: player.id,
 								name: player.name,

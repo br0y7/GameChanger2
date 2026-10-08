@@ -177,7 +177,7 @@ export function playerProgressFromGames(
 
 	const boxRecorded = (stat: SeasonGame) => !stat.pointsOnly;
 	const metrics: ImprovementMetric[] = [
-		countingMetric('points', 'Scoring', seasonGames, recentGames, (stat) => stat.pts, () => true),
+		countingMetric('points', 'Scoring', seasonGames, recentGames, (stat) => stat.pts, boxRecorded),
 		countingMetric(
 			'rebounds',
 			'Rebounding',

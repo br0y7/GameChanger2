@@ -408,7 +408,8 @@ export const getFamilyPlayerHome = query.live(z.object({ playerId: idField }), (
 				return aAt - bAt;
 			});
 
-			const gp = chronological.length;
+			const box = chronological.filter((stat) => !stat.pointsOnly);
+			const gp = box.length;
 			const analysisStats = derivePlayerStats(chronological);
 			const rawAvg = (key: keyof typeof analysisStats.raw) => analysisStats.raw[key].average ?? 0;
 			const derivedAvg = (key: keyof typeof analysisStats.derived) =>

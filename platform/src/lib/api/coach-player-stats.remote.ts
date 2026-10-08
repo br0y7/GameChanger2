@@ -82,13 +82,14 @@ function buildRow(
 	player: { id: string; name: string; jerseyNumber: string },
 	stats: WithGame<PlayerGameStats>[]
 ) {
-	const gp = stats.length;
-	const pts = sumBy(stats, (s) => s.pts);
-	const reb = sumBy(stats, (s) => s.reb);
-	const ast = sumBy(stats, (s) => s.ast);
-	const stl = sumBy(stats, (s) => s.stl);
-	const blk = sumBy(stats, (s) => s.blk);
-	const tov = sumBy(stats, (s) => s.tov);
+	const box = stats.filter((s) => !s.pointsOnly);
+	const gp = box.length;
+	const pts = sumBy(box, (s) => s.pts);
+	const reb = sumBy(box, (s) => s.reb);
+	const ast = sumBy(box, (s) => s.ast);
+	const stl = sumBy(box, (s) => s.stl);
+	const blk = sumBy(box, (s) => s.blk);
+	const tov = sumBy(box, (s) => s.tov);
 
 	return {
 		playerId: player.id,
@@ -109,19 +110,19 @@ function buildRow(
 		topg: gp ? tov / gp : 0,
 		fgPct:
 			shootingPercentageBy(
-				stats.filter((s) => !s.pointsOnly),
+				box,
 				(s) => s.fgm,
 				(s) => s.fga
 			) ?? null,
 		fg3Pct:
 			shootingPercentageBy(
-				stats.filter((s) => !s.pointsOnly),
+				box,
 				(s) => s.fg3m,
 				(s) => s.fg3a
 			) ?? null,
 		ftPct:
 			shootingPercentageBy(
-				stats.filter((s) => !s.pointsOnly),
+				box,
 				(s) => s.ftm,
 				(s) => s.fta
 			) ?? null,
@@ -349,7 +350,7 @@ export const getCoachPlayerDetail = query.live(
 					teamSize,
 				};
 
-				const last3 = gameLog.slice(0, 3);
+				const last3 = gameLog.filter((game) => !game.pointsOnly).slice(0, 3);
 				const last3Avg = (pick: (g: (typeof last3)[number]) => number) =>
 					last3.length ? last3.reduce((a, g) => a + pick(g), 0) / last3.length : 0;
 

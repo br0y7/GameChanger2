@@ -187,11 +187,22 @@ describe('lineupPlayerFromGames', () => {
 			game({ pointsOnly: true, pts: 8, gameRating: null }),
 		]);
 
-		expect(profile?.points).toBe(8);
+		expect(profile?.points).toBe(0);
 		expect(profile?.hasBoxScore).toBe(false);
 		expect(profile?.offensiveRebounds).toBeNull();
 		expect(profile?.trueShootingPct).toBeNull();
-		expect(profile ? starterScore(profile) : 0).toBe(8);
+		expect(profile ? starterScore(profile) : 0).toBe(0);
+	});
+
+	test('does not let points-only games pull down leader PPG', () => {
+		const profile = lineupPlayerFromGames({ playerId: 'p', name: 'Mix', jerseyNumber: '7' }, [
+			game({ pointsOnly: true, pts: 20 }),
+			game({ pts: 10, oreb: 1, dreb: 3, ast: 2, fgm: 4, fga: 8 }),
+		]);
+
+		expect(profile?.hasBoxScore).toBe(true);
+		expect(profile?.points).toBe(10);
+		expect(profile?.assists).toBe(2);
 	});
 
 	test('averages box rates, shooting, and recent form from the latest rated games', () => {
