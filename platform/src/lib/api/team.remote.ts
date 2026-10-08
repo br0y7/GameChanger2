@@ -396,7 +396,15 @@ export const getTeam = query.live(
 					);
 				}
 
-				return team;
+				if (!include.players) return team;
+
+				const seasonId = await seasonIdForTeam(team.id);
+				if (seasonId) await mergeDuplicateTeamsForSeason(seasonId);
+				const fresh = await db.query.team.findFirst({
+					where: { id: team.id },
+					with: include,
+				});
+				return fresh ?? team;
 			},
 			(team, change) => isPlayerIdentityChange(change, { teamId: team.id })
 		)

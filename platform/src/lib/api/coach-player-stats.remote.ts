@@ -24,6 +24,7 @@ import { z } from 'zod';
 import { isUserAdmin, requireUser } from './auth.remote';
 import { isUserLeagueOrganizer } from './league.remote';
 import { demoCanViewTeam } from '$lib/server/demo-access.server';
+import { mergeDuplicateTeamsForSeason } from '$lib/import/duplicate-teams.server';
 import type { PlayerGameStats, WithGame } from '$lib/schemas/player-game-stat';
 import type { Game } from '$lib/server/db/schema';
 
@@ -222,6 +223,7 @@ export const getCoachTeamPlayerStats = query.live(z.object({ teamId: idField }),
 		async () => {
 			await assertCoachTeamView(teamId);
 			const seasonId = await teamSeasonId(teamId);
+			if (seasonId) await mergeDuplicateTeamsForSeason(seasonId);
 
 			const players = await db.query.player.findMany({
 				where: { teamId },
@@ -419,6 +421,7 @@ export const getCoachTeamDevelopment = query.live(z.object({ teamId: idField }),
 		async () => {
 			await assertCoachTeamView(teamId);
 			const seasonId = await teamSeasonId(teamId);
+			if (seasonId) await mergeDuplicateTeamsForSeason(seasonId);
 
 			const players = await db.query.player.findMany({
 				where: { teamId },
