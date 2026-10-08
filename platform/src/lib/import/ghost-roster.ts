@@ -79,3 +79,19 @@ export function ghostRosterMatches(players: RosterIdentity[]): GhostRosterMatch[
 	}
 	return matches;
 }
+
+/** After a reupload, leftover roster rows with no box-score games are not real players. */
+export function unusedImportPlayerIds(
+	players: Array<{
+		id: string;
+		gamesPlayed: number;
+		userId?: string | null;
+		followerCount?: number;
+	}>
+): string[] {
+	return players
+		.filter(
+			(player) => player.gamesPlayed === 0 && !player.userId && !(player.followerCount ?? 0)
+		)
+		.map((player) => player.id);
+}

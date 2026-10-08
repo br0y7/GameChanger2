@@ -6,7 +6,10 @@ import { slugify } from '$lib/utils/string';
 import { dedupeMatchups } from '$lib/stats/matchup';
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { purgeJerseyNumberTeamsForSeason } from './jersey-number-teams.server';
-import { purgeGhostRosterPlayersForSeason } from './ghost-roster.server';
+import {
+	purgeGhostRosterPlayersForSeason,
+	purgePlayersWithNoGamesForSeason,
+} from './ghost-roster.server';
 
 type TeamRow = {
 	id: string;
@@ -234,5 +237,6 @@ export async function mergeDuplicateTeamsForSeason(seasonId: string) {
 		await retitleSeasonGames(seasonId);
 	}
 	await purgeGhostRosterPlayersForSeason(seasonId);
+	await purgePlayersWithNoGamesForSeason(seasonId);
 	return removed;
 }

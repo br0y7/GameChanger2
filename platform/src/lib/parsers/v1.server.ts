@@ -393,9 +393,9 @@ function parseGameSheet(
 				continue;
 			}
 
-			// A jersey kept as text ("00", "04") is still a player on the open team.
-			// Treating it as a team name splits the roster and leaves a fake 00 / 04 team.
-			if (typeof first === 'string' && isJerseyNumberTeamName(first)) {
+			// A jersey kept as text ("00", "04") or as a number (5) is still a player.
+			// Treating it as a team name splits the roster and dumps those players onto Team 5.
+			if (isJerseyNumberTeamName(String(first))) {
 				if (currentTeam && currentHeaders.length > 0 && !resultOnlyGame) {
 					currentTeam.playerStats.push(
 						parseStatsRow(row, currentHeaders, gameName, currentTeam.name, currentPointsOnly)

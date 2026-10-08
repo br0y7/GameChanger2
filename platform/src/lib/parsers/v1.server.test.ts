@@ -186,6 +186,26 @@ describe('points only', () => {
 		expect(game.homeTeam.playerStats.find((row) => row.jerseyNumber === '00')?.recordedPts).toBe(4);
 	});
 
+	test('does not treat Dads jersey 5 as a third team named 5', () => {
+		const game = parseSheet('Team 1 vs Team 5', [
+			['Category', 'Dads'],
+			['Team 1', 40],
+			['Player No.', 'PTS'],
+			[4, 12],
+			['5', 8],
+			[6, 6],
+			['Team 5', 35],
+			['Player No.', 'PTS'],
+			[1, 15],
+			[2, 10],
+		]);
+
+		expect(game.homeTeam.name).toBe('Team 1');
+		expect(game.awayTeam.name).toBe('Team 5');
+		expect(game.homeTeam.playerStats.map((row) => row.jerseyNumber)).toEqual(['4', '5', '6']);
+		expect(game.awayTeam.playerStats.map((row) => row.jerseyNumber)).toEqual(['1', '2']);
+	});
+
 	test('does not create a team named 00 or 04', () => {
 		const game = parseSheet('Teal Green vs Dark Blue', [
 			['Category', 'girls'],

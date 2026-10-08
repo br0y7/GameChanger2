@@ -27,6 +27,10 @@ import { calendarDay, staleDivisionGameIds } from '$lib/import/game-identity';
 import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
 import { isPostseasonGameType, resolveImportedGameType } from '$lib/schemas/game';
 import { pickExistingTeam, readableTeamName, isJerseyNumberTeamName } from '$lib/import/team-match';
+import {
+	purgeGhostRosterPlayersForSeason,
+	purgePlayersWithNoGamesForDivision,
+} from '$lib/import/ghost-roster.server';
 import { slugify } from '$lib/utils/string';
 import { eq, inArray } from 'drizzle-orm';
 import { rawStatKeys } from '$lib/schemas/player-game-stat';
@@ -596,6 +600,9 @@ export const savePreview = command(
 					await tx.delete(table.team).where(inArray(table.team.id, jerseyTeamIds));
 				}
 			});
+
+			await purgePlayersWithNoGamesForDivision(divisionId);
+			await purgeGhostRosterPlayersForSeason(season.id);
 
 			const ratings = await recalibrateOrganizationRatings(season.organizationId);
 			serverLogger.info('saved stats', {
