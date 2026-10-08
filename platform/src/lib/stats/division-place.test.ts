@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { divisionPlaceForTeam, divisionPlaceLabel, type PlacementGame } from './division-place';
+import {
+	divisionPlaceForTeam,
+	divisionPlaceLabel,
+	playoffFinishLabel,
+	type PlacementGame,
+} from './division-place';
 
 const finals: PlacementGame = {
 	gameType: 'finals',
@@ -129,5 +134,21 @@ describe('divisionPlaceForTeam', () => {
 				},
 			])
 		).toBeNull();
+	});
+});
+
+describe('playoffFinishLabel', () => {
+	test('uses 1st through 4th when the finish is known', () => {
+		expect(playoffFinishLabel('division_winner')).toBe('1st');
+		expect(playoffFinishLabel('second')).toBe('2nd');
+		expect(playoffFinishLabel('third')).toBe('3rd');
+		expect(playoffFinishLabel('semis_lost')).toBe('3rd');
+		expect(playoffFinishLabel('fourth')).toBe('4th');
+	});
+
+	test('is blank when there is no finish yet', () => {
+		expect(playoffFinishLabel(null)).toBeNull();
+		expect(playoffFinishLabel('first_round')).toBeNull();
+		expect(playoffFinishLabel('semifinals')).toBeNull();
 	});
 });

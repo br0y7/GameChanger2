@@ -21,6 +21,7 @@ import type { CrudAction, ResourceTarget } from '$lib/forms/types';
 import { isJerseyNumberTeamName } from '$lib/import/team-match';
 import { mergeDuplicateTeamsForSeason } from '$lib/import/duplicate-teams.server';
 import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
+import { divisionPlaceForTeam, playoffFinishLabel } from '$lib/stats/division-place';
 import { playoffRecords, regularSeasonStandings } from '$lib/stats/standings';
 import { derivePlayerGameStats, playerAppearedOnSheet } from '$lib/stats/player-game-stats';
 import { seasonAveragesFromGames } from '$lib/stats/season-averages';
@@ -388,6 +389,9 @@ export const getSeasonStandings = query(
 			const ranked = regularSeasonStandings(teamIds, scoredGames);
 			const playoffs = new Map(playoffRecords(teamIds, scoredGames).map((row) => [row.teamId, row]));
 			const teamById = new Map(division.teams.map((team) => [team.id, team]));
+			const divisionGames = scoredGames.filter(
+				(game) => teamIds.includes(game.homeTeamId) && teamIds.includes(game.awayTeamId)
+			);
 			return {
 				id: division.id,
 				name: division.name,
@@ -396,6 +400,19 @@ export const getSeasonStandings = query(
 					const team = teamById.get(standing.teamId);
 					if (!team) return [];
 					const playoff = playoffs.get(standing.teamId);
+					const place = playoffFinishLabel(
+						divisionPlaceForTeam(
+							standing.teamId,
+							divisionGames.map((game) => ({
+								gameType: game.gameType ?? 'regular',
+								homeTeamId: game.homeTeamId,
+								awayTeamId: game.awayTeamId,
+								homeScore: game.homeTeamScore,
+								awayScore: game.awayTeamScore,
+								completedAt: (game.completedAt ?? game.scheduledAt ?? new Date(0)).getTime(),
+							}))
+						)
+					);
 					return [
 						{
 							teamId: team.id,
@@ -409,6 +426,7 @@ export const getSeasonStandings = query(
 							playoffLosses: playoff?.losses ?? 0,
 							playoffTies: playoff?.ties ?? 0,
 							playoffGames: playoff?.gamesPlayed ?? 0,
+							place,
 						},
 					];
 				}),
