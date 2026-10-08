@@ -1,8 +1,19 @@
 import type { PlayerGameStats } from '$lib/schemas/player-game-stat';
 import { averageBy, shootingPercentageBy } from '$lib/utils/collection';
 
+export function boxScoreGames<T extends { pointsOnly?: boolean }>(stats: T[]): T[] {
+	return stats.filter((stat) => !stat.pointsOnly);
+}
+
+/** Leaderboards skip points-only sheets so 0-reb / 0-ast lines do not drag averages. */
+export function leaderAveragesFromGames(stats: PlayerGameStats[]) {
+	const box = boxScoreGames(stats);
+	if (box.length === 0) return null;
+	return seasonAveragesFromGames(box);
+}
+
 export function seasonAveragesFromGames(stats: PlayerGameStats[]) {
-	const box = stats.filter((stat) => !stat.pointsOnly);
+	const box = boxScoreGames(stats);
 	const fgPct = shootingPercentageBy(
 		box,
 		(stat) => stat.fgm,
@@ -20,11 +31,10 @@ export function seasonAveragesFromGames(stats: PlayerGameStats[]) {
 	) ?? null;
 
 	const avg = (pick: (stat: PlayerGameStats) => number) => averageBy(box, pick) ?? 0;
-	const points = averageBy(stats, (stat) => stat.pts) ?? 0;
 
 	return {
-		gamesPlayed: stats.length,
-		points,
+		gamesPlayed: box.length,
+		points: avg((stat) => stat.pts),
 		rebounds: avg((stat) => stat.reb),
 		assists: avg((stat) => stat.ast),
 		steals: avg((stat) => stat.stl),

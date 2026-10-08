@@ -172,7 +172,7 @@ export function lineupPlayerFromGames(
 		name: identity.name,
 		jerseyNumber: identity.jerseyNumber,
 		gamesPlayed: games.length,
-		points: averageBy(games, (game) => game.pts) ?? 0,
+		points: averageBy(box, (game) => game.pts) ?? 0,
 		rebounds: hasBoxScore ? (averageBy(box, (game) => game.oreb + game.dreb) ?? 0) : 0,
 		assists: hasBoxScore ? (averageBy(box, (game) => game.ast) ?? 0) : 0,
 		hasBoxScore,

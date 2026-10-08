@@ -24,7 +24,6 @@ const shootingAverageKeys = {
 export const derivePlayerStats = (gameStats: PlayerGameStats[]): PlayerStats => {
 	// Points-only sheets have real points and zeros everywhere else. Those zeros are not a box score.
 	const boxGames = gameStats.filter((stats) => !stats.pointsOnly);
-	const gamesFor = (key: string) => (key === 'pts' ? gameStats : boxGames);
 
 	return {
 		raw: rawStatKeys.reduce(
@@ -42,7 +41,7 @@ export const derivePlayerStats = (gameStats: PlayerGameStats[]): PlayerStats => 
 		),
 		derived: derivedStatKeys.reduce(
 			(obj, key) => {
-				const games = gamesFor(key);
+				const games = boxGames;
 				const shooting = shootingAverageKeys[key as keyof typeof shootingAverageKeys];
 				const average = shooting
 					? shootingPercentageBy(
