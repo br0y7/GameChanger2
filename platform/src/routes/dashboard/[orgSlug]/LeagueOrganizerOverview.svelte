@@ -41,7 +41,8 @@
 		currentSeason ? await getSeasonOverviewBoards({ seasonId: currentSeason.id }) : null
 	);
 
-	let divisionFilter = $state('');
+	let leaderDivisionSlug = $state('');
+	let leaderStatKey = $state('points');
 
 	const suggestedSeason = $derived(
 		[...seasons].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
@@ -87,10 +88,19 @@
 
 	const invitedCoaches = $derived(coaches.filter((c) => c.status === 'invited').length);
 
-	const visibleDivisions = $derived.by(() => {
-		if (!overviewBoards) return [];
-		if (!divisionFilter) return overviewBoards.divisions;
-		return overviewBoards.divisions.filter((division) => division.slug === divisionFilter);
+	const recordDivisions = $derived(overviewBoards?.divisions ?? []);
+	const leaderStatOptions = $derived(recordDivisions[0]?.boards ?? []);
+	const selectedLeaderDivision = $derived.by(() => {
+		if (!recordDivisions.length) return null;
+		return recordDivisions.find((division) => division.slug === leaderDivisionSlug) ?? recordDivisions[0];
+	});
+	const selectedLeaderBoard = $derived.by(() => {
+		if (!selectedLeaderDivision) return null;
+		return (
+			selectedLeaderDivision.boards.find((board) => board.key === leaderStatKey) ??
+			selectedLeaderDivision.boards[0] ??
+			null
+		);
 	});
 
 	function teamHref(divisionSlug: string, teamSlug: string) {
@@ -408,31 +418,6 @@
 		</section>
 
 		{#if currentSeason && overviewBoards}
-			{#if overviewBoards.divisions.length > 1}
-				<div class="flex flex-wrap gap-2">
-					<button
-						type="button"
-						class="rounded-md px-3 py-1.5 text-sm font-medium {divisionFilter === ''
-							? 'bg-[#58A6FF] text-[#0D1117]'
-							: 'border border-[#2A3038] bg-[#0D1117] text-[#E6EDF3] hover:border-[#58A6FF]'}"
-						onclick={() => (divisionFilter = '')}
-					>
-						All divisions
-					</button>
-					{#each overviewBoards.divisions as division (division.id)}
-						<button
-							type="button"
-							class="rounded-md px-3 py-1.5 text-sm font-medium {divisionFilter === division.slug
-								? 'bg-[#58A6FF] text-[#0D1117]'
-								: 'border border-[#2A3038] bg-[#0D1117] text-[#E6EDF3] hover:border-[#58A6FF]'}"
-							onclick={() => (divisionFilter = division.slug)}
-						>
-							{division.name}
-						</button>
-					{/each}
-				</div>
-			{/if}
-
 			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
 				<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
 					Division Records
@@ -441,11 +426,11 @@
 					{currentSeason.name} · how each division stands before playoffs and in the playoffs.
 				</p>
 
-				{#if visibleDivisions.length === 0}
+				{#if recordDivisions.length === 0}
 					<p class="mt-4 text-sm text-[#8B949E]">No divisions in this season yet.</p>
 				{:else}
-					<div class="mt-4 grid gap-4 {visibleDivisions.length > 1 ? 'md:grid-cols-2' : ''}">
-						{#each visibleDivisions as division (division.id)}
+					<div class="mt-4 grid gap-4 {recordDivisions.length > 1 ? 'md:grid-cols-2' : ''}">
+						{#each recordDivisions as division (division.id)}
 							<div class="overflow-hidden rounded-xl border border-[#2A3038] bg-[#0D1117]">
 								<h3
 									class="border-b border-[#2A3038] px-4 py-3 text-sm font-semibold tracking-wide text-[#8B949E] uppercase"
@@ -512,64 +497,76 @@
 			</section>
 
 			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
-				<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
-					Season Leaders
-				</h2>
-				<p class="mt-1 text-sm text-[#8B949E]">
-					{currentSeason.name} · top 5 in each stat category.
-				</p>
+				<div class="flex flex-wrap items-end justify-between gap-3">
+					<div>
+						<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
+							Season Leaders
+						</h2>
+						<p class="mt-1 text-sm text-[#8B949E]">
+							{currentSeason.name} · pick a division and a stat.
+						</p>
+					</div>
+					<div class="flex flex-wrap gap-2">
+						{#if recordDivisions.length > 1}
+							<label class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">
+								Division
+								<select
+									class="mt-1 block rounded-md border border-[#2A3038] bg-[#0D1117] px-3 py-2 text-sm font-medium text-[#E6EDF3] normal-case"
+									value={selectedLeaderDivision?.slug ?? ''}
+									onchange={(event) => {
+										leaderDivisionSlug = event.currentTarget.value;
+									}}
+								>
+									{#each recordDivisions as division (division.id)}
+										<option value={division.slug}>{division.name}</option>
+									{/each}
+								</select>
+							</label>
+						{/if}
+						{#if leaderStatOptions.length > 0}
+							<label class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">
+								Stat
+								<select
+									class="mt-1 block rounded-md border border-[#2A3038] bg-[#0D1117] px-3 py-2 text-sm font-medium text-[#E6EDF3] normal-case"
+									value={selectedLeaderBoard?.key ?? leaderStatKey}
+									onchange={(event) => {
+										leaderStatKey = event.currentTarget.value;
+									}}
+								>
+									{#each leaderStatOptions as board (board.key)}
+										<option value={board.key}>{board.label}</option>
+									{/each}
+								</select>
+							</label>
+						{/if}
+					</div>
+				</div>
 
-				{#if visibleDivisions.every((division) => division.boards.every((board) => board.leaders.length === 0))}
+				{#if !selectedLeaderBoard || selectedLeaderBoard.leaders.length === 0}
 					<p class="mt-4 text-sm text-[#8B949E]">No player stats yet — import a spreadsheet.</p>
 				{:else}
-					<div class="mt-4 space-y-6">
-						{#each visibleDivisions as division (division.id)}
-							<div>
-								{#if visibleDivisions.length > 1}
-									<h3 class="mb-3 text-sm font-semibold">{division.name}</h3>
-								{/if}
-								{#if division.boards.every((board) => board.leaders.length === 0)}
-									<p class="text-sm text-[#8B949E]">No player stats yet.</p>
-								{:else}
-									<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-										{#each division.boards as board (board.key)}
-											<div class="rounded-xl border border-[#2A3038] bg-[#0D1117] p-4">
-												<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">
-													{board.label}
-												</p>
-												{#if board.leaders.length === 0}
-													<p class="mt-3 text-sm text-[#8B949E]">—</p>
-												{:else}
-													<ol class="mt-3 space-y-2">
-														{#each board.leaders as leader (`${board.key}-${leader.playerId}`)}
-															<li class="flex items-baseline justify-between gap-2 text-sm">
-																<a
-																	href={playerHref(leader)}
-																	class="min-w-0 truncate hover:text-[#58A6FF] hover:underline"
-																>
-																	<span class="text-[#8B949E] tabular-nums"
-																		>{leader.tied ? 'T' : ''}{leader.place}.</span
-																	>
-																	{leader.name}
-																	<span class="text-[#8B949E]">{leader.teamName}</span>
-																</a>
-																<span class="shrink-0 font-semibold tabular-nums">
-																	{formatAvg(leader.value)}
-																	<span class="text-xs font-medium text-[#8B949E]"
-																		>{board.suffix}</span
-																	>
-																</span>
-															</li>
-														{/each}
-													</ol>
-												{/if}
-											</div>
-										{/each}
-									</div>
-								{/if}
-							</div>
+					<ol class="mt-4 divide-y divide-[#2A3038] overflow-hidden rounded-xl border border-[#2A3038] bg-[#0D1117]">
+						{#each selectedLeaderBoard.leaders as leader (`${selectedLeaderBoard.key}-${leader.playerId}`)}
+							<li>
+								<a
+									href={playerHref(leader)}
+									class="flex items-baseline justify-between gap-3 px-4 py-3 text-sm hover:bg-[#161B22]"
+								>
+									<span class="min-w-0 truncate">
+										<span class="text-[#8B949E] tabular-nums"
+											>{leader.tied ? 'T' : ''}{leader.place}.</span
+										>
+										{leader.name}
+										<span class="text-[#8B949E]">{leader.teamName}</span>
+									</span>
+									<span class="shrink-0 font-semibold tabular-nums">
+										{formatAvg(leader.value)}
+										<span class="text-xs font-medium text-[#8B949E]">{selectedLeaderBoard.suffix}</span>
+									</span>
+								</a>
+							</li>
 						{/each}
-					</div>
+					</ol>
 				{/if}
 			</section>
 		{/if}

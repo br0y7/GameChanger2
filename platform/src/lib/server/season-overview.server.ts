@@ -19,7 +19,7 @@ export const overviewLeaderKeys = [
 	{ key: 'blocks', label: 'Blocks', suffix: 'BPG' },
 ] as const satisfies ReadonlyArray<{ key: RankedStatKey; label: string; suffix: string }>;
 
-const overviewLeaderLimit = 5;
+const overviewLeaderLimit = 10;
 
 export type SeasonOverviewLeader = {
 	playerId: string;
