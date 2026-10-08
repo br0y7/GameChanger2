@@ -2,8 +2,8 @@ import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { serverLogger } from '$lib/server/logger';
 import { playerAppearedOnSheet } from '$lib/stats/player-game-stats';
-import { eq } from 'drizzle-orm';
-import { ghostRosterMatches, type RosterIdentity } from './ghost-roster';
+import { eq, inArray } from 'drizzle-orm';
+import { ghostRosterMatches, unusedImportPlayerIds, type RosterIdentity } from './ghost-roster';
 import { isJerseyNumberTeamName } from './team-match';
 
 export async function purgeGhostRosterPlayersForSeason(seasonId: string) {
@@ -88,6 +88,56 @@ export async function purgeGhostRosterPlayersForSeason(seasonId: string) {
 			seasonId,
 			removed,
 		});
+	}
+	return removed;
+}
+
+/** Reupload rewrites box scores but used to leave the leftover player rows in place. */
+export async function purgePlayersWithNoGamesForDivision(divisionId: string) {
+	const teams = await db.query.team.findMany({
+		where: { divisionId },
+		columns: { id: true, name: true },
+		with: {
+			players: {
+				columns: { id: true, userId: true },
+				with: {
+					gameStats: true,
+					followers: { columns: { id: true } },
+				},
+			},
+		},
+	});
+
+	const ids = unusedImportPlayerIds(
+		teams
+			.filter((team) => !isJerseyNumberTeamName(team.name))
+			.flatMap((team) =>
+				team.players.map((player) => ({
+					id: player.id,
+					userId: player.userId,
+					followerCount: player.followers.length,
+					gamesPlayed: player.gameStats.filter((stat) => playerAppearedOnSheet(stat)).length,
+				}))
+			)
+	);
+	if (ids.length === 0) return 0;
+
+	await db.delete(table.player).where(inArray(table.player.id, ids));
+	serverLogger.info('removed leftover roster players with no games after import', {
+		divisionId,
+		removed: ids.length,
+	});
+	return ids.length;
+}
+
+export async function purgePlayersWithNoGamesForSeason(seasonId: string) {
+	const divisions = await db.query.division.findMany({
+		where: { seasonId },
+		columns: { id: true },
+	});
+	let removed = 0;
+	for (const division of divisions) {
+		removed += await purgePlayersWithNoGamesForDivision(division.id);
 	}
 	return removed;
 }

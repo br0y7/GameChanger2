@@ -4,6 +4,7 @@ import {
 	isPlaceholderPlayerName,
 	jerseyMatchKey,
 	normalizeRosterName,
+	unusedImportPlayerIds,
 } from './ghost-roster';
 
 describe('normalizeRosterName', () => {
@@ -189,5 +190,18 @@ describe('jerseyMatchKey', () => {
 	test('treats 01 and 1 as the same number', () => {
 		expect(jerseyMatchKey('01')).toBe(jerseyMatchKey('1'));
 		expect(jerseyMatchKey('00')).toBe('0');
+	});
+});
+
+describe('unusedImportPlayerIds', () => {
+	test('drops 0-GP leftovers a reupload leaves on the wrong team', () => {
+		expect(
+			unusedImportPlayerIds([
+				{ id: 'played', gamesPlayed: 4 },
+				{ id: 'ghost', gamesPlayed: 0 },
+				{ id: 'linked', gamesPlayed: 0, userId: 'user-1' },
+				{ id: 'followed', gamesPlayed: 0, followerCount: 1 },
+			])
+		).toEqual(['ghost']);
 	});
 });
