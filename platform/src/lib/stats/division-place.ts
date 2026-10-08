@@ -35,6 +35,23 @@ export function divisionPlaceLabel(place: DivisionPlace): string {
 	}
 }
 
+/** Standings finish: 1st–4th when the place is known, otherwise blank. */
+export function playoffFinishLabel(place: DivisionPlace | null | undefined): string | null {
+	switch (place) {
+		case 'division_winner':
+			return '1st';
+		case 'second':
+			return '2nd';
+		case 'third':
+		case 'semis_lost':
+			return '3rd';
+		case 'fourth':
+			return '4th';
+		default:
+			return null;
+	}
+}
+
 function played(games: PlacementGame[], teamId: string, gameType: string) {
 	return games.some(
 		(game) =>

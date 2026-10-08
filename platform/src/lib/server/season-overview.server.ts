@@ -2,7 +2,7 @@ import { db } from '$lib/server/db';
 import { mergeDuplicateTeamsForSeason } from '$lib/import/duplicate-teams.server';
 import { isJerseyNumberTeamName } from '$lib/import/team-match';
 import { correctFalsePlayoffTypes } from '$lib/stats/matchup';
-import { divisionPlaceForTeam, divisionPlaceLabel } from '$lib/stats/division-place';
+import { divisionPlaceForTeam, playoffFinishLabel } from '$lib/stats/division-place';
 import {
 	displayRankValue,
 	rankedLeaders,
@@ -195,7 +195,7 @@ export async function loadSeasonOverviewBoards(seasonId: string): Promise<Season
 							playoffLosses: playoff?.losses ?? 0,
 							playoffTies: playoff?.ties ?? 0,
 							playoffGames: playoff?.gamesPlayed ?? 0,
-							place: place ? divisionPlaceLabel(place) : null,
+							place: playoffFinishLabel(place),
 						},
 					];
 				}),

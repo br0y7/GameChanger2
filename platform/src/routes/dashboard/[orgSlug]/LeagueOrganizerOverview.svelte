@@ -452,6 +452,7 @@
 														Before playoffs
 													</th>
 													<th class="px-4 py-3 text-right font-medium tabular-nums">Playoffs</th>
+													<th class="px-4 py-3 text-right font-medium">Place</th>
 												</tr>
 											</thead>
 											<tbody>
@@ -484,6 +485,7 @@
 																	})
 																: '—'}
 														</td>
+														<td class="px-4 py-3 text-right">{row.place ?? ''}</td>
 													</tr>
 												{/each}
 											</tbody>
