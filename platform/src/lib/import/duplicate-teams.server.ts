@@ -1,10 +1,12 @@
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
 import { serverLogger } from '$lib/server/logger';
-import { preferredTeamName, teamMatchKey } from './team-match';
+import { isJerseyNumberTeamName, preferredTeamName, teamMatchKey } from './team-match';
 import { slugify } from '$lib/utils/string';
 import { dedupeMatchups } from '$lib/stats/matchup';
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
+import { purgeJerseyNumberTeamsForSeason } from './jersey-number-teams.server';
+import { purgeGhostRosterPlayersForSeason } from './ghost-roster.server';
 
 type TeamRow = {
 	id: string;
@@ -46,6 +48,7 @@ async function mergeDuplicateTeams(divisionId: string) {
 
 	const groups = new Map<string, TeamRow[]>();
 	for (const team of rows) {
+		if (isJerseyNumberTeamName(team.name)) continue;
 		const key = teamMatchKey(team.name);
 		if (!key) continue;
 		const list = groups.get(key) ?? [];
@@ -216,6 +219,8 @@ async function retitleSeasonGames(seasonId: string) {
 }
 
 export async function mergeDuplicateTeamsForSeason(seasonId: string) {
+	await purgeJerseyNumberTeamsForSeason(seasonId);
+
 	const divisions = await db.query.division.findMany({
 		where: { seasonId },
 		columns: { id: true },
@@ -228,5 +233,6 @@ export async function mergeDuplicateTeamsForSeason(seasonId: string) {
 		await collapseDuplicateGames(seasonId);
 		await retitleSeasonGames(seasonId);
 	}
+	await purgeGhostRosterPlayersForSeason(seasonId);
 	return removed;
 }

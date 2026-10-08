@@ -36,20 +36,26 @@ const COLOR_PLURALS: Record<string, string> = {
 	grays: 'gray',
 };
 
-/** "Team Red", "Team Reds", "RED", and "Red" are the same team. */
+/**
+ * "Team Red", "Team Reds", "RED", and "Red" are the same team.
+ * "Team 5" is not jersey "5" — that leftover sheet row must not fold into Dads Team 5.
+ */
 export function teamMatchKey(name: string): string {
-	const key = name
-		.trim()
-		.toLowerCase()
-		.replace(/^team\s+/, '')
-		.replace(/[^a-z0-9]+/g, '');
+	const trimmed = name.trim().toLowerCase();
+	const withoutPrefix = trimmed.replace(/^team\s+/, '');
+	if (/^\d+$/.test(withoutPrefix) && /^team\s+/.test(trimmed)) {
+		return trimmed.replace(/[^a-z0-9]+/g, '');
+	}
+	const key = withoutPrefix.replace(/[^a-z0-9]+/g, '');
 	return COLOR_PLURALS[key] ?? key;
 }
 
-/** Keep "Red" over "Team Reds" when folding duplicate rows. */
+/** Keep "Red" over "Team Reds" when folding duplicate rows. Never prefer jersey "5" over "Team 5". */
 export function preferredTeamName(names: string[]): string {
-	const withoutPrefix = names.filter((name) => !/^team\s+/i.test(name.trim()));
-	const pool = withoutPrefix.length ? withoutPrefix : names;
+	const named = names.filter((name) => !isJerseyNumberTeamName(name));
+	const source = named.length ? named : names;
+	const withoutPrefix = source.filter((name) => !/^team\s+/i.test(name.trim()));
+	const pool = withoutPrefix.length ? withoutPrefix : source;
 	const shortest = [...pool].sort((a, b) => a.length - b.length)[0] ?? names[0] ?? '';
 	return readableTeamName(shortest);
 }
@@ -62,10 +68,14 @@ export function pickExistingTeam<T extends { name: string; slug?: string | null 
 	const exact = teams.find((team) => team.name.trim().toLowerCase() === trimmed);
 	if (exact) return exact;
 
+	if (isJerseyNumberTeamName(name)) return undefined;
+
 	const key = teamMatchKey(name);
 	if (!key) return undefined;
 
-	const matches = teams.filter((team) => teamMatchKey(team.name) === key);
+	const matches = teams.filter(
+		(team) => !isJerseyNumberTeamName(team.name) && teamMatchKey(team.name) === key
+	);
 	if (matches.length === 0) return undefined;
 	if (matches.length === 1) return matches[0];
 

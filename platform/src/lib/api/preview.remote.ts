@@ -130,14 +130,14 @@ async function saveTeam(tx: Transaction, teamPreview: TeamPreview, divisionId: s
 		if (byId) return useReadableTeamName(tx, byId);
 	}
 
-	const existing = pickExistingTeam(divisionTeams, teamPreview.name);
-	if (existing) return useReadableTeamName(tx, existing);
-
 	if (isJerseyNumberTeamName(teamPreview.name)) {
 		throw new Error(
 			`"${teamPreview.name}" is a jersey number, not a team. Put it under Player No.`
 		);
 	}
+
+	const existing = pickExistingTeam(divisionTeams, teamPreview.name);
+	if (existing) return useReadableTeamName(tx, existing);
 
 	const name = readableTeamName(teamPreview.name);
 	const slug = slugify(name);
