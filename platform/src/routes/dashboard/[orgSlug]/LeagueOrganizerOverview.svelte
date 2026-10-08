@@ -562,8 +562,17 @@
 										<span class="text-[#8B949E]">{leader.teamName}</span>
 									</span>
 									<span class="shrink-0 font-semibold tabular-nums">
-										{formatAvg(leader.value)}
-										<span class="text-xs font-medium text-[#8B949E]">{selectedLeaderBoard.suffix}</span>
+										{#if selectedLeaderBoard.suffix === '%'}
+											{(leader.value * 100).toLocaleString('en-US', {
+												minimumFractionDigits: 1,
+												maximumFractionDigits: 1,
+											})}%
+										{:else}
+											{formatAvg(leader.value)}
+											<span class="text-xs font-medium text-[#8B949E]"
+												>{selectedLeaderBoard.suffix}</span
+											>
+										{/if}
 									</span>
 								</a>
 							</li>
