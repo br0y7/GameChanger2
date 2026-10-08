@@ -17,6 +17,14 @@ export const overviewLeaderKeys = [
 	{ key: 'assists', label: 'Assists', suffix: 'APG' },
 	{ key: 'steals', label: 'Steals', suffix: 'SPG' },
 	{ key: 'blocks', label: 'Blocks', suffix: 'BPG' },
+	{ key: 'oreb', label: 'Offensive Rebounds', suffix: 'ORPG' },
+	{ key: 'dreb', label: 'Defensive Rebounds', suffix: 'DRPG' },
+	{ key: 'threes', label: 'Threes', suffix: '3PM' },
+	{ key: 'fts', label: 'Free Throws', suffix: 'FTM' },
+	{ key: 'fg', label: 'FG%', suffix: '%' },
+	{ key: 'fg3', label: '3P%', suffix: '%' },
+	{ key: 'ft', label: 'FT%', suffix: '%' },
+	{ key: 'ts', label: 'True Shooting', suffix: '%' },
 ] as const satisfies ReadonlyArray<{ key: RankedStatKey; label: string; suffix: string }>;
 
 const overviewLeaderLimit = 10;
