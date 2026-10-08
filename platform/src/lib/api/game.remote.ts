@@ -130,6 +130,7 @@ export const getTopGamePerformances = query.live(
 							playerName: stat.player.name,
 							gameId: game.id,
 							opponentName: (isHome ? game.awayTeam?.name : game.homeTeam?.name) ?? 'Opponent',
+							playedAt: game.completedAt ?? game.scheduledAt ?? null,
 							rating: stat.gameRating,
 							meaning: ratingMeaning(stat.gameRating),
 						});

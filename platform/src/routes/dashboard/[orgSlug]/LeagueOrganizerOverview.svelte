@@ -15,6 +15,7 @@
 	import { getDemoAccess } from '$lib/api/demo.remote';
 	import type { Organization } from '$lib/server/db/auth-schema';
 	import AnimatedNumber from '$lib/components/AnimatedNumber.svelte';
+	import { formatGameLogDate } from '$lib/schemas/game';
 	import { formatTeamRecord } from '$lib/stats/standings';
 
 	let { org }: { org: Organization } = $props();
@@ -34,7 +35,7 @@
 	);
 	const activity = $derived(await getLeagueRecentActivity({ organizationId: org.id, limit: 8 }));
 	const topPerformances = $derived(
-		currentSeason ? await getTopGamePerformances({ seasonId: currentSeason.id, limit: 5 }) : []
+		currentSeason ? await getTopGamePerformances({ seasonId: currentSeason.id, limit: 10 }) : []
 	);
 	const overviewBoards = $derived(
 		currentSeason ? await getSeasonOverviewBoards({ seasonId: currentSeason.id }) : null
@@ -316,166 +317,6 @@
 			</section>
 		{/if}
 
-		{#if currentSeason && overviewBoards}
-			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
-				<div class="flex flex-wrap items-end justify-between gap-3">
-					<div>
-						<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
-							Leaders & Records
-						</h2>
-						<p class="mt-1 text-sm text-[#8B949E]">
-							{currentSeason.name} · points leaders and each team’s record before playoffs and in
-							the playoffs.
-						</p>
-					</div>
-					{#if statsHref}
-						<a href={statsHref} class="text-sm font-medium text-[#58A6FF] hover:underline">
-							Full stats →
-						</a>
-					{/if}
-				</div>
-
-				{#if overviewBoards.divisions.length > 1}
-					<div class="mt-4 flex flex-wrap gap-2">
-						<button
-							type="button"
-							class="rounded-md px-3 py-1.5 text-sm font-medium {divisionFilter === ''
-								? 'bg-[#58A6FF] text-[#0D1117]'
-								: 'border border-[#2A3038] bg-[#0D1117] text-[#E6EDF3] hover:border-[#58A6FF]'}"
-							onclick={() => (divisionFilter = '')}
-						>
-							All divisions
-						</button>
-						{#each overviewBoards.divisions as division (division.id)}
-							<button
-								type="button"
-								class="rounded-md px-3 py-1.5 text-sm font-medium {divisionFilter === division.slug
-									? 'bg-[#58A6FF] text-[#0D1117]'
-									: 'border border-[#2A3038] bg-[#0D1117] text-[#E6EDF3] hover:border-[#58A6FF]'}"
-								onclick={() => (divisionFilter = division.slug)}
-							>
-								{division.name}
-							</button>
-						{/each}
-					</div>
-				{/if}
-
-				{#if visibleDivisions.length === 0}
-					<p class="mt-4 text-sm text-[#8B949E]">No divisions in this season yet.</p>
-				{:else}
-					<div class="mt-5 space-y-8">
-						{#each visibleDivisions as division (division.id)}
-							<div class="space-y-4">
-								<h3 class="text-lg font-bold">{division.name}</h3>
-
-								{#if division.boards.every((board) => board.leaders.length === 0)}
-									<p class="text-sm text-[#8B949E]">No player stats yet.</p>
-								{:else}
-									<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-										{#each division.boards as board (board.key)}
-											<div class="rounded-xl border border-[#2A3038] bg-[#0D1117] p-4">
-												<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">
-													{board.label}
-												</p>
-												{#if board.leaders.length === 0}
-													<p class="mt-3 text-sm text-[#8B949E]">—</p>
-												{:else}
-													<ol class="mt-3 space-y-2">
-														{#each board.leaders as leader (`${board.key}-${leader.playerId}`)}
-															<li class="flex items-baseline justify-between gap-2 text-sm">
-																<a
-																	href={playerHref(leader)}
-																	class="min-w-0 truncate hover:text-[#58A6FF] hover:underline"
-																>
-																	<span class="text-[#8B949E] tabular-nums"
-																		>{leader.tied ? 'T' : ''}{leader.place}.</span
-																	>
-																	{leader.name}
-																	<span class="text-[#8B949E]">{leader.teamName}</span>
-																</a>
-																<span class="shrink-0 font-semibold tabular-nums">
-																	{formatAvg(leader.value)}
-																	<span class="text-xs font-medium text-[#8B949E]"
-																		>{board.suffix}</span
-																	>
-																</span>
-															</li>
-														{/each}
-													</ol>
-												{/if}
-											</div>
-										{/each}
-									</div>
-								{/if}
-
-								{#if division.rows.length === 0}
-									<p class="text-sm text-[#8B949E]">No teams yet.</p>
-								{:else}
-									<div class="overflow-hidden rounded-xl border border-[#2A3038] bg-[#0D1117]">
-										<div class="overflow-x-auto">
-											<table class="w-full text-left text-sm">
-												<thead
-													class="border-b border-[#2A3038] text-xs tracking-wide text-[#8B949E] uppercase"
-												>
-													<tr>
-														<th class="px-4 py-3 font-medium tabular-nums">#</th>
-														<th class="px-3 py-3 font-medium">Team</th>
-														<th class="px-4 py-3 text-right font-medium tabular-nums">
-															Before playoffs
-														</th>
-														<th class="px-4 py-3 text-right font-medium tabular-nums">
-															Playoffs
-														</th>
-														<th class="px-4 py-3 text-right font-medium">Place</th>
-													</tr>
-												</thead>
-												<tbody>
-													{#each division.rows as row (row.teamId)}
-														<tr
-															class="border-b border-[#2A3038]/60 last:border-0 hover:bg-[#161B22]/80"
-														>
-															<td class="px-4 py-3 text-[#8B949E] tabular-nums">{row.rank}</td>
-															<td class="px-3 py-3">
-																<a
-																	href={teamHref(division.slug, row.slug)}
-																	class="font-medium hover:text-[#58A6FF] hover:underline"
-																>
-																	{row.name}
-																</a>
-															</td>
-															<td class="px-4 py-3 text-right font-semibold tabular-nums">
-																{formatTeamRecord({
-																	wins: row.regularWins,
-																	losses: row.regularLosses,
-																	ties: row.regularTies,
-																})}
-															</td>
-															<td class="px-4 py-3 text-right font-semibold tabular-nums">
-																{row.playoffGames > 0
-																	? formatTeamRecord({
-																			wins: row.playoffWins,
-																			losses: row.playoffLosses,
-																			ties: row.playoffTies,
-																		})
-																	: '—'}
-															</td>
-															<td class="px-4 py-3 text-right text-[#8B949E]">
-																{row.place ?? '—'}
-															</td>
-														</tr>
-													{/each}
-												</tbody>
-											</table>
-										</div>
-									</div>
-								{/if}
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</section>
-		{/if}
-
 		{#if actionItems.length > 0}
 			<section class="rounded-2xl border border-[#F0A020]/40 bg-[#161B22] p-5 sm:p-6">
 				<h2 class="text-sm font-semibold tracking-wide text-[#F0A020] uppercase">
@@ -566,16 +407,184 @@
 			</div>
 		</section>
 
+		{#if currentSeason && overviewBoards}
+			{#if overviewBoards.divisions.length > 1}
+				<div class="flex flex-wrap gap-2">
+					<button
+						type="button"
+						class="rounded-md px-3 py-1.5 text-sm font-medium {divisionFilter === ''
+							? 'bg-[#58A6FF] text-[#0D1117]'
+							: 'border border-[#2A3038] bg-[#0D1117] text-[#E6EDF3] hover:border-[#58A6FF]'}"
+						onclick={() => (divisionFilter = '')}
+					>
+						All divisions
+					</button>
+					{#each overviewBoards.divisions as division (division.id)}
+						<button
+							type="button"
+							class="rounded-md px-3 py-1.5 text-sm font-medium {divisionFilter === division.slug
+								? 'bg-[#58A6FF] text-[#0D1117]'
+								: 'border border-[#2A3038] bg-[#0D1117] text-[#E6EDF3] hover:border-[#58A6FF]'}"
+							onclick={() => (divisionFilter = division.slug)}
+						>
+							{division.name}
+						</button>
+					{/each}
+				</div>
+			{/if}
+
+			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
+				<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
+					Division Records
+				</h2>
+				<p class="mt-1 text-sm text-[#8B949E]">
+					{currentSeason.name} · how each division stands before playoffs and in the playoffs.
+				</p>
+
+				{#if visibleDivisions.length === 0}
+					<p class="mt-4 text-sm text-[#8B949E]">No divisions in this season yet.</p>
+				{:else}
+					<div class="mt-4 grid gap-4 {visibleDivisions.length > 1 ? 'md:grid-cols-2' : ''}">
+						{#each visibleDivisions as division (division.id)}
+							<div class="overflow-hidden rounded-xl border border-[#2A3038] bg-[#0D1117]">
+								<h3
+									class="border-b border-[#2A3038] px-4 py-3 text-sm font-semibold tracking-wide text-[#8B949E] uppercase"
+								>
+									{division.name}
+								</h3>
+								{#if division.rows.length === 0}
+									<p class="px-4 py-3 text-sm text-[#8B949E]">No teams yet.</p>
+								{:else}
+									<div class="overflow-x-auto">
+										<table class="w-full text-left text-sm">
+											<thead
+												class="border-b border-[#2A3038] text-xs tracking-wide text-[#8B949E] uppercase"
+											>
+												<tr>
+													<th class="px-4 py-3 font-medium tabular-nums">#</th>
+													<th class="px-3 py-3 font-medium">Team</th>
+													<th class="px-4 py-3 text-right font-medium tabular-nums">
+														Before playoffs
+													</th>
+													<th class="px-4 py-3 text-right font-medium tabular-nums">Playoffs</th>
+												</tr>
+											</thead>
+											<tbody>
+												{#each division.rows as row (row.teamId)}
+													<tr
+														class="border-b border-[#2A3038]/60 last:border-0 hover:bg-[#161B22]/80"
+													>
+														<td class="px-4 py-3 text-[#8B949E] tabular-nums">{row.rank}</td>
+														<td class="px-3 py-3">
+															<a
+																href={teamHref(division.slug, row.slug)}
+																class="font-medium hover:text-[#58A6FF] hover:underline"
+															>
+																{row.name}
+															</a>
+														</td>
+														<td class="px-4 py-3 text-right font-semibold tabular-nums">
+															{formatTeamRecord({
+																wins: row.regularWins,
+																losses: row.regularLosses,
+																ties: row.regularTies,
+															})}
+														</td>
+														<td class="px-4 py-3 text-right font-semibold tabular-nums">
+															{row.playoffGames > 0
+																? formatTeamRecord({
+																		wins: row.playoffWins,
+																		losses: row.playoffLosses,
+																		ties: row.playoffTies,
+																	})
+																: '—'}
+														</td>
+													</tr>
+												{/each}
+											</tbody>
+										</table>
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</section>
+
+			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
+				<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
+					Season Leaders
+				</h2>
+				<p class="mt-1 text-sm text-[#8B949E]">
+					{currentSeason.name} · top 5 in each stat category.
+				</p>
+
+				{#if visibleDivisions.every((division) => division.boards.every((board) => board.leaders.length === 0))}
+					<p class="mt-4 text-sm text-[#8B949E]">No player stats yet — import a spreadsheet.</p>
+				{:else}
+					<div class="mt-4 space-y-6">
+						{#each visibleDivisions as division (division.id)}
+							<div>
+								{#if visibleDivisions.length > 1}
+									<h3 class="mb-3 text-sm font-semibold">{division.name}</h3>
+								{/if}
+								{#if division.boards.every((board) => board.leaders.length === 0)}
+									<p class="text-sm text-[#8B949E]">No player stats yet.</p>
+								{:else}
+									<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+										{#each division.boards as board (board.key)}
+											<div class="rounded-xl border border-[#2A3038] bg-[#0D1117] p-4">
+												<p class="text-xs font-medium tracking-wide text-[#8B949E] uppercase">
+													{board.label}
+												</p>
+												{#if board.leaders.length === 0}
+													<p class="mt-3 text-sm text-[#8B949E]">—</p>
+												{:else}
+													<ol class="mt-3 space-y-2">
+														{#each board.leaders as leader (`${board.key}-${leader.playerId}`)}
+															<li class="flex items-baseline justify-between gap-2 text-sm">
+																<a
+																	href={playerHref(leader)}
+																	class="min-w-0 truncate hover:text-[#58A6FF] hover:underline"
+																>
+																	<span class="text-[#8B949E] tabular-nums"
+																		>{leader.tied ? 'T' : ''}{leader.place}.</span
+																	>
+																	{leader.name}
+																	<span class="text-[#8B949E]">{leader.teamName}</span>
+																</a>
+																<span class="shrink-0 font-semibold tabular-nums">
+																	{formatAvg(leader.value)}
+																	<span class="text-xs font-medium text-[#8B949E]"
+																		>{board.suffix}</span
+																	>
+																</span>
+															</li>
+														{/each}
+													</ol>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</section>
+		{/if}
+
 		{#if currentSeason}
 			<section class="rounded-2xl border border-[#2A3038] bg-[#161B22] p-5 sm:p-6">
 				<h2 class="text-sm font-semibold tracking-wide text-[#8B949E] uppercase">
-					Top Game Performances
+					Top 10 Performances
 				</h2>
+				<p class="mt-1 text-sm text-[#8B949E]">{currentSeason.name} · highest Game Ratings.</p>
 				{#if topPerformances.length === 0}
 					<p class="mt-3 text-sm text-[#8B949E]">Ratings appear here after games are calibrated.</p>
 				{:else}
-					<ul class="mt-3 space-y-2">
-						{#each topPerformances as row (`${row.gameId}-${row.playerId}`)}
+					<ol class="mt-3 space-y-2">
+						{#each topPerformances as row, index (`${row.gameId}-${row.playerId}`)}
 							<li>
 								<a
 									href={resolve('/dashboard/[orgSlug]/seasons/[seasonSlug]/games/[gameId]', {
@@ -585,15 +594,17 @@
 									})}
 									class="flex items-baseline justify-between gap-3 text-sm hover:text-[#58A6FF]"
 								>
-									<span>
+									<span class="min-w-0">
+										<span class="text-[#8B949E] tabular-nums">{index + 1}.</span>
 										{row.playerName}
 										<span class="text-[#8B949E]">vs {row.opponentName}</span>
+										<span class="text-[#8B949E]"> · {formatGameLogDate(row.playedAt)}</span>
 									</span>
-									<span class="font-semibold tabular-nums">{row.rating.toFixed(1)}</span>
+									<span class="shrink-0 font-semibold tabular-nums">{row.rating.toFixed(1)}</span>
 								</a>
 							</li>
 						{/each}
-					</ul>
+					</ol>
 				{/if}
 			</section>
 		{/if}
