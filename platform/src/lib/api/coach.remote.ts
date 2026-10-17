@@ -3,6 +3,7 @@ import { resolve } from '$app/paths';
 import { idField, idOnlySchema } from '$lib/schemas/common';
 import {
 	COACH_STATUS,
+	changeCoachEmailSchema,
 	changeCoachTeamSchema,
 	coachStatusLabels,
 	inviteCoachSchema,
@@ -20,6 +21,7 @@ import { z } from 'zod';
 import { isUserAdmin, getUser, requireUser } from './auth.remote';
 import { isUserLeagueOrganizer } from './league.remote';
 import { demoCanViewLeague, getValidDemoAccess } from '$lib/server/demo-access.server';
+import { getConstraint } from './errors.server';
 
 const INVITE_DAYS = 14;
 
@@ -331,6 +333,77 @@ export const removeCoachAccess = form(idOnlySchema, async ({ id }) => {
 	if (!updated) {
 		return invalid('Coach assignment not found.');
 	}
+
+	return { success: true };
+});
+
+export const changeCoachEmail = form(changeCoachEmailSchema, async ({ id, email }, issue) => {
+	await requireOrganizerOrAdmin();
+	const actor = await requireUser();
+
+	const coach = await db.query.coach.findFirst({ where: { id } });
+	if (!coach || (coach.status !== COACH_STATUS.active && coach.status !== COACH_STATUS.invited)) {
+		return invalid('Coach assignment not found.');
+	}
+
+	const nextEmail = email.trim().toLowerCase();
+	if (!nextEmail) {
+		return invalid(issue.email('Enter an email address.'));
+	}
+
+	const linkedUser = coach.userId
+		? await db.query.user.findFirst({
+				where: { id: coach.userId },
+				columns: { id: true, email: true },
+			})
+		: null;
+
+	if (coach.userId && !linkedUser) {
+		return invalid('This coach account could not be found.');
+	}
+
+	if (coach.email?.toLowerCase() === nextEmail && (!linkedUser || linkedUser.email === nextEmail)) {
+		return { success: true };
+	}
+
+	if (linkedUser) {
+		const taken = await db.query.user.findFirst({
+			where: { email: nextEmail },
+			columns: { id: true },
+		});
+		if (taken && taken.id !== linkedUser.id) {
+			return invalid(issue.email('This email is already being used.'));
+		}
+	}
+
+	try {
+		if (linkedUser) {
+			await db.transaction(async (tx) => {
+				await tx
+					.update(table.user)
+					.set({ email: nextEmail, emailVerified: false })
+					.where(eq(table.user.id, linkedUser.id));
+				await tx
+					.update(table.coach)
+					.set({ email: nextEmail })
+					.where(eq(table.coach.userId, linkedUser.id));
+			});
+		} else {
+			await db.update(table.coach).set({ email: nextEmail }).where(eq(table.coach.id, id));
+		}
+	} catch (err) {
+		if (getConstraint(err)) {
+			return invalid(issue.email('This email is already being used.'));
+		}
+		serverLogger.error(err);
+		return invalid('Something went wrong.');
+	}
+
+	serverLogger.info('changed coach email', {
+		id,
+		userId: coach.userId,
+		by: actor.id,
+	});
 
 	return { success: true };
 });

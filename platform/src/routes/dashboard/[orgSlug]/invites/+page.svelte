@@ -19,6 +19,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
+	import ChangeCoachEmail from '$lib/components/ChangeCoachEmail.svelte';
 	import ClipboardIcon from '@lucide/svelte/icons/clipboard';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import type { PageProps } from './$types';
@@ -305,7 +306,15 @@
 											<td class="py-3">{coach.teamName}</td>
 											<td class="py-3">{coach.statusLabel}</td>
 											<td class="py-3">
-												<div class="flex flex-wrap gap-3">
+												<div class="flex flex-wrap items-start gap-3">
+													{#if coach.status === 'invited' || coach.status === 'active'}
+														<ChangeCoachEmail
+															coachId={coach.id}
+															email={coach.email}
+															hasLogin={coach.status === 'active' && !!coach.userId}
+															onSaved={refreshCoaches}
+														/>
+													{/if}
 													{#if coach.status === 'invited' && coach.inviteUrl}
 														<button
 															type="button"
@@ -317,7 +326,8 @@
 														<form
 															{...resendForm.enhance(async ({ submit }) => {
 																await submit();
-																lastCoachInviteUrl = resendForm.result?.inviteUrl ?? lastCoachInviteUrl;
+																lastCoachInviteUrl =
+																	resendForm.result?.inviteUrl ?? lastCoachInviteUrl;
 																await refreshCoaches();
 															})}
 														>
@@ -391,7 +401,8 @@
 											<option value="">Select a player</option>
 											{#each players as player (player.id)}
 												<option value={player.id}>
-													#{player.jerseyNumber} {player.name} · {player.teamName}
+													#{player.jerseyNumber}
+													{player.name} · {player.teamName}
 												</option>
 											{/each}
 										</select>
