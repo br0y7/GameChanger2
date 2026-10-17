@@ -19,6 +19,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
+	import ChangeCoachEmail from '$lib/components/ChangeCoachEmail.svelte';
 	import ClipboardIcon from '@lucide/svelte/icons/clipboard';
 	import CheckIcon from '@lucide/svelte/icons/check';
 
@@ -215,7 +216,15 @@
 										<td class="py-3">{coachRoleLabels[coach.assignmentRole]}</td>
 										<td class="py-3">{coach.statusLabel}</td>
 										<td class="py-3">
-											<div class="flex flex-wrap gap-3">
+											<div class="flex flex-wrap items-start gap-3">
+												{#if coach.status === 'invited' || coach.status === 'active'}
+													<ChangeCoachEmail
+														coachId={coach.id}
+														email={coach.email}
+														hasLogin={coach.status === 'active' && !!coach.userId}
+														onSaved={refreshCoaches}
+													/>
+												{/if}
 												{#if coach.status === 'invited' && coach.inviteUrl}
 													<button
 														type="button"

@@ -44,6 +44,11 @@ export const changeCoachTeamSchema = z.object({
 	teamId: idField,
 });
 
+export const changeCoachEmailSchema = z.object({
+	id: idField,
+	email: z.email(),
+});
+
 export const coachRoleLabels: Record<CoachAssignmentRole, string> = {
 	head_coach: 'Head Coach',
 	assistant_coach: 'Assistant Coach',
