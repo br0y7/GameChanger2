@@ -20,6 +20,7 @@ COPY package.json bun.lock ./
 
 COPY drizzle.config.ts ./
 COPY drizzle ./drizzle
+COPY scripts/ensure-demo-link-kind.ts ./scripts/ensure-demo-link-kind.ts
 
 # Install runtime dependencies (needed for db:migrate and start scripts)
 RUN bun install --frozen-lockfile --production
