@@ -1,6 +1,6 @@
 import { command, getRequestEvent, query } from '$app/server';
 import { resolve } from '$app/paths';
-import { createDemoLinkSchema } from '$lib/schemas/demo';
+import { createDemoLinkSchema, demoLinkKindLabels, updateDemoLinkViewSchema } from '$lib/schemas/demo';
 import { idOnlySchema } from '$lib/schemas/common';
 import { requireAdmin } from './auth.remote';
 import { db } from '$lib/server/db';
@@ -8,8 +8,6 @@ import * as table from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { badRequest } from '$lib/server/fail';
 import { clearDemoAccessCookie, getValidDemoAccess } from '$lib/server/demo-access.server';
-
-const DEMO_KIND_LABEL = 'Player, coach & stats';
 
 function absoluteDemoUrl(token: string) {
 	const { url } = getRequestEvent();
@@ -42,7 +40,7 @@ export const listDemoLinks = query(async () => {
 		return {
 			id: row.id,
 			kind: row.kind,
-			kindLabel: DEMO_KIND_LABEL,
+			kindLabel: demoLinkKindLabels[row.kind],
 			leagueName: row.organization?.name ?? 'League',
 			targetName: row.organization?.name ?? 'League',
 			url: absoluteDemoUrl(row.token),
@@ -73,7 +71,7 @@ export const createDemoLink = command(createDemoLinkSchema, async (data) => {
 		.insert(table.demoLink)
 		.values({
 			token,
-			kind: 'league',
+			kind: data.kind,
 			organizationId: league.id,
 			playerId: null,
 			teamId: null,
@@ -87,9 +85,25 @@ export const createDemoLink = command(createDemoLinkSchema, async (data) => {
 		id: created.id,
 		url: absoluteDemoUrl(created.token),
 		expiresAt: expiresAt.toISOString(),
-		kind: 'league' as const,
-		kindLabel: DEMO_KIND_LABEL,
+		kind: data.kind,
+		kindLabel: demoLinkKindLabels[data.kind],
 	};
+});
+
+export const updateDemoLinkView = command(updateDemoLinkViewSchema, async ({ id, kind }) => {
+	await requireAdmin();
+
+	const link = await db.query.demoLink.findFirst({
+		where: { id },
+		columns: { id: true, revokedAt: true },
+	});
+	if (!link || link.revokedAt) {
+		badRequest({ resource: 'organization' }, { message: 'Demo link not found.' });
+	}
+
+	await db.update(table.demoLink).set({ kind }).where(eq(table.demoLink.id, id));
+	void listDemoLinks().refresh();
+	return { ok: true as const, kind };
 });
 
 export const revokeDemoLink = command(idOnlySchema, async ({ id }) => {

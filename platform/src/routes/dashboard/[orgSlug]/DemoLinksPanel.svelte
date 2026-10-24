@@ -1,14 +1,26 @@
 <script lang="ts">
 	import ClipboardIcon from '@lucide/svelte/icons/clipboard';
-	import { createDemoLink, listDemoLinks, revokeDemoLink } from '$lib/api/demo.remote';
+	import {
+		createDemoLink,
+		listDemoLinks,
+		revokeDemoLink,
+		updateDemoLinkView,
+	} from '$lib/api/demo.remote';
 	import { listAllLeaguesForAdmin } from '$lib/api/organization.remote';
-	import { demoExpiryDays, type DemoExpiryDays } from '$lib/schemas/demo';
+	import {
+		demoExpiryDays,
+		demoLinkKindLabels,
+		demoLinkKinds,
+		type DemoExpiryDays,
+		type DemoLinkKind,
+	} from '$lib/schemas/demo';
 
 	const leagues = $derived(await listAllLeaguesForAdmin());
 	const links = $derived(await listDemoLinks());
 	const activeLinks = $derived(links.filter((link) => link.active));
 
 	let organizationId = $state('');
+	let kind = $state<DemoLinkKind>('all');
 	let expiresInDays = $state<DemoExpiryDays>(14);
 	let creating = $state(false);
 	let copiedId = $state<string | null>(null);
@@ -34,6 +46,7 @@
 		try {
 			const result = await createDemoLink({
 				organizationId,
+				kind,
 				expiresInDays: Number(expiresInDays) as DemoExpiryDays,
 			});
 			createdUrl = result.url;
@@ -59,7 +72,8 @@
 	<div>
 		<h2 class="text-xl font-semibold">Demo links</h2>
 		<p class="mt-1 text-sm text-[#8B949E]">
-			One link opens player dashboards, coach dashboards, and stats together. No login required.
+			Choose what a link opens. You can change that view later without sending a new link. No login
+			required.
 		</p>
 	</div>
 
@@ -75,6 +89,15 @@
 						<option value={league.id}>{league.name}</option>
 					{/each}
 				{/if}
+			</select>
+		</label>
+
+		<label class="block space-y-1 text-sm">
+			<span class="text-[#8B949E]">View</span>
+			<select class={selectClass} bind:value={kind}>
+				{#each demoLinkKinds as view (view)}
+					<option value={view}>{demoLinkKindLabels[view]}</option>
+				{/each}
 			</select>
 		</label>
 
@@ -121,7 +144,7 @@
 			<table class="w-full text-left text-sm">
 				<thead class="border-b border-[#2A3038] text-xs tracking-wide text-[#8B949E] uppercase">
 					<tr>
-						<th class="px-4 py-3 font-semibold">Includes</th>
+						<th class="px-4 py-3 font-semibold">View</th>
 						<th class="hidden px-4 py-3 font-semibold sm:table-cell">League</th>
 						<th class="hidden px-4 py-3 font-semibold md:table-cell">Expires</th>
 						<th class="px-4 py-3 font-semibold">Actions</th>
@@ -131,8 +154,32 @@
 					{#each activeLinks as link (link.id)}
 						<tr class="hover:bg-[#1C2128]">
 							<td class="px-4 py-3">
-								<p class="font-medium">{link.kindLabel}</p>
-								<p class="text-xs text-[#8B949E] sm:hidden">{link.leagueName}</p>
+								<label class="block space-y-1">
+									<span class="sr-only">View for {link.leagueName}</span>
+									<select
+										class={selectClass}
+										value={link.kind}
+										disabled={!!updateDemoLinkView.pending}
+										onchange={async (event) => {
+											const next = event.currentTarget.value as DemoLinkKind;
+											if (next === link.kind) return;
+											errorMessage = null;
+											try {
+												await updateDemoLinkView({ id: link.id, kind: next });
+												await listDemoLinks().refresh();
+											} catch (err) {
+												const message = err instanceof Error ? err.message : '';
+												errorMessage = message || 'Could not change that demo view.';
+												event.currentTarget.value = link.kind;
+											}
+										}}
+									>
+										{#each demoLinkKinds as view (view)}
+											<option value={view}>{demoLinkKindLabels[view]}</option>
+										{/each}
+									</select>
+								</label>
+								<p class="mt-1 text-xs text-[#8B949E] sm:hidden">{link.leagueName}</p>
 							</td>
 							<td class="hidden px-4 py-3 text-[#8B949E] sm:table-cell">{link.leagueName}</td>
 							<td class="hidden px-4 py-3 text-[#8B949E] md:table-cell">

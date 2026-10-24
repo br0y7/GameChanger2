@@ -20,7 +20,7 @@ import { ensurePlayerGameRatings } from '$lib/server/game-rating.server';
 import { loadSeasonPlayerLines } from '$lib/server/season-player-directory.server';
 import { scoresForTeam } from '$lib/stats/game-scores';
 import { playerImprovementFromGames } from '$lib/player-analysis/player-improvement';
-import { invalid, isRedirect, redirect } from '@sveltejs/kit';
+import { invalid, isRedirect } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { isUserAdmin, requireUser } from './auth.remote';
@@ -345,13 +345,12 @@ export const acceptFamilyInvite = form(z.object({ token: z.uuid() }), async ({ t
 			playerId: invite.playerId,
 		});
 
-		redirect(
-			303,
-			resolve('/dashboard/[orgSlug]/family/[playerId]', {
+		return {
+			redirectTo: resolve('/dashboard/[orgSlug]/family/[playerId]', {
 				orgSlug: invite.orgSlug,
 				playerId: invite.playerId,
-			})
-		);
+			}),
+		};
 	} catch (err) {
 		if (isRedirect(err)) throw err;
 		serverLogger.error(err);

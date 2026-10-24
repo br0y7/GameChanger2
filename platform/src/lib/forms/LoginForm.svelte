@@ -12,6 +12,7 @@
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import { focusFirstError } from '$lib/forms/enhance';
 	import { loginWithEmail } from '$lib/api/auth.remote';
+	import { loadPage } from '$lib/navigation/load-page';
 	import { onMount } from 'svelte';
 	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
 	import { page } from '$app/state';
@@ -39,7 +40,11 @@
 			submitting,
 			issues: loginWithEmail.fields.allIssues(),
 		})}
-		{...loginWithEmail}
+		{...loginWithEmail.enhance(async (form) => {
+			if ((await form.submit()) && form.result?.redirectTo) {
+				loadPage(form.result.redirectTo);
+			}
+		})}
 	>
 		<input {...loginWithEmail.fields.redirectTo.as('hidden', redirectTo)} />
 		<Field.Set disabled={submitting}>

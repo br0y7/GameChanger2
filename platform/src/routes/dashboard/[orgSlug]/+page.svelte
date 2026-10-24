@@ -16,7 +16,7 @@
 	<title>{org.name} Dashboard | {PUBLIC_APP_NAME}</title>
 </svelte:head>
 
-{#if demo && org.type === 'league'}
+{#if demo?.kind === 'all' && org.type === 'league'}
 	<DemoHub {org} />
 {:else if org.type === 'league'}
 	<LeagueOrganizerOverview {org} />

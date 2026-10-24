@@ -12,6 +12,7 @@
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import { focusFirstError } from '$lib/forms/enhance';
 	import { signUpWithEmail } from '$lib/api/auth.remote';
+	import { loadPage } from '$lib/navigation/load-page';
 	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
 	import { page } from '$app/state';
 	import { REDIRECT_TO_PARAM } from '$lib/utils/url';
@@ -86,7 +87,11 @@
 <div class={cn('flex flex-col', className)} {...restProps}>
 	<form
 		{@attach focusFirstError({ submitting, issues: signUpWithEmail.fields.allIssues() })}
-		{...signUpWithEmail}
+		{...signUpWithEmail.enhance(async (form) => {
+			if ((await form.submit()) && form.result?.redirectTo) {
+				loadPage(form.result.redirectTo);
+			}
+		})}
 	>
 		<input {...signUpWithEmail.fields.redirectTo.as('hidden', redirectTo)} />
 		<input {...signUpWithEmail.fields.role.as('hidden', fixedRole ?? selectedRole)} />

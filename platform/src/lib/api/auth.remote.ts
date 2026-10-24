@@ -35,9 +35,9 @@ export const loginWithEmail = form(loginFormSchema, async (data) => {
 		const safeRedirect =
 			redirectTo && (redirectTo.startsWith(DASHBOARD_PATH) || redirectTo.startsWith('/invite/'));
 
-		// Session cookie is applied on the next request — send to /dashboard (or a
-		// safe deep link) and let layout resolve coach/family portal landing.
-		redirect(303, safeRedirect ? redirectTo : DASHBOARD_PATH);
+		// Session cookie is applied on the next document request. The client does a full
+		// page load so the invite (or dashboard) actually opens.
+		return { redirectTo: safeRedirect ? redirectTo : DASHBOARD_PATH };
 	} catch (err) {
 		if (isRedirect(err)) {
 			throw err;
@@ -89,7 +89,7 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 					})
 					.where(eq(table.userOnboarding.userId, id));
 			}
-			redirect(303, redirectTo);
+			return { redirectTo };
 		}
 
 		if (role === 'organizer') {
@@ -101,7 +101,7 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 					currentStep: ORGANIZER_START_STEP,
 				})
 				.where(eq(table.userOnboarding.userId, id));
-			redirect(303, resolve('/onboarding/league-organizer'));
+			return { redirectTo: resolve('/onboarding/league-organizer') };
 		}
 
 		if (role === 'coach' || role === 'player_follower') {
@@ -113,10 +113,10 @@ export const signUpWithEmail = form(signupFormSchema, async (data) => {
 					currentStep: AWAITING_INVITE_STEP,
 				})
 				.where(eq(table.userOnboarding.userId, id));
-			redirect(303, resolve('/onboarding/awaiting-invite'));
+			return { redirectTo: resolve('/onboarding/awaiting-invite') };
 		}
 
-		redirect(303, resolve('/onboarding'));
+		return { redirectTo: resolve('/onboarding') };
 	} catch (err) {
 		if (isRedirect(err)) {
 			throw err;

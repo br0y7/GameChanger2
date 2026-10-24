@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { getDemoAccess } from '$lib/api/demo.remote';
+	import { demoViewPath } from '$lib/demo/view-path';
 	import { appHistory } from '$lib/navigation/app-history.svelte';
 
 	let {
@@ -15,9 +15,7 @@
 	} = $props();
 
 	const demo = $derived(await getDemoAccess());
-	const demoHomeHref = $derived(
-		demo ? resolve('/dashboard/[orgSlug]', { orgSlug: demo.orgSlug }) : null
-	);
+	const demoHomeHref = $derived(demo ? demoViewPath(demo.orgSlug, demo.kind) : null);
 	const href = $derived(demoHomeHref ?? fallbackHref);
 	const label = $derived(demo ? 'Demo home' : fallbackLabel);
 </script>

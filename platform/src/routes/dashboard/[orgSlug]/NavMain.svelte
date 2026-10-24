@@ -16,6 +16,7 @@
 	import { isCoachOnlyUser } from '$lib/api/coach-nav.remote';
 	import { isFamilyOnlyUser } from '$lib/api/family-nav.remote';
 	import { getDemoAccess } from '$lib/api/demo.remote';
+	import { demoViewPath } from '$lib/demo/view-path';
 	import { getOrganization, goToAdminDashboard } from '$lib/api/organization.remote';
 	import { getCurrentSeason } from '$lib/api/season.remote';
 	import { getAdminViewAs } from '$lib/api/view-as.remote';
@@ -82,34 +83,92 @@
 	<Sidebar.Group>
 		<Sidebar.GroupLabel>Demo</Sidebar.GroupLabel>
 		<Sidebar.Menu>
-			<NavItem label="Demo home" href={resolve('/dashboard/[orgSlug]', { orgSlug })} reload={false}>
-				{#snippet icon()}
-					<HouseIcon />
-				{/snippet}
-			</NavItem>
-			<NavItem
-				label="Player dashboards"
-				href={resolve('/dashboard/[orgSlug]/family', { orgSlug })}
-				reload={false}
-			>
-				{#snippet icon()}
-					<UserIcon />
-				{/snippet}
-			</NavItem>
-			<NavItem
-				label="Coach dashboards"
-				href={resolve('/dashboard/[orgSlug]/portal', { orgSlug })}
-				reload={false}
-			>
-				{#snippet icon()}
-					<UsersIcon />
-				{/snippet}
-			</NavItem>
-			<NavItem label="Season stats" href={statsHref} reload={false}>
-				{#snippet icon()}
-					<TrophyIcon />
-				{/snippet}
-			</NavItem>
+			{#if demo.kind === 'family'}
+				<NavItem label="Player dashboards" href={demoViewPath(orgSlug, 'family')}>
+					{#snippet icon()}
+						<UserIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem label="Season stats" href={statsHref}>
+					{#snippet icon()}
+						<TrophyIcon />
+					{/snippet}
+				</NavItem>
+			{:else if demo.kind === 'coach'}
+				<NavItem label="Coach dashboards" href={demoViewPath(orgSlug, 'coach')}>
+					{#snippet icon()}
+						<UsersIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem label="Season stats" href={statsHref}>
+					{#snippet icon()}
+						<TrophyIcon />
+					{/snippet}
+				</NavItem>
+			{:else if demo.kind === 'league'}
+				<NavItem label="Overview" href={demoViewPath(orgSlug, 'league')}>
+					{#snippet icon()}
+						<HouseIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem label="Seasons" href={resolve('/dashboard/[orgSlug]/seasons', { orgSlug })}>
+					{#snippet icon()}
+						<CalendarDaysIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem label="Teams" href={resolve('/dashboard/[orgSlug]/teams', { orgSlug })}>
+					{#snippet icon()}
+						<UsersIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem label="Players" href={resolve('/dashboard/[orgSlug]/players', { orgSlug })}>
+					{#snippet icon()}
+						<UserIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem label="Games" href={resolve('/dashboard/[orgSlug]/games', { orgSlug })}>
+					{#snippet icon()}
+						<TrophyIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem label="Coaches" href={resolve('/dashboard/[orgSlug]/coaches', { orgSlug })}>
+					{#snippet icon()}
+						<UsersIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem label="Season stats" href={statsHref}>
+					{#snippet icon()}
+						<ExternalLinkIcon />
+					{/snippet}
+				</NavItem>
+			{:else}
+				<NavItem label="Demo home" href={demoViewPath(orgSlug, 'all')}>
+					{#snippet icon()}
+						<HouseIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem
+					label="Player dashboards"
+					href={resolve('/dashboard/[orgSlug]/family', { orgSlug })}
+				>
+					{#snippet icon()}
+						<UserIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem
+					label="Coach dashboards"
+					href={resolve('/dashboard/[orgSlug]/portal', { orgSlug })}
+				>
+					{#snippet icon()}
+						<UsersIcon />
+					{/snippet}
+				</NavItem>
+				<NavItem label="Season stats" href={statsHref}>
+					{#snippet icon()}
+						<TrophyIcon />
+					{/snippet}
+				</NavItem>
+			{/if}
 		</Sidebar.Menu>
 	</Sidebar.Group>
 {:else if org.type === 'league' && familyOnly}
