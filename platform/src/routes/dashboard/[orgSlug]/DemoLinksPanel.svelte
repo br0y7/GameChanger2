@@ -99,6 +99,11 @@
 					<option value={view}>{demoLinkKindLabels[view]}</option>
 				{/each}
 			</select>
+			{#if kind === 'family'}
+				<p class="text-xs text-[#8B949E]">
+					This link opens the player dashboard only. Coach, organizer, and season stats stay closed.
+				</p>
+			{/if}
 		</label>
 
 		<label class="block space-y-1 text-sm">

@@ -84,14 +84,9 @@
 		<Sidebar.GroupLabel>Demo</Sidebar.GroupLabel>
 		<Sidebar.Menu>
 			{#if demo.kind === 'family'}
-				<NavItem label="Player dashboards" href={demoViewPath(orgSlug, 'family')}>
+				<NavItem label="Player dashboard" href={demoViewPath(orgSlug, 'family')}>
 					{#snippet icon()}
 						<UserIcon />
-					{/snippet}
-				</NavItem>
-				<NavItem label="Season stats" href={statsHref}>
-					{#snippet icon()}
-						<TrophyIcon />
 					{/snippet}
 				</NavItem>
 			{:else if demo.kind === 'coach'}

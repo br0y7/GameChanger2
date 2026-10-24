@@ -35,13 +35,13 @@ function isDashboardReadOnlySeasonPath(parts: string[]) {
 	return isDashboardGameBoxPath(parts) || isDashboardReadableStatsPath(parts);
 }
 
-/** Combined and organizer demos can browse the league. Player and coach demos stay in that view. */
+/** Combined and organizer demos can browse the league. A player demo stays on the player dashboard. */
 function demoPathAllowed(kind: DemoLinkKind, parts: string[]) {
 	const afterOrg = parts[2];
 	if (afterOrg === 'import' || afterOrg === 'invites') return false;
+	if (kind === 'family') return afterOrg === 'family';
 	if (kind === 'all' || kind === 'league') return true;
 	if (isDashboardReadOnlySeasonPath(parts)) return true;
-	if (kind === 'family') return afterOrg === 'family';
 	if (kind === 'coach') return afterOrg === 'portal';
 	return false;
 }

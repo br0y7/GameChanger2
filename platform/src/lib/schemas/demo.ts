@@ -13,7 +13,7 @@ export const DEMO_LINK_KIND = {
 
 export const demoLinkKindLabels: Record<DemoLinkKind, string> = {
 	all: 'Player, coach, and stats',
-	family: 'Player dashboards',
+	family: 'Only player dashboard',
 	coach: 'Coach dashboards',
 	league: 'League organizer',
 };
@@ -21,7 +21,7 @@ export const demoLinkKindLabels: Record<DemoLinkKind, string> = {
 export function demoViewDescription(kind: DemoLinkKind) {
 	switch (kind) {
 		case 'family':
-			return 'View-only player dashboards';
+			return 'This link can only open the player dashboard';
 		case 'coach':
 			return 'View-only coach dashboards';
 		case 'league':
