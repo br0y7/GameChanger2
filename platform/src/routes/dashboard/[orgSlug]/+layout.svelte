@@ -14,6 +14,8 @@
 	import { isUserAdmin } from '$lib/api/auth.remote';
 	import { getAdminViewAs } from '$lib/api/view-as.remote';
 	import { getDemoAccess } from '$lib/api/demo.remote';
+	import { demoViewDescription } from '$lib/schemas/demo';
+	import { demoViewPath } from '$lib/demo/view-path';
 
 	// import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 
@@ -27,10 +29,6 @@
 
 	const allPlayersHref = $derived(
 		resolve('/dashboard/[orgSlug]/family', { orgSlug: params.orgSlug })
-	);
-	const demoHomeHref = $derived(resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug }));
-	const onDemoHome = $derived(
-		page.url.pathname.replace(/\/$/, '') === demoHomeHref.replace(/\/$/, '')
 	);
 	const onFamilyPlayer = $derived(
 		page.url.pathname.includes('/family/') &&
@@ -50,6 +48,14 @@
 	);
 	const isAdmin = $derived(await isUserAdmin());
 	const demo = $derived(await getDemoAccess());
+	const demoHomeHref = $derived(
+		demo
+			? demoViewPath(params.orgSlug, demo.kind)
+			: resolve('/dashboard/[orgSlug]', { orgSlug: params.orgSlug })
+	);
+	const onDemoHome = $derived(
+		page.url.pathname.replace(/\/$/, '') === demoHomeHref.replace(/\/$/, '')
+	);
 	const viewAs = $derived(await getAdminViewAs());
 	const exitDemoHref = resolve('/demo/exit');
 	const exitPreviewHref = $derived(
@@ -69,7 +75,7 @@
 				<!-- TODO: Add Breadcrumbs, the child pages uses context 
 				Replaces this back button -->
 				{#if demo}
-					{#if !onDemoHome}
+					{#if !onDemoHome && demoHomeHref !== allPlayersHref && demoHomeHref !== coachTeamsHref}
 						<a href={demoHomeHref} class={buttonVariants({ variant: 'ghost' })}>
 							<ArrowLeft />
 							Demo home
@@ -105,7 +111,7 @@
 			>
 				<p class="text-sm text-[#E6EDF3]">
 					<span class="font-semibold text-[#58A6FF]">Demo</span>
-					· View-only preview of player dashboards, coach dashboards, and stats for {demo.orgName}.
+					· {demoViewDescription(demo.kind)} for {demo.orgName}.
 				</p>
 				<Button variant="outline" size="sm" href={exitDemoHref} data-sveltekit-reload>
 					Exit demo

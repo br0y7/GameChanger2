@@ -15,7 +15,7 @@ import * as table from '$lib/server/db/schema';
 import { forbidden, notFound } from '$lib/server/fail';
 import { serverLogger } from '$lib/server/logger';
 import { ONBOARDING_DONE_STEP } from '$lib/onboarding/steps';
-import { invalid, isRedirect, redirect } from '@sveltejs/kit';
+import { invalid, isRedirect } from '@sveltejs/kit';
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { isUserAdmin, getUser, requireUser } from './auth.remote';
@@ -574,13 +574,12 @@ export const acceptCoachInvite = form(z.object({ token: z.uuid() }), async ({ to
 			teamId: invite.teamId,
 		});
 
-		redirect(
-			303,
-			resolve('/dashboard/[orgSlug]/portal/[teamId]', {
+		return {
+			redirectTo: resolve('/dashboard/[orgSlug]/portal/[teamId]', {
 				orgSlug: invite.orgSlug,
 				teamId: invite.teamId,
-			})
-		);
+			}),
+		};
 	} catch (err) {
 		if (isRedirect(err)) throw err;
 		serverLogger.error(err);

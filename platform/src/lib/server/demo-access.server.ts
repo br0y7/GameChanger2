@@ -1,5 +1,5 @@
 import { getRequestEvent } from '$app/server';
-import { resolve } from '$app/paths';
+import { demoViewPath } from '$lib/demo/view-path';
 import type { DemoLinkKind } from '$lib/schemas/demo';
 import { db } from '$lib/server/db';
 
@@ -49,8 +49,8 @@ function demoCookieBase(secure: boolean) {
 	};
 }
 
-export function demoDashboardPath(access: Pick<DemoAccess, 'orgSlug'>) {
-	return resolve('/dashboard/[orgSlug]', { orgSlug: access.orgSlug });
+export function demoDashboardPath(access: Pick<DemoAccess, 'orgSlug' | 'kind'>) {
+	return demoViewPath(access.orgSlug, access.kind);
 }
 
 export function writeDemoAccessCookie(

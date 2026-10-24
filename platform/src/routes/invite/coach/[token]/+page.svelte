@@ -8,6 +8,7 @@
 	} from '$lib/api/coach.remote';
 	import { getUser, isAuthenticated } from '$lib/api/auth.remote';
 	import { REDIRECT_TO_PARAM } from '$lib/utils/url';
+	import { loadPage } from '$lib/navigation/load-page';
 	import ErrorAlert from '$lib/components/ErrorAlert.svelte';
 	import SubmitButton from '$lib/components/SubmitButton.svelte';
 	import type { PageProps } from './$types';
@@ -108,8 +109,10 @@
 					<a href={switchAccountHref} class="text-primary text-sm underline">Switch account</a>
 				{:else}
 					<form
-						{...acceptCoachInvite.enhance(async ({ submit }) => {
-							await submit();
+						{...acceptCoachInvite.enhance(async (form) => {
+							if ((await form.submit()) && form.result?.redirectTo) {
+								loadPage(form.result.redirectTo);
+							}
 						})}
 					>
 						<input {...acceptCoachInvite.fields.token.as('hidden', params.token)} />

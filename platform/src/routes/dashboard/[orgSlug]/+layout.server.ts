@@ -4,6 +4,7 @@ import { getUser, isUserAdmin } from '$lib/api/auth.remote';
 import { resolveCoachLanding } from '$lib/api/coach.remote';
 import { resolveFamilyLanding } from '$lib/api/family.remote';
 import { isUserLeagueOrganizer } from '$lib/api/league.remote';
+import type { DemoLinkKind } from '$lib/schemas/demo';
 import { demoDashboardPath, getValidDemoAccess } from '$lib/server/demo-access.server';
 import type { LayoutServerLoad } from './$types';
 
@@ -34,6 +35,17 @@ function isDashboardReadOnlySeasonPath(parts: string[]) {
 	return isDashboardGameBoxPath(parts) || isDashboardReadableStatsPath(parts);
 }
 
+/** Combined and organizer demos can browse the league. A player demo stays on the player dashboard. */
+function demoPathAllowed(kind: DemoLinkKind, parts: string[]) {
+	const afterOrg = parts[2];
+	if (afterOrg === 'import' || afterOrg === 'invites') return false;
+	if (kind === 'family') return afterOrg === 'family';
+	if (kind === 'all' || kind === 'league') return true;
+	if (isDashboardReadOnlySeasonPath(parts)) return true;
+	if (kind === 'coach') return afterOrg === 'portal';
+	return false;
+}
+
 export const load: LayoutServerLoad = async ({ params, url }) => {
 	const demo = await getValidDemoAccess();
 	if (demo) {
@@ -42,9 +54,8 @@ export const load: LayoutServerLoad = async ({ params, url }) => {
 		}
 
 		const parts = url.pathname.split('/').filter(Boolean);
-		const afterOrg = parts[2];
-		if (afterOrg === 'import' || afterOrg === 'invites') {
-			redirect(303, resolve('/dashboard/[orgSlug]', { orgSlug: demo.orgSlug }));
+		if (!demoPathAllowed(demo.kind, parts)) {
+			redirect(303, demoDashboardPath(demo));
 		}
 		return {};
 	}
